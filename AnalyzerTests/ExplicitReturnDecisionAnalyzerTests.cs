@@ -22,7 +22,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     }
 
                     var value = fields[index].Trim();
-                    return {|CR0001:value.Length == 0 ? null : value|};
+                    return [|value.Length == 0 ? null : value|];
                 }
             }
             """;
@@ -43,7 +43,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return true;
                     }
 
-                    return {|CR0001:name.Contains("..")|};
+                    return [|name.Contains("..")|];
                 }
             }
             """;
@@ -68,7 +68,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return false;
                     }
 
-                    return {|CR0001:Check()|};
+                    return [|Check()|];
                 }
             }
             """;
@@ -92,7 +92,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return "stop";
                     }
 
-                    return {|CR0001:Read() ?? "fallback"|};
+                    return [|Read() ?? "fallback"|];
                 }
 
                 string? G(bool stop)
@@ -102,7 +102,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return null;
                     }
 
-                    return {|CR0001:Read()|};
+                    return [|Read()|];
                 }
             }
             """;
@@ -126,7 +126,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return {|CR0001:Check()|};
+                        return [|Check()|];
                     }
                 }
 
@@ -141,7 +141,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return {|CR0001:Check()|};
+                        return [|Check()|];
                     }
 
                     Func<bool> callback = () =>
@@ -151,7 +151,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return {|CR0001:Check()|};
+                        return [|Check()|];
                     };
 
                     _ = Local();

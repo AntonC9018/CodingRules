@@ -22,7 +22,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                     }
 
                     var value = fields[index].Trim();
-                    return {|CR0001:value.Length == 0 ? null : value|};
+                    return [|value.Length == 0 ? null : value|];
                 }
             }
             """;
@@ -64,7 +64,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return true;
                     }
 
-                    return {|CR0001:name.Contains("..")|};
+                    return [|name.Contains("..")|];
                 }
             }
             """;
@@ -108,7 +108,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return false;
                     }
 
-                    return {|CR0001:Check()|};
+                    return [|Check()|];
                 }
             }
             """;
@@ -155,7 +155,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return "stop";
                     }
 
-                    return {|CR0001:Read() ?? "fallback"|};
+                    return [|Read() ?? "fallback"|];
                 }
             }
             """;
@@ -203,7 +203,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return result;
                     }
 
-                    return {|CR0001:Read()|};
+                    return [|Read()|];
                 }
             }
             """;
@@ -250,7 +250,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return 0;
                     }
 
-                    return {|CR0001:Read() ?? 42|};
+                    return [|Read() ?? 42|];
                 }
             }
             """;
@@ -294,7 +294,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return null;
                     }
 
-                    return {|CR0001:number > 0 ? null : "found"|};
+                    return [|number > 0 ? null : "found"|];
                 }
             }
             """;
@@ -344,7 +344,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return null;
                     }
 
-                    return {|CR0001:left == right ? null : "found"|};
+                    return [|left == right ? null : "found"|];
                 }
             }
             """;
@@ -396,7 +396,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                     }
 
                     // Check the remaining case.
-                    return {|CR0001:Check()|}; // End of decision.
+                    return [|Check()|]; // End of decision.
                 }
             }
             """;

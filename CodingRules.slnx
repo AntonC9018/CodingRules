@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/Analyzers/">
+    <Project Path="Analyzers/CodingRules.Analyzers.csproj" />
+  </Folder>
+  <Folder Name="/AnalyzerTests/">
+    <Project Path="AnalyzerTests/CodingRules.Analyzers.Tests.csproj" />
+  </Folder>
+  <Folder Name="/CodeFixes/">
+    <Project Path="CodeFixes/CodingRules.CodeFixes.csproj" />
+  </Folder>
+  <Folder Name="/CodeFixTests/">
+    <Project Path="CodeFixTests/CodingRules.CodeFixes.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Shared/">
+    <Project Path="Shared/CodingRules.Shared.csproj" />
+  </Folder>
+</Solution>

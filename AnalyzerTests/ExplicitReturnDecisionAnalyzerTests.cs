@@ -52,6 +52,31 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
     }
 
     [Fact]
+    public async Task TreatsStraightLineWorkBeforeReturnAsGuard()
+    {
+        const string source = """
+            class C
+            {
+                bool Check() => true;
+                void Log() { }
+
+                bool M(bool stop)
+                {
+                    if (stop)
+                    {
+                        Log();
+                        return false;
+                    }
+
+                    return {|CR0001:Check()|};
+                }
+            }
+            """;
+
+        await RunAsync(source);
+    }
+
+    [Fact]
     public async Task ReportsCoalesceAndNullableCall()
     {
         const string source = """
@@ -258,6 +283,58 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     }
 
                     return flag ? /* keep */ null : "found";
+                }
+            }
+            """;
+
+        await RunAsync(source);
+    }
+
+    [Fact]
+    public async Task SkipsReturnsWhoseIntermediateConversionWouldChange()
+    {
+        const string source = """
+            #nullable enable
+            class Base { }
+            class Derived : Base { }
+            class Wrapper
+            {
+                public static implicit operator Wrapper(Base? value) => new Wrapper();
+                public static implicit operator Wrapper(Derived value) => new Wrapper();
+            }
+
+            class C
+            {
+                Base? Read() => null;
+
+                Wrapper Conditional(bool stop, bool choice)
+                {
+                    if (stop)
+                    {
+                        return new Wrapper();
+                    }
+
+                    return choice ? new Derived() : new Base();
+                }
+
+                Wrapper Coalesce(bool stop)
+                {
+                    if (stop)
+                    {
+                        return new Wrapper();
+                    }
+
+                    return Read() ?? new Derived();
+                }
+
+                Wrapper Call(bool stop)
+                {
+                    if (stop)
+                    {
+                        return new Wrapper();
+                    }
+
+                    return Read();
                 }
             }
             """;

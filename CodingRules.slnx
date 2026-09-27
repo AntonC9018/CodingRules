@@ -11,6 +11,9 @@
   <Folder Name="/CodeFixTests/">
     <Project Path="CodeFixTests/CodingRules.CodeFixes.Tests.csproj" />
   </Folder>
+  <Folder Name="/Package/">
+    <Project Path="Package/CodingRules.Package.csproj" />
+  </Folder>
   <Folder Name="/Shared/">
     <Project Path="Shared/CodingRules.Shared.csproj" />
   </Folder>

@@ -74,9 +74,17 @@ internal static class ReturnDecisionAnalysis
         out ReturnDecisionKind kind)
     {
         kind = default;
-        if (finalReturn.Expression is null
-            || finalReturn.Expression is RefExpressionSyntax
-            || finalReturn.ContainsDirectives)
+        if (finalReturn.Expression is null)
+        {
+            return false;
+        }
+
+        if (finalReturn.Expression is RefExpressionSyntax)
+        {
+            return false;
+        }
+
+        if (finalReturn.ContainsDirectives)
         {
             return false;
         }
@@ -89,12 +97,17 @@ internal static class ReturnDecisionAnalysis
         var expression = Unwrap(finalReturn.Expression);
         if (expression is ConditionalExpressionSyntax conditional)
         {
+            if (!HasIdentityReturnConversion(expression, semanticModel, cancellationToken))
+            {
+                return false;
+            }
+
             if (ContainsThrowArm(conditional))
             {
                 return false;
             }
 
-            if (IsFallback(conditional.WhenTrue) && !IsFallback(conditional.WhenFalse))
+            if (NeedsFallbackInversion(conditional))
             {
                 var conditionType = semanticModel.GetTypeInfo(conditional.Condition, cancellationToken).Type;
                 if (conditionType?.SpecialType != SpecialType.System_Boolean)
@@ -109,9 +122,21 @@ internal static class ReturnDecisionAnalysis
 
         if (expression is BinaryExpressionSyntax coalesce && coalesce.IsKind(SyntaxKind.CoalesceExpression))
         {
+            if (!HasIdentityReturnConversion(expression, semanticModel, cancellationToken))
+            {
+                return false;
+            }
+
             var leftType = semanticModel.GetTypeInfo(coalesce.Left, cancellationToken).Type;
-            if ((leftType?.IsReferenceType != true && !IsNullableValueType(leftType))
-                || coalesce.Right is ThrowExpressionSyntax)
+            if (leftType?.IsReferenceType != true)
+            {
+                if (!IsNullableValueType(leftType))
+                {
+                    return false;
+                }
+            }
+
+            if (coalesce.Right is ThrowExpressionSyntax)
             {
                 return false;
             }
@@ -121,19 +146,32 @@ internal static class ReturnDecisionAnalysis
         }
 
         var type = semanticModel.GetTypeInfo(expression, cancellationToken).Type;
-        if (type?.SpecialType == SpecialType.System_Boolean && IsBooleanDecision(expression))
+        if (type?.SpecialType == SpecialType.System_Boolean)
         {
-            kind = ReturnDecisionKind.Boolean;
-            return true;
+            if (IsBooleanDecision(expression))
+            {
+                kind = ReturnDecisionKind.Boolean;
+                return true;
+            }
         }
 
-        if (IsCall(expression) && IsNullable(type))
+        if (!IsCall(expression))
         {
-            kind = ReturnDecisionKind.NullableCall;
-            return true;
+            return false;
         }
 
-        return false;
+        if (!IsNullable(type))
+        {
+            return false;
+        }
+
+        if (!HasIdentityReturnConversion(expression, semanticModel, cancellationToken))
+        {
+            return false;
+        }
+
+        kind = ReturnDecisionKind.NullableCall;
+        return true;
     }
 
     public static ExpressionSyntax Unwrap(ExpressionSyntax expression)
@@ -149,9 +187,15 @@ internal static class ReturnDecisionAnalysis
     public static bool IsFallback(ExpressionSyntax expression)
     {
         var unwrapped = Unwrap(expression);
-        return unwrapped.IsKind(SyntaxKind.NullLiteralExpression)
-            || unwrapped.IsKind(SyntaxKind.DefaultLiteralExpression)
-            || unwrapped is DefaultExpressionSyntax;
+        switch (unwrapped.Kind())
+        {
+            case SyntaxKind.NullLiteralExpression:
+            case SyntaxKind.DefaultLiteralExpression:
+            case SyntaxKind.DefaultExpression:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public static bool IsNullableValueType(ITypeSymbol? type)
@@ -167,9 +211,22 @@ internal static class ReturnDecisionAnalysis
             return true;
         }
 
-        if (statement is BlockSyntax block && block.Statements.Count == 1)
+        if (statement is BlockSyntax block && block.Statements.Count > 0)
         {
-            return block.Statements[0] is ReturnStatementSyntax;
+            for (var index = 0; index < block.Statements.Count - 1; index++)
+            {
+                if (block.Statements[index] is not ExpressionStatementSyntax
+                    and not LocalDeclarationStatementSyntax
+                    and not EmptyStatementSyntax)
+                {
+                    return false;
+                }
+            }
+
+            if (block.Statements[block.Statements.Count - 1] is ReturnStatementSyntax)
+            {
+                return true;
+            }
         }
 
         return false;
@@ -177,17 +234,47 @@ internal static class ReturnDecisionAnalysis
 
     private static bool ContainsThrowArm(ConditionalExpressionSyntax conditional)
     {
-        return Unwrap(conditional.WhenTrue) is ThrowExpressionSyntax
-            || Unwrap(conditional.WhenFalse) is ThrowExpressionSyntax;
+        if (Unwrap(conditional.WhenTrue) is ThrowExpressionSyntax)
+        {
+            return true;
+        }
+
+        if (Unwrap(conditional.WhenFalse) is ThrowExpressionSyntax)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static bool NeedsFallbackInversion(ConditionalExpressionSyntax conditional)
+    {
+        if (!IsFallback(conditional.WhenTrue))
+        {
+            return false;
+        }
+
+        if (IsFallback(conditional.WhenFalse))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static bool IsBooleanDecision(ExpressionSyntax expression)
     {
-        return expression is InvocationExpressionSyntax
-            or BinaryExpressionSyntax
-            or PrefixUnaryExpressionSyntax
-            or IsPatternExpressionSyntax
-            or AwaitExpressionSyntax;
+        switch (expression)
+        {
+            case InvocationExpressionSyntax:
+            case BinaryExpressionSyntax:
+            case PrefixUnaryExpressionSyntax:
+            case IsPatternExpressionSyntax:
+            case AwaitExpressionSyntax:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static bool IsCall(ExpressionSyntax expression)
@@ -199,7 +286,10 @@ internal static class ReturnDecisionAnalysis
 
         if (expression is AwaitExpressionSyntax awaitExpression)
         {
-            return Unwrap(awaitExpression.Expression) is InvocationExpressionSyntax;
+            if (Unwrap(awaitExpression.Expression) is InvocationExpressionSyntax)
+            {
+                return true;
+            }
         }
 
         return false;
@@ -217,14 +307,49 @@ internal static class ReturnDecisionAnalysis
             return true;
         }
 
-        return IsNullableValueType(type);
+        if (IsNullableValueType(type))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasIdentityReturnConversion(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken)
+    {
+        var typeInfo = semanticModel.GetTypeInfo(expression, cancellationToken);
+        if (typeInfo.Type is null)
+        {
+            return false;
+        }
+
+        if (typeInfo.ConvertedType is null)
+        {
+            return false;
+        }
+
+        if (SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static bool IsComment(SyntaxTrivia trivia)
     {
-        return trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
-            || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia)
-            || trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
-            || trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia);
+        switch (trivia.Kind())
+        {
+            case SyntaxKind.SingleLineCommentTrivia:
+            case SyntaxKind.MultiLineCommentTrivia:
+            case SyntaxKind.SingleLineDocumentationCommentTrivia:
+            case SyntaxKind.MultiLineDocumentationCommentTrivia:
+                return true;
+            default:
+                return false;
+        }
     }
 }

@@ -65,7 +65,17 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var semanticModel = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
-        if (root is null || semanticModel is null || finalReturn.Parent is not BlockSyntax block)
+        if (root is null)
+        {
+            return document;
+        }
+
+        if (semanticModel is null)
+        {
+            return document;
+        }
+
+        if (finalReturn.Parent is not BlockSyntax block)
         {
             return document;
         }
@@ -76,9 +86,11 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
             return document;
         }
 
-        replacement[0] = replacement[0].WithLeadingTrivia(finalReturn.GetLeadingTrivia());
+        var leadingTrivia = finalReturn.GetLeadingTrivia();
+        replacement[0] = replacement[0].WithLeadingTrivia(leadingTrivia);
         var lastIndex = replacement.Count - 1;
-        replacement[lastIndex] = replacement[lastIndex].WithTrailingTrivia(finalReturn.GetTrailingTrivia());
+        var trailingTrivia = finalReturn.GetTrailingTrivia();
+        replacement[lastIndex] = replacement[lastIndex].WithTrailingTrivia(trailingTrivia);
 
         var newStatements = block.Statements.ReplaceRange(finalReturn, replacement);
         var newBlock = block.WithStatements(newStatements).WithAdditionalAnnotations(Formatter.Annotation);
@@ -117,7 +129,7 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
         var condition = conditional.Condition;
         var found = conditional.WhenTrue;
         var fallback = conditional.WhenFalse;
-        if (ReturnDecisionAnalysis.IsFallback(found) && !ReturnDecisionAnalysis.IsFallback(fallback))
+        if (ReturnDecisionAnalysis.NeedsFallbackInversion(conditional))
         {
             condition = Negate(condition, semanticModel);
             found = conditional.WhenFalse;
@@ -189,10 +201,12 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
     private static LocalDeclarationStatementSyntax CreateLocal(string name, ExpressionSyntax value)
     {
         var initializer = SyntaxFactory.EqualsValueClause(value);
-        var variable = SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name));
+        var identifier = SyntaxFactory.Identifier(name);
+        var variable = SyntaxFactory.VariableDeclarator(identifier);
         variable = variable.WithInitializer(initializer);
         var variables = SyntaxFactory.SingletonSeparatedList(variable);
-        var declaration = SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"), variables);
+        var varType = SyntaxFactory.IdentifierName("var");
+        var declaration = SyntaxFactory.VariableDeclaration(varType, variables);
         return SyntaxFactory.LocalDeclarationStatement(declaration);
     }
 
@@ -206,7 +220,7 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
         var identifiers = new HashSet<string>(names);
         var name = "result";
         var suffix = 1;
-        while (symbols.Any(symbol => symbol.Name == name) || identifiers.Contains(name))
+        while (IsUsedName(symbols, identifiers, name))
         {
             name = "result" + suffix;
             suffix++;
@@ -215,15 +229,38 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
         return name;
     }
 
+    private static bool IsUsedName(
+        ImmutableArray<ISymbol> symbols,
+        HashSet<string> identifiers,
+        string name)
+    {
+        if (identifiers.Contains(name))
+        {
+            return true;
+        }
+
+        if (symbols.Any(symbol => symbol.Name == name))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private static ExpressionSyntax Negate(ExpressionSyntax condition, SemanticModel semanticModel)
     {
         var unwrapped = ReturnDecisionAnalysis.Unwrap(condition);
-        if (unwrapped is BinaryExpressionSyntax binary
-            && semanticModel.GetOperation(binary) is IBinaryOperation { OperatorMethod: null }
-            && TryGetInverse(binary, out var inverse, out var token))
+        if (unwrapped is BinaryExpressionSyntax binary)
         {
-            var operatorToken = SyntaxFactory.Token(token).WithTriviaFrom(binary.OperatorToken);
-            return SyntaxFactory.BinaryExpression(inverse, binary.Left, operatorToken, binary.Right);
+            var operation = semanticModel.GetOperation(binary);
+            if (operation is IBinaryOperation { OperatorMethod: null })
+            {
+                if (TryGetInverse(binary, out var inverse, out var token))
+                {
+                    var operatorToken = SyntaxFactory.Token(token).WithTriviaFrom(binary.OperatorToken);
+                    return SyntaxFactory.BinaryExpression(inverse, binary.Left, operatorToken, binary.Right);
+                }
+            }
         }
 
         var parenthesized = SyntaxFactory.ParenthesizedExpression(condition);

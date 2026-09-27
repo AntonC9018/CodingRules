@@ -55,6 +55,8 @@ public sealed class ExplicitReturnDecisionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(Rule, finalReturn.Expression!.GetLocation()));
+        var location = finalReturn.Expression!.GetLocation();
+        var diagnostic = Diagnostic.Create(Rule, location);
+        context.ReportDiagnostic(diagnostic);
     }
 }

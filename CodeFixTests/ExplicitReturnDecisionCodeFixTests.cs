@@ -92,6 +92,54 @@ public sealed class ExplicitReturnDecisionCodeFixTests
     }
 
     [Fact]
+    public async Task FixesReturnAfterGuardWithSideEffect()
+    {
+        const string source = """
+            class C
+            {
+                bool Check() => true;
+                void Log() { }
+
+                bool M(bool stop)
+                {
+                    if (stop)
+                    {
+                        Log();
+                        return false;
+                    }
+
+                    return {|CR0001:Check()|};
+                }
+            }
+            """;
+        const string fixedSource = """
+            class C
+            {
+                bool Check() => true;
+                void Log() { }
+
+                bool M(bool stop)
+                {
+                    if (stop)
+                    {
+                        Log();
+                        return false;
+                    }
+
+                    if (Check())
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+            """;
+
+        await RunAsync(source, fixedSource);
+    }
+
+    [Fact]
     public async Task EvaluatesCoalesceOperandOnlyOnce()
     {
         const string source = """
@@ -262,6 +310,64 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                     }
 
                     if (!(number > 0))
+                    {
+                        return "found";
+                    }
+
+                    return null;
+                }
+            }
+            """;
+
+        await RunAsync(source, fixedSource);
+    }
+
+    [Fact]
+    public async Task DoesNotReplaceUserDefinedEqualityWithInequality()
+    {
+        const string source = """
+            #nullable enable
+            class Odd
+            {
+                public static bool operator ==(Odd? left, Odd? right) => true;
+                public static bool operator !=(Odd? left, Odd? right) => true;
+                public override bool Equals(object? value) => base.Equals(value);
+                public override int GetHashCode() => 0;
+            }
+
+            class C
+            {
+                string? M(Odd left, Odd right, bool stop)
+                {
+                    if (stop)
+                    {
+                        return null;
+                    }
+
+                    return {|CR0001:left == right ? null : "found"|};
+                }
+            }
+            """;
+        const string fixedSource = """
+            #nullable enable
+            class Odd
+            {
+                public static bool operator ==(Odd? left, Odd? right) => true;
+                public static bool operator !=(Odd? left, Odd? right) => true;
+                public override bool Equals(object? value) => base.Equals(value);
+                public override int GetHashCode() => 0;
+            }
+
+            class C
+            {
+                string? M(Odd left, Odd right, bool stop)
+                {
+                    if (stop)
+                    {
+                        return null;
+                    }
+
+                    if (!(left == right))
                     {
                         return "found";
                     }

@@ -18,6 +18,6 @@ build displayed these as errors:
 | `Program.cs` | 431 | boolean predicate |
 
 The lone ternary in `Program.cs:316` was not reported, matching the documented
-exception. The package consumer script separately restores `Anton.CodingRules`
+exception. The package consumption test separately restores `Anton.CodingRules`
 from a fresh local NuGet cache, verifies that `CR0001` appears, and applies the
 packaged code fix.

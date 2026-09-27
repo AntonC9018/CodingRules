@@ -22,16 +22,16 @@ libraries from a local checkout, then build and test CodingRules:
 ./build/prepare-local-sdk.sh /path/to/SourceGenerators
 dotnet test CodingRules.slnx -c Release
 dotnet pack Package/CodingRules.Package.csproj -c Release --output artifacts/local-feed
-./build/test-local-package.sh
 ```
 
 The versioned project SDK restores from `artifacts/local-feed` through
 `NuGet.Config`, which also uses a repository-local package cache. The prepare
-script refreshes that cache after packing the SDK so a previous local build of
-the same version cannot be reused. The normal analyzer package is
-`Anton.CodingRules`; it contains the analyzer and code fix assemblies. The
-consumer script checks the diagnostic and applies its code fix from the packed
-NuGet package. See the
+script refreshes that cache after packing the SDK and package-testing helper
+so a previous local build of the same version cannot be reused. The normal
+analyzer package is `Anton.CodingRules`; it contains the analyzer and code fix
+assemblies. The code-fix test project uses `Anton.SourceGeneration.PackageTesting`
+to pack `Anton.CodingRules` into a temporary feed, check its assemblies and
+`CR0001` in a fresh consumer, apply its packaged fix, and build the consumer. See the
 [dependency pass](docs/sdk-dependencies.md) and [WebUI dogfood run](docs/dogfood.md).
 
 This repository does not have CI yet.

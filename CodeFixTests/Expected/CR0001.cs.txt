@@ -1,0 +1,17 @@
+public static class Consumer
+{
+    public static bool Check(string value)
+    {
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        if (value.Contains('x'))
+        {
+            return true;
+        }
+
+        return false;
+    }
+}

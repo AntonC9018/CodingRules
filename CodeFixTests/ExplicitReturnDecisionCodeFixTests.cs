@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 using Xunit;
@@ -22,7 +23,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                     }
 
                     var value = fields[index].Trim();
-                    return [|value.Length == 0 ? null : value|];
+                    return {|#0:value.Length == 0 ? null : value|};
                 }
             }
             """;
@@ -48,7 +49,8 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
     [Fact]
@@ -64,7 +66,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return true;
                     }
 
-                    return [|name.Contains("..")|];
+                    return {|#0:name.Contains("..")|};
                 }
             }
             """;
@@ -88,7 +90,8 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
     [Fact]
@@ -108,7 +111,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return false;
                     }
 
-                    return [|Check()|];
+                    return {|#0:Check()|};
                 }
             }
             """;
@@ -136,7 +139,8 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
     [Fact]
@@ -155,7 +159,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return "stop";
                     }
 
-                    return [|Read() ?? "fallback"|];
+                    return {|#0:Read() ?? "fallback"|};
                 }
             }
             """;
@@ -183,7 +187,8 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
     [Fact]
@@ -203,7 +208,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return result;
                     }
 
-                    return [|Read()|];
+                    return {|#0:Read()|};
                 }
             }
             """;
@@ -232,7 +237,8 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
     [Fact]
@@ -250,7 +256,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return 0;
                     }
 
-                    return [|Read() ?? 42|];
+                    return {|#0:Read() ?? 42|};
                 }
             }
             """;
@@ -277,7 +283,8 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
     [Fact]
@@ -294,7 +301,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return null;
                     }
 
-                    return [|number > 0 ? null : "found"|];
+                    return {|#0:number > 0 ? null : "found"|};
                 }
             }
             """;
@@ -319,7 +326,8 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
     [Fact]
@@ -344,7 +352,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return null;
                     }
 
-                    return [|left == right ? null : "found"|];
+                    return {|#0:left == right ? null : "found"|};
                 }
             }
             """;
@@ -377,7 +385,8 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
     [Fact]
@@ -396,7 +405,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                     }
 
                     // Check the remaining case.
-                    return [|Check()|]; // End of decision.
+                    return {|#0:Check()|}; // End of decision.
                 }
             }
             """;
@@ -423,10 +432,14 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await RunAsync(source, fixedSource);
+        var expected = Expect(0);
+        await RunAsync(source, fixedSource, expected);
     }
 
-    private static async Task RunAsync(string source, string fixedSource)
+    private static async Task RunAsync(
+        string source,
+        string fixedSource,
+        DiagnosticResult expected)
     {
         var test = new CSharpCodeFixTest<
             ExplicitReturnDecisionAnalyzer,
@@ -437,6 +450,16 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             FixedCode = fixedSource,
         };
 
+        test.ExpectedDiagnostics.Add(expected);
+
         await test.RunAsync();
+    }
+
+    private static DiagnosticResult Expect(int location)
+    {
+        var expected = new DiagnosticResult(
+            DiagnosticIds.ExplicitReturnDecision,
+            DiagnosticSeverity.Warning);
+        return expected.WithLocation(location);
     }
 }

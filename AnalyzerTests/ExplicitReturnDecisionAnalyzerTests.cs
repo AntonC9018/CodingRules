@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 using Xunit;
@@ -22,12 +23,13 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     }
 
                     var value = fields[index].Trim();
-                    return [|value.Length == 0 ? null : value|];
+                    return {|#0:value.Length == 0 ? null : value|};
                 }
             }
             """;
 
-        await RunAsync(source);
+        var expected = Expect(0);
+        await RunAsync(source, expected);
     }
 
     [Fact]
@@ -43,12 +45,13 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return true;
                     }
 
-                    return [|name.Contains("..")|];
+                    return {|#0:name.Contains("..")|};
                 }
             }
             """;
 
-        await RunAsync(source);
+        var expected = Expect(0);
+        await RunAsync(source, expected);
     }
 
     [Fact]
@@ -68,12 +71,13 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return false;
                     }
 
-                    return [|Check()|];
+                    return {|#0:Check()|};
                 }
             }
             """;
 
-        await RunAsync(source);
+        var expected = Expect(0);
+        await RunAsync(source, expected);
     }
 
     [Fact]
@@ -92,7 +96,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return "stop";
                     }
 
-                    return [|Read() ?? "fallback"|];
+                    return {|#0:Read() ?? "fallback"|};
                 }
 
                 string? G(bool stop)
@@ -102,12 +106,14 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return null;
                     }
 
-                    return [|Read()|];
+                    return {|#1:Read()|};
                 }
             }
             """;
 
-        await RunAsync(source);
+        var firstExpected = Expect(0);
+        var secondExpected = Expect(1);
+        await RunAsync(source, firstExpected, secondExpected);
     }
 
     [Fact]
@@ -126,7 +132,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return [|Check()|];
+                        return {|#0:Check()|};
                     }
                 }
 
@@ -141,7 +147,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return [|Check()|];
+                        return {|#1:Check()|};
                     }
 
                     Func<bool> callback = () =>
@@ -151,7 +157,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return [|Check()|];
+                        return {|#2:Check()|};
                     };
 
                     _ = Local();
@@ -160,7 +166,10 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """;
 
-        await RunAsync(source);
+        var firstExpected = Expect(0);
+        var secondExpected = Expect(1);
+        var thirdExpected = Expect(2);
+        await RunAsync(source, firstExpected, secondExpected, thirdExpected);
     }
 
     [Fact]
@@ -342,13 +351,28 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
         await RunAsync(source);
     }
 
-    private static async Task RunAsync(string source)
+    private static async Task RunAsync(
+        string source,
+        params DiagnosticResult[] expectedDiagnostics)
     {
         var test = new CSharpAnalyzerTest<ExplicitReturnDecisionAnalyzer, DefaultVerifier>
         {
             TestCode = source,
         };
 
+        foreach (var expected in expectedDiagnostics)
+        {
+            test.ExpectedDiagnostics.Add(expected);
+        }
+
         await test.RunAsync();
+    }
+
+    private static DiagnosticResult Expect(int location)
+    {
+        var expected = new DiagnosticResult(
+            DiagnosticIds.ExplicitReturnDecision,
+            DiagnosticSeverity.Warning);
+        return expected.WithLocation(location);
     }
 }

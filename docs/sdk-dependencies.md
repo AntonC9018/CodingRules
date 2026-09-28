@@ -15,6 +15,7 @@ places C# analyzer DLLs under `analyzers/dotnet/cs`.
 | Code fix | `Microsoft.CodeAnalysis.CSharp.Workspaces` 4.10.0 for `Document`, actions, and syntax formatting | Already supplied |
 | Code fix | `System.Composition.AttributedModel` 8.0.0 for `[Shared]` | Added explicitly to the CodeFixes role |
 | Tests | xUnit, test SDK, analyzer/code fix testing packages, and modern Roslyn packages | Already supplied by the matching test roles |
+| Tests | `Anton.SourceGeneration.RoslynTesting` for typed diagnostic markers and fluent test builders | Added to the analyzer and code fix test roles |
 | Package test | `Anton.SourceGeneration.PackageTesting` 1.0.0 | Explicit reference from the code-fix tests |
 
 The direct-reference test projects initially restored Roslyn 1.0.1 transitively
@@ -32,3 +33,9 @@ keeps restored packages in this checkout, and the prepare script refreshes
 cached SDK and helper packages after rebuilding the feed. The package
 consumption test restores `Anton.CodingRules` in a fresh consumer, reports
 `CR0001`, applies its code fix, and then builds without warnings.
+
+Analyzer and code fix unit tests now create source with
+`TestCode.Create(...)`. `InterpolateDiagnostic` takes the analyzer's
+`DiagnosticDescriptor` and marks the expected span. The SDK imports the marker
+method for both test roles. Each test uses `AnalyzerTestBuilder` or
+`CodeFixTestBuilder` to run the corresponding Roslyn test.

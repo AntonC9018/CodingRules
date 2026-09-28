@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
+using SourceGeneration.Testing;
 using Xunit;
 
 namespace CodingRules;
@@ -11,7 +10,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
     [Fact]
     public async Task ReportsFinalNullableTernaryAfterGuard()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             #nullable enable
             class C
             {
@@ -23,19 +22,21 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     }
 
                     var value = fields[index].Trim();
-                    return {|#0:value.Length == 0 ? null : value|};
+                    return {{InterpolateDiagnostic("value.Length == 0 ? null : value", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
 
-        var expected = Expect(0);
-        await RunAsync(source, expected);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 
     [Fact]
     public async Task ReportsBooleanCallAfterGuards()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             class C
             {
                 bool IsUnsafe(string name)
@@ -45,19 +46,21 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return true;
                     }
 
-                    return {|#0:name.Contains("..")|};
+                    return {{InterpolateDiagnostic("name.Contains(\"..\")", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
 
-        var expected = Expect(0);
-        await RunAsync(source, expected);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 
     [Fact]
     public async Task TreatsStraightLineWorkBeforeReturnAsGuard()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             class C
             {
                 bool Check() => true;
@@ -71,19 +74,21 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return false;
                     }
 
-                    return {|#0:Check()|};
+                    return {{InterpolateDiagnostic("Check()", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
 
-        var expected = Expect(0);
-        await RunAsync(source, expected);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 
     [Fact]
     public async Task ReportsCoalesceAndNullableCall()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             #nullable enable
             class C
             {
@@ -96,7 +101,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return "stop";
                     }
 
-                    return {|#0:Read() ?? "fallback"|};
+                    return {{InterpolateDiagnostic("Read() ?? \"fallback\"", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
 
                 string? G(bool stop)
@@ -106,20 +111,21 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                         return null;
                     }
 
-                    return {|#1:Read()|};
+                    return {{InterpolateDiagnostic("Read()", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
 
-        var firstExpected = Expect(0);
-        var secondExpected = Expect(1);
-        await RunAsync(source, firstExpected, secondExpected);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 
     [Fact]
     public async Task AnalyzesLocalFunctionsAccessorsAndBlockLambdasSeparately()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             using System;
             class C
             {
@@ -132,7 +138,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return {|#0:Check()|};
+                        return {{InterpolateDiagnostic("Check()", ExplicitReturnDecisionAnalyzer.Rule)}};
                     }
                 }
 
@@ -147,7 +153,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return {|#1:Check()|};
+                        return {{InterpolateDiagnostic("Check()", ExplicitReturnDecisionAnalyzer.Rule)}};
                     }
 
                     Func<bool> callback = () =>
@@ -157,25 +163,25 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                             return false;
                         }
 
-                        return {|#2:Check()|};
+                        return {{InterpolateDiagnostic("Check()", ExplicitReturnDecisionAnalyzer.Rule)}};
                     };
 
                     _ = Local();
                     _ = callback();
                 }
             }
-            """;
+            """);
 
-        var firstExpected = Expect(0);
-        var secondExpected = Expect(1);
-        var thirdExpected = Expect(2);
-        await RunAsync(source, firstExpected, secondExpected, thirdExpected);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 
     [Fact]
     public async Task AllowsLoneTernaryPlainValueAndNestedGuard()
     {
-        const string source = """
+        var source = TestCode.Create("""
             class C
             {
                 bool Check() => true;
@@ -224,15 +230,18 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     return Check();
                 }
             }
-            """;
+            """);
 
-        await RunAsync(source);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 
     [Fact]
     public async Task SkipsGeneratedCode()
     {
-        const string source = """
+        var source = TestCode.Create("""
             // <auto-generated/>
             class C
             {
@@ -246,15 +255,18 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     return flag == false;
                 }
             }
-            """;
+            """);
 
-        await RunAsync(source);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 
     [Fact]
     public async Task SkipsUnsupportedDecisionForms()
     {
-        const string source = """
+        var source = TestCode.Create("""
             #nullable enable
             struct Choice
             {
@@ -294,15 +306,18 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     return flag ? /* keep */ null : "found";
                 }
             }
-            """;
+            """);
 
-        await RunAsync(source);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 
     [Fact]
     public async Task SkipsReturnsWhoseIntermediateConversionWouldChange()
     {
-        const string source = """
+        var source = TestCode.Create("""
             #nullable enable
             class Base { }
             class Derived : Base { }
@@ -346,33 +361,11 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     return Read();
                 }
             }
-            """;
+            """);
 
-        await RunAsync(source);
-    }
-
-    private static async Task RunAsync(
-        string source,
-        params DiagnosticResult[] expectedDiagnostics)
-    {
-        var test = new CSharpAnalyzerTest<ExplicitReturnDecisionAnalyzer, DefaultVerifier>
-        {
-            TestCode = source,
-        };
-
-        foreach (var expected in expectedDiagnostics)
-        {
-            test.ExpectedDiagnostics.Add(expected);
-        }
-
-        await test.RunAsync();
-    }
-
-    private static DiagnosticResult Expect(int location)
-    {
-        var expected = new DiagnosticResult(
-            DiagnosticIds.ExplicitReturnDecision,
-            DiagnosticSeverity.Warning);
-        return expected.WithLocation(location);
+        await AnalyzerTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+            .WithSource(source)
+            .RunAsync();
     }
 }

@@ -19,6 +19,8 @@ mkdir -p "$feed"
         --configuration Release --output "$feed"
     dotnet pack source/SourceGeneration/SourceGeneration.csproj \
         --configuration Release --output "$feed"
+    dotnet pack source/SourceGeneration.RoslynTesting/SourceGeneration.RoslynTesting.csproj \
+        --configuration Release --output "$feed"
     dotnet pack source/SourceGeneration.Sdk/SourceGeneration.Sdk.csproj \
         --configuration Release --output "$feed"
     dotnet pack source/SourceGeneration.PackageTesting/SourceGeneration.PackageTesting.csproj \
@@ -31,7 +33,7 @@ if [[ "$cache_root" != "$repository_root/artifacts/nuget-packages" ]]; then
     exit 1
 fi
 
-for package in anton.sourcegeneration.sdk anton.sourcegeneration anton.sourcegeneration.packagetesting anton.utils.shared; do
+for package in anton.sourcegeneration.sdk anton.sourcegeneration anton.sourcegeneration.roslyntesting anton.sourcegeneration.packagetesting anton.utils.shared; do
     cache_package="$(realpath -m "$cache_root/$package")"
     if [[ "$cache_package" != "$cache_root/$package" ]]; then
         echo "The local NuGet cache package must stay inside this checkout." >&2

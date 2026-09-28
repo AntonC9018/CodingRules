@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
+using SourceGeneration.Testing;
 using Xunit;
 
 namespace CodingRules;
@@ -11,7 +10,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
     [Fact]
     public async Task ReturnsFoundValueBeforeNullableFallback()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             #nullable enable
             class C
             {
@@ -23,10 +22,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                     }
 
                     var value = fields[index].Trim();
-                    return {|#0:value.Length == 0 ? null : value|};
+                    return {{InterpolateDiagnostic("value.Length == 0 ? null : value", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             #nullable enable
             class C
@@ -49,14 +48,17 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 
     [Fact]
     public async Task SplitsBooleanCallIntoTrueAndFalseReturns()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             class C
             {
                 bool IsUnsafe(string name)
@@ -66,10 +68,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return true;
                     }
 
-                    return {|#0:name.Contains("..")|};
+                    return {{InterpolateDiagnostic("name.Contains(\"..\")", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             class C
             {
@@ -90,14 +92,17 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 
     [Fact]
     public async Task FixesReturnAfterGuardWithSideEffect()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             class C
             {
                 bool Check() => true;
@@ -111,10 +116,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return false;
                     }
 
-                    return {|#0:Check()|};
+                    return {{InterpolateDiagnostic("Check()", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             class C
             {
@@ -139,14 +144,17 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 
     [Fact]
     public async Task EvaluatesCoalesceOperandOnlyOnce()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             #nullable enable
             class C
             {
@@ -159,10 +167,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return "stop";
                     }
 
-                    return {|#0:Read() ?? "fallback"|};
+                    return {{InterpolateDiagnostic("Read() ?? \"fallback\"", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             #nullable enable
             class C
@@ -187,14 +195,17 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 
     [Fact]
     public async Task ChoosesUnusedNameForNullableCallResult()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             #nullable enable
             class C
             {
@@ -208,10 +219,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return result;
                     }
 
-                    return {|#0:Read()|};
+                    return {{InterpolateDiagnostic("Read()", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             #nullable enable
             class C
@@ -237,14 +248,17 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 
     [Fact]
     public async Task HandlesNullableValueCoalesce()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             class C
             {
                 int? Read() => null;
@@ -256,10 +270,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return 0;
                     }
 
-                    return {|#0:Read() ?? 42|};
+                    return {{InterpolateDiagnostic("Read() ?? 42", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             class C
             {
@@ -283,14 +297,17 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 
     [Fact]
     public async Task PreservesFloatingPointComparisonSemantics()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             #nullable enable
             class C
             {
@@ -301,10 +318,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return null;
                     }
 
-                    return {|#0:number > 0 ? null : "found"|};
+                    return {{InterpolateDiagnostic("number > 0 ? null : \"found\"", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             #nullable enable
             class C
@@ -326,14 +343,17 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 
     [Fact]
     public async Task DoesNotReplaceUserDefinedEqualityWithInequality()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             #nullable enable
             class Odd
             {
@@ -352,10 +372,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                         return null;
                     }
 
-                    return {|#0:left == right ? null : "found"|};
+                    return {{InterpolateDiagnostic("left == right ? null : \"found\"", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             #nullable enable
             class Odd
@@ -385,14 +405,17 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 
     [Fact]
     public async Task KeepsCommentsAroundReturn()
     {
-        const string source = """
+        var source = TestCode.Create($$"""
             class C
             {
                 bool Check() => true;
@@ -405,10 +428,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
                     }
 
                     // Check the remaining case.
-                    return {|#0:Check()|}; // End of decision.
+                    return {{InterpolateDiagnostic("Check()", ExplicitReturnDecisionAnalyzer.Rule)}}; // End of decision.
                 }
             }
-            """;
+            """);
         const string fixedSource = """
             class C
             {
@@ -432,34 +455,10 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        var expected = Expect(0);
-        await RunAsync(source, fixedSource, expected);
-    }
-
-    private static async Task RunAsync(
-        string source,
-        string fixedSource,
-        DiagnosticResult expected)
-    {
-        var test = new CSharpCodeFixTest<
-            ExplicitReturnDecisionAnalyzer,
-            ExplicitReturnDecisionCodeFixProvider,
-            DefaultVerifier>
-        {
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
-
-        test.ExpectedDiagnostics.Add(expected);
-
-        await test.RunAsync();
-    }
-
-    private static DiagnosticResult Expect(int location)
-    {
-        var expected = new DiagnosticResult(
-            DiagnosticIds.ExplicitReturnDecision,
-            DiagnosticSeverity.Warning);
-        return expected.WithLocation(location);
+        await CodeFixTestBuilder
+            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
     }
 }

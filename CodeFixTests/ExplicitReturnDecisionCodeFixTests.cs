@@ -48,8 +48,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
@@ -92,8 +91,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
@@ -144,8 +142,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
@@ -195,8 +192,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
@@ -248,8 +244,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
@@ -297,8 +292,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
@@ -343,8 +337,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
@@ -405,8 +398,7 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
@@ -455,10 +447,20 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             }
             """;
 
-        await CodeFixTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, ExplicitReturnDecisionCodeFixProvider, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .WithFixedCode(fixedSource)
             .RunAsync();
+    }
+
+    private static CodeFixTestBuilder<
+        ExplicitReturnDecisionAnalyzer,
+        ExplicitReturnDecisionCodeFixProvider,
+        DefaultVerifier> Builder()
+    {
+        return CodeFixTestBuilder.For<
+            ExplicitReturnDecisionAnalyzer,
+            ExplicitReturnDecisionCodeFixProvider,
+            DefaultVerifier>();
     }
 }

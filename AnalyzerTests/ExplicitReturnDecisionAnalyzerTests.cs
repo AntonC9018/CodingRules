@@ -27,8 +27,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
     }
@@ -51,8 +50,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
     }
@@ -79,8 +77,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
     }
@@ -116,8 +113,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
     }
@@ -172,8 +168,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
     }
@@ -232,8 +227,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
     }
@@ -257,8 +251,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
     }
@@ -308,8 +301,7 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
     }
@@ -363,9 +355,13 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
             }
             """);
 
-        await AnalyzerTestBuilder
-            .For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>()
+        await Builder()
             .WithSource(source)
             .RunAsync();
+    }
+
+    private static AnalyzerTestBuilder<ExplicitReturnDecisionAnalyzer, DefaultVerifier> Builder()
+    {
+        return AnalyzerTestBuilder.For<ExplicitReturnDecisionAnalyzer, DefaultVerifier>();
     }
 }

@@ -163,12 +163,14 @@ Each rule offers one canonical fix that rewrites the return in place into
 explicit `if` statements and returns. The fix preserves evaluation order and
 the number of times every subexpression runs, and all generated code is
 formatted through the document's `.editorconfig` options. A ternary whose
-branch throws is reported and fixes to a guard whose branch throws, followed
-by a return of the remaining arm. Final-position decision returns stay
-governed by `CR0001` alone; the nested rules never re-report them. Generated
-code and the conservative skips of the first implementation (comments or
-directives inside the decision, ref returns, and non-identity return
-conversions) still apply.
+branch throws, and a null-coalescing expression whose right side throws, are
+reported and fix to a guard whose branch throws, followed by a return of the
+remaining arm or the saved value. Generated local declarations inserted into
+a switch section are wrapped in a block, because all sections of a switch
+share one declaration space. Final-position decision returns stay governed by
+`CR0001` alone; the nested rules never re-report them. Generated code and the
+conservative skips of the first implementation (comments or directives inside
+the decision, ref returns, and non-identity return conversions) still apply.
 
 ## Delivery decisions
 

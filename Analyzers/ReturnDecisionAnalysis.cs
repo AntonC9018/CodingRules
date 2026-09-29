@@ -27,6 +27,18 @@ internal static class ReturnDecisionAnalysis
             or AnonymousMethodExpressionSyntax;
     }
 
+    /// <summary>
+    /// Reports whether the block is a body whose nested returns the nested
+    /// decision rules analyze. Operators and conversion operators are valid
+    /// return contexts beyond the function bodies CR0001 checks.
+    /// </summary>
+    public static bool IsNestedDecisionBody(BlockSyntax block)
+    {
+        return IsFunctionBody(block)
+            || block.Parent is OperatorDeclarationSyntax
+            or ConversionOperatorDeclarationSyntax;
+    }
+
     public static bool TryGetFinalReturn(BlockSyntax block, out ReturnStatementSyntax finalReturn)
     {
         if (block.Statements.Count == 0)
@@ -116,8 +128,22 @@ internal static class ReturnDecisionAnalysis
         return nestedReturns;
     }
 
+    /// <summary>
+    /// Collects the return statements nested within the top-level statements
+    /// of a compilation unit, where the unit itself plays the role of the
+    /// function body. Member declarations are skipped: their bodies are
+    /// analyzed through their own blocks.
+    /// </summary>
+    public static List<ReturnStatementSyntax> CollectTopLevelNestedReturns(
+        CompilationUnitSyntax compilationUnit)
+    {
+        var nestedReturns = new List<ReturnStatementSyntax>();
+        CollectNestedReturns(compilationUnit, compilationUnit, nestedReturns);
+        return nestedReturns;
+    }
+
     private static void CollectNestedReturns(
-        BlockSyntax body,
+        SyntaxNode body,
         SyntaxNode node,
         List<ReturnStatementSyntax> results)
     {
@@ -125,7 +151,7 @@ internal static class ReturnDecisionAnalysis
         {
             if (child is ReturnStatementSyntax returnStatement)
             {
-                if (!ReferenceEquals(returnStatement.Parent, body))
+                if (!IsDirectBodyReturn(returnStatement, body))
                 {
                     results.Add(returnStatement);
                 }
@@ -149,8 +175,23 @@ internal static class ReturnDecisionAnalysis
                 continue;
             }
 
+            if (child is MemberDeclarationSyntax and not GlobalStatementSyntax)
+            {
+                continue;
+            }
+
             CollectNestedReturns(body, child, results);
         }
+    }
+
+    private static bool IsDirectBodyReturn(ReturnStatementSyntax returnStatement, SyntaxNode body)
+    {
+        return body switch
+        {
+            BlockSyntax block => ReferenceEquals(returnStatement.Parent, block),
+            CompilationUnitSyntax => returnStatement.Parent is GlobalStatementSyntax,
+            _ => false,
+        };
     }
 
     private static bool TryClassify(
@@ -377,6 +418,20 @@ internal static class ReturnDecisionAnalysis
             {
                 return true;
             }
+        }
+
+        // A call expressed through conditional access (`source?.Read()`)
+        // returns a nullable result as well; the fix evaluates the whole
+        // access once into a local.
+        if (expression is ConditionalAccessExpressionSyntax conditionalAccess)
+        {
+            var current = Unwrap(conditionalAccess.WhenNotNull);
+            while (current is ConditionalAccessExpressionSyntax nestedAccess)
+            {
+                current = Unwrap(nestedAccess.WhenNotNull);
+            }
+
+            return current is InvocationExpressionSyntax;
         }
 
         return false;

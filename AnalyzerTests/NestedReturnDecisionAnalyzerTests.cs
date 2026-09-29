@@ -1,4 +1,6 @@
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 using SourceGeneration.Testing;
 using Xunit;
@@ -322,6 +324,151 @@ public sealed class NestedReturnDecisionAnalyzerTests
         await Builder()
             .WithSource(source)
             .RunAsync();
+    }
+
+    [Fact]
+    public async Task ReportsConditionalAccessCallInsideIfBlock()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class Source
+            {
+                public string? Read() => null;
+            }
+
+            class C
+            {
+                string? Load(Source? source, bool ready)
+                {
+                    if (ready)
+                    {
+                        return {{InterpolateDiagnostic("source?.Read()", NestedReturnDecisionAnalyzer.NullableCallRule)}};
+                    }
+
+                    return "default";
+                }
+            }
+            """);
+
+        await Builder()
+            .WithSource(source)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task ReportsNestedDecisionsInsideNestedFunctionsAndAccessors()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                private string? _stored;
+
+                string? Outer()
+                {
+                    string Local()
+                    {
+                        if (_stored is null)
+                        {
+                            return {{InterpolateDiagnostic("_stored ?? \"fallback\"", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                        }
+
+                        return _stored;
+                    }
+
+                    System.Func<string?> callback = () =>
+                    {
+                        if (_stored is null)
+                        {
+                            return {{InterpolateDiagnostic("_stored ?? \"fallback\"", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                        }
+
+                        return _stored;
+                    };
+
+                    _ = callback();
+                    return Local();
+                }
+
+                string? Stored
+                {
+                    get
+                    {
+                        if (_stored is null)
+                        {
+                            return {{InterpolateDiagnostic("_stored ?? \"fallback\"", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                        }
+
+                        return _stored;
+                    }
+                }
+            }
+            """);
+
+        await Builder()
+            .WithSource(source)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task ReportsNestedDecisionsInsideOperatorBodies()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                public bool Ready => true;
+                public int Count { get; set; }
+
+                public static C operator +(C? left, C? right)
+                {
+                    if (left is null)
+                    {
+                        return {{InterpolateDiagnostic("right ?? new C()", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                    }
+
+                    return left;
+                }
+
+                public static implicit operator int(C value)
+                {
+                    if (value.Ready)
+                    {
+                        return {{InterpolateDiagnostic("value.Count > 0 ? value.Count : 0", NestedReturnDecisionAnalyzer.TernaryRule)}};
+                    }
+
+                    return 0;
+                }
+            }
+            """);
+
+        await Builder()
+            .WithSource(source)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task ReportsNestedDecisionInTopLevelStatements()
+    {
+        // Top-level statements only compile in an executable, which the
+        // shared builder does not configure, so this test drives the Roslyn
+        // testing harness directly.
+        var test = new CSharpAnalyzerTest<NestedReturnDecisionAnalyzer, DefaultVerifier>
+        {
+            TestCode = """
+                if (args.Length > 0)
+                {
+                    return {|CR0003:args.Length > 1 ? 1 : 0|};
+                }
+
+                return 0;
+                """,
+        };
+        test.SolutionTransforms.Add((solution, projectId) => solution.WithProjectCompilationOptions(
+            projectId,
+            solution.GetProject(projectId)!.CompilationOptions!.WithOutputKind(OutputKind.ConsoleApplication)));
+
+        await test.RunAsync();
     }
 
     [Fact]

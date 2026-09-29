@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -53,17 +55,36 @@ public sealed class NestedReturnDecisionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterSyntaxNodeAction(AnalyzeBlock, SyntaxKind.Block);
+        context.RegisterSyntaxNodeAction(AnalyzeCompilationUnit, SyntaxKind.CompilationUnit);
     }
 
     private static void AnalyzeBlock(SyntaxNodeAnalysisContext context)
     {
         var block = (BlockSyntax)context.Node;
-        if (!ReturnDecisionAnalysis.IsFunctionBody(block))
+        if (!ReturnDecisionAnalysis.IsNestedDecisionBody(block))
         {
             return;
         }
 
-        foreach (var nestedReturn in ReturnDecisionAnalysis.CollectNestedReturns(block))
+        ReportNestedReturns(context, ReturnDecisionAnalysis.CollectNestedReturns(block));
+    }
+
+    private static void AnalyzeCompilationUnit(SyntaxNodeAnalysisContext context)
+    {
+        var compilationUnit = (CompilationUnitSyntax)context.Node;
+        if (!compilationUnit.Members.Any(static member => member is GlobalStatementSyntax))
+        {
+            return;
+        }
+
+        ReportNestedReturns(context, ReturnDecisionAnalysis.CollectTopLevelNestedReturns(compilationUnit));
+    }
+
+    private static void ReportNestedReturns(
+        SyntaxNodeAnalysisContext context,
+        List<ReturnStatementSyntax> nestedReturns)
+    {
+        foreach (var nestedReturn in nestedReturns)
         {
             if (!ReturnDecisionAnalysis.TryGetNestedKind(
                     nestedReturn,

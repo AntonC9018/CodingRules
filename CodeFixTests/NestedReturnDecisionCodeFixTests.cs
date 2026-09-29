@@ -891,6 +891,182 @@ public sealed class NestedReturnDecisionCodeFixTests
             .RunAsync();
     }
 
+    [Fact]
+    public async Task RewritesConditionalAccessCallInsideIfBlock()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class Source
+            {
+                public string? Read() => null;
+            }
+
+            class C
+            {
+                string? Load(Source? source, bool ready)
+                {
+                    if (ready)
+                    {
+                        return {{InterpolateDiagnostic("source?.Read()", NestedReturnDecisionAnalyzer.NullableCallRule)}};
+                    }
+
+                    return "default";
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            class Source
+            {
+                public string? Read() => null;
+            }
+
+            class C
+            {
+                string? Load(Source? source, bool ready)
+                {
+                    if (ready)
+                    {
+                        var result = source?.Read();
+                        if (result is not null)
+                        {
+                            return result;
+                        }
+
+                        return null;
+                    }
+
+                    return "default";
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task RewritesNestedDecisionsInsideNestedFunctionsAndAccessors()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                private string? _stored;
+
+                string? Outer()
+                {
+                    string Local()
+                    {
+                        if (_stored is null)
+                        {
+                            return {{InterpolateDiagnostic("_stored ?? \"fallback\"", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                        }
+
+                        return _stored;
+                    }
+
+                    System.Func<string?> callback = () =>
+                    {
+                        if (_stored is null)
+                        {
+                            return {{InterpolateDiagnostic("_stored ?? \"fallback\"", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                        }
+
+                        return _stored;
+                    };
+
+                    _ = callback();
+                    return Local();
+                }
+
+                string? Stored
+                {
+                    get
+                    {
+                        if (_stored is null)
+                        {
+                            return {{InterpolateDiagnostic("_stored ?? \"fallback\"", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                        }
+
+                        return _stored;
+                    }
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            class C
+            {
+                private string? _stored;
+
+                string? Outer()
+                {
+                    string Local()
+                    {
+                        if (_stored is null)
+                        {
+                            var result = _stored;
+                            if (result is not null)
+                            {
+                                return result;
+                            }
+
+                            return "fallback";
+                        }
+
+                        return _stored;
+                    }
+
+                    System.Func<string?> callback = () =>
+                    {
+                        if (_stored is null)
+                        {
+                            var result = _stored;
+                            if (result is not null)
+                            {
+                                return result;
+                            }
+
+                            return "fallback";
+                        }
+
+                        return _stored;
+                    };
+
+                    _ = callback();
+                    return Local();
+                }
+
+                string? Stored
+                {
+                    get
+                    {
+                        if (_stored is null)
+                        {
+                            var result = _stored;
+                            if (result is not null)
+                            {
+                                return result;
+                            }
+
+                            return "fallback";
+                        }
+
+                        return _stored;
+                    }
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
     private static CodeFixTestBuilder<
         NestedReturnDecisionAnalyzer,
         NestedReturnDecisionCodeFixProvider,

@@ -23,7 +23,7 @@ internal static class ReturnDecisionRewrites
     /// <summary>
     /// Applies the replacement, lays it out with the Roslyn formatter so the
     /// document's editorconfig options drive spacing and braces, and aligns
-    /// the generated line endings with the document's existing convention.
+    /// the generated line endings with the document's configured convention.
     /// </summary>
     public static async Task<Document> ApplyFormattedAsync(
         Document document,
@@ -38,9 +38,18 @@ internal static class ReturnDecisionRewrites
             return changed;
         }
 
-        var endOfLine = FindDocumentEndOfLine(root);
         var options = await changed.GetOptionsAsync(cancellationToken).ConfigureAwait(false);
-        var alignedOptions = options.WithChangedOption(FormattingOptions.NewLine, changed.Project.Language, endOfLine);
+        var language = changed.Project.Language;
+        var configuredEndOfLine = options.GetOption(FormattingOptions.NewLine, language);
+        var workspaceEndOfLine = changed.Project.Solution.Workspace.Options.GetOption(FormattingOptions.NewLine, language);
+
+        // When an editorconfig configures the line ending it governs the
+        // generated code; without one, the document's own convention wins
+        // over the workspace's platform default.
+        var endOfLine = string.Equals(configuredEndOfLine, workspaceEndOfLine, StringComparison.Ordinal)
+            ? FindDocumentEndOfLine(root) ?? configuredEndOfLine
+            : configuredEndOfLine;
+        var alignedOptions = options.WithChangedOption(FormattingOptions.NewLine, language, endOfLine);
         var formatted = await Formatter.FormatAsync(changed, Formatter.Annotation, alignedOptions, cancellationToken).ConfigureAwait(false);
 
         var formattedRoot = await formatted.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
@@ -578,7 +587,7 @@ internal static class ReturnDecisionRewrites
         }
     }
 
-    private static string FindDocumentEndOfLine(SyntaxNode root)
+    private static string? FindDocumentEndOfLine(SyntaxNode root)
     {
         foreach (var trivia in root.DescendantTrivia())
         {
@@ -589,9 +598,8 @@ internal static class ReturnDecisionRewrites
         }
 
         // A document without a single line break has no convention to match;
-        // fall back to the same platform default the formatter itself uses.
-        return System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
-            System.Runtime.InteropServices.OSPlatform.Windows) ? "\r\n" : "\n";
+        // the caller falls back to the workspace's configured default.
+        return null;
     }
 
     private static SyntaxNode NormalizeEndOfLines(SyntaxNode node, string endOfLine)
@@ -600,6 +608,16 @@ internal static class ReturnDecisionRewrites
             .Where(trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia)
                 && !string.Equals(trivia.ToFullString(), endOfLine, StringComparison.Ordinal))
             .ToList();
+
+        // The line breaks before the container's first token and after its
+        // last token are laid out by the formatter with the workspace's
+        // default ending, so they are aligned explicitly.
+        triviaToReplace.AddRange(node.GetFirstToken(includeZeroWidth: false).LeadingTrivia
+            .Where(trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia)
+                && !string.Equals(trivia.ToFullString(), endOfLine, StringComparison.Ordinal)));
+        triviaToReplace.AddRange(node.GetLastToken(includeZeroWidth: false).TrailingTrivia
+            .Where(trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia)
+                && !string.Equals(trivia.ToFullString(), endOfLine, StringComparison.Ordinal)));
         if (triviaToReplace.Count == 0)
         {
             return node;

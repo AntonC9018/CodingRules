@@ -9,12 +9,16 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CodingRules;
 
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ExplicitReturnDecisionCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(NestedReturnDecisionCodeFixProvider))]
 [Shared]
-public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
+public sealed class NestedReturnDecisionCodeFixProvider : CodeFixProvider
 {
     public override ImmutableArray<string> FixableDiagnosticIds =>
-        ImmutableArray.Create(DiagnosticIds.ExplicitReturnDecision);
+        ImmutableArray.Create(
+            DiagnosticIds.NestedTernaryReturn,
+            DiagnosticIds.NestedCoalesceReturn,
+            DiagnosticIds.NestedNullableCallReturn,
+            DiagnosticIds.NestedBooleanReturn);
 
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
@@ -28,8 +32,8 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
 
         var diagnostic = context.Diagnostics[0];
         var node = root.FindNode(diagnostic.Location.SourceSpan);
-        var finalReturn = node.FirstAncestorOrSelf<ReturnStatementSyntax>();
-        if (finalReturn?.Parent is not BlockSyntax)
+        var nestedReturn = node.FirstAncestorOrSelf<ReturnStatementSyntax>();
+        if (nestedReturn is null)
         {
             return;
         }
@@ -40,25 +44,29 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
             return;
         }
 
-        if (!ReturnDecisionAnalysis.TryGetKind(finalReturn, semanticModel, context.CancellationToken, out var kind))
+        if (!ReturnDecisionAnalysis.TryGetNestedKind(
+                nestedReturn,
+                semanticModel,
+                context.CancellationToken,
+                out var kind))
         {
             return;
         }
 
-        var replacement = ReturnDecisionRewrites.CreateReplacement(finalReturn, kind, semanticModel);
+        var replacement = ReturnDecisionRewrites.CreateReplacement(nestedReturn, kind, semanticModel);
         if (replacement.Count == 0)
         {
             return;
         }
 
         var action = CodeAction.Create(
-            "Make return outcomes explicit",
+            "Make nested return outcomes explicit",
             cancellationToken => ReturnDecisionRewrites.ApplyFormattedAsync(
                 context.Document,
-                finalReturn,
+                nestedReturn,
                 replacement,
                 cancellationToken),
-            nameof(ExplicitReturnDecisionCodeFixProvider));
+            nameof(NestedReturnDecisionCodeFixProvider));
         context.RegisterCodeFix(action, diagnostic);
     }
 }

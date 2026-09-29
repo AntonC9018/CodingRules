@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -73,28 +74,113 @@ internal static class ReturnDecisionAnalysis
         CancellationToken cancellationToken,
         out ReturnDecisionKind kind)
     {
+        return TryClassify(
+            finalReturn,
+            semanticModel,
+            cancellationToken,
+            allowThrowArms: false,
+            out kind);
+    }
+
+    /// <summary>
+    /// Classifies a nested return for the nested decision rules (CR0003-CR0006).
+    /// Unlike <see cref="TryGetKind"/> it accepts a ternary with a throw arm,
+    /// which the nested fix rewrites to a guard statement.
+    /// </summary>
+    public static bool TryGetNestedKind(
+        ReturnStatementSyntax returnStatement,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken,
+        out ReturnDecisionKind kind)
+    {
+        return TryClassify(
+            returnStatement,
+            semanticModel,
+            cancellationToken,
+            allowThrowArms: true,
+            out kind);
+    }
+
+    /// <summary>
+    /// Collects the return statements of a function body that sit beyond its
+    /// top level, without crossing nested function bodies (lambdas, local
+    /// functions, and anonymous methods are boundaries in both directions).
+    /// Ticket #3 (guard analysis) and #8 (sentinel returns) can reuse this
+    /// walk over the same return sets.
+    /// </summary>
+    public static List<ReturnStatementSyntax> CollectNestedReturns(BlockSyntax body)
+    {
+        var nestedReturns = new List<ReturnStatementSyntax>();
+        CollectNestedReturns(body, body, nestedReturns);
+        return nestedReturns;
+    }
+
+    private static void CollectNestedReturns(
+        BlockSyntax body,
+        SyntaxNode node,
+        List<ReturnStatementSyntax> results)
+    {
+        foreach (var child in node.ChildNodes())
+        {
+            if (child is ReturnStatementSyntax returnStatement)
+            {
+                if (!ReferenceEquals(returnStatement.Parent, body))
+                {
+                    results.Add(returnStatement);
+                }
+
+                continue;
+            }
+
+            if (child is StatementSyntax statement)
+            {
+                if (statement is LocalFunctionStatementSyntax)
+                {
+                    continue;
+                }
+
+                CollectNestedReturns(body, statement, results);
+                continue;
+            }
+
+            if (child is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax)
+            {
+                continue;
+            }
+
+            CollectNestedReturns(body, child, results);
+        }
+    }
+
+    private static bool TryClassify(
+        ReturnStatementSyntax returnStatement,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken,
+        bool allowThrowArms,
+        out ReturnDecisionKind kind)
+    {
         kind = default;
-        if (finalReturn.Expression is null)
+        if (returnStatement.Expression is null)
         {
             return false;
         }
 
-        if (finalReturn.Expression is RefExpressionSyntax)
+        if (returnStatement.Expression is RefExpressionSyntax)
         {
             return false;
         }
 
-        if (finalReturn.ContainsDirectives)
+        if (returnStatement.ContainsDirectives)
         {
             return false;
         }
 
-        if (finalReturn.Expression.DescendantTrivia().Any(IsComment))
+        if (returnStatement.Expression.DescendantTrivia().Any(IsComment))
         {
             return false;
         }
 
-        var expression = Unwrap(finalReturn.Expression);
+        var expression = Unwrap(returnStatement.Expression);
         if (expression is ConditionalExpressionSyntax conditional)
         {
             if (!HasIdentityReturnConversion(expression, semanticModel, cancellationToken))
@@ -102,12 +188,24 @@ internal static class ReturnDecisionAnalysis
                 return false;
             }
 
-            if (ContainsThrowArm(conditional))
+            var trueArmThrows = Unwrap(conditional.WhenTrue) is ThrowExpressionSyntax;
+            var falseArmThrows = Unwrap(conditional.WhenFalse) is ThrowExpressionSyntax;
+            if (trueArmThrows && falseArmThrows)
             {
                 return false;
             }
 
-            if (NeedsFallbackInversion(conditional))
+            if (trueArmThrows || falseArmThrows)
+            {
+                if (!allowThrowArms)
+                {
+                    return false;
+                }
+            }
+
+            // The guard rewrite negates the condition when the fallback or the
+            // throw sits in the false arm, so the condition must be a plain bool.
+            if (NeedsFallbackInversion(conditional) || falseArmThrows)
             {
                 var conditionType = semanticModel.GetTypeInfo(conditional.Condition, cancellationToken).Type;
                 if (conditionType?.SpecialType != SpecialType.System_Boolean)
@@ -227,21 +325,6 @@ internal static class ReturnDecisionAnalysis
             {
                 return true;
             }
-        }
-
-        return false;
-    }
-
-    private static bool ContainsThrowArm(ConditionalExpressionSyntax conditional)
-    {
-        if (Unwrap(conditional.WhenTrue) is ThrowExpressionSyntax)
-        {
-            return true;
-        }
-
-        if (Unwrap(conditional.WhenFalse) is ThrowExpressionSyntax)
-        {
-            return true;
         }
 
         return false;

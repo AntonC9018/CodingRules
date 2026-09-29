@@ -86,7 +86,7 @@ internal static class ReturnDecisionAnalysis
         CancellationToken cancellationToken,
         out ReturnDecisionKind kind)
     {
-        return TryClassify(
+        return TryGetKind(
             finalReturn,
             semanticModel,
             cancellationToken,
@@ -96,9 +96,9 @@ internal static class ReturnDecisionAnalysis
 
     /// <summary>
     /// Classifies a nested return for the nested decision rules (CR0003-CR0006).
-    /// Unlike <see cref="TryGetKind"/> it accepts a ternary with a throw arm and
-    /// a null-coalescing expression whose right side throws, both of which the
-    /// nested fix rewrites to guard statements.
+    /// Unlike the final-return overload it accepts a ternary with a throw arm
+    /// and a null-coalescing expression whose right side throws, both of which
+    /// the nested fix rewrites to guard statements.
     /// </summary>
     public static bool TryGetNestedKind(
         ReturnStatementSyntax returnStatement,
@@ -106,11 +106,32 @@ internal static class ReturnDecisionAnalysis
         CancellationToken cancellationToken,
         out ReturnDecisionKind kind)
     {
-        return TryClassify(
+        return TryGetKind(
             returnStatement,
             semanticModel,
             cancellationToken,
             allowThrowArms: true,
+            out kind);
+    }
+
+    /// <summary>
+    /// Classifies a return for the return-decision rules. When
+    /// <paramref name="allowThrowArms"/> is set, ternaries with a throw arm
+    /// and null-coalescing expressions whose right side throws are accepted,
+    /// which the nested fixes rewrite to guard statements.
+    /// </summary>
+    public static bool TryGetKind(
+        ReturnStatementSyntax returnStatement,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken,
+        bool allowThrowArms,
+        out ReturnDecisionKind kind)
+    {
+        return TryClassify(
+            returnStatement,
+            semanticModel,
+            cancellationToken,
+            allowThrowArms,
             out kind);
     }
 

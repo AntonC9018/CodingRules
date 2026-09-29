@@ -101,13 +101,8 @@ public sealed class NestedReturnDecisionAnalyzer : DiagnosticAnalyzer
                 ReturnDecisionKind.Coalesce => CoalesceRule,
                 ReturnDecisionKind.Boolean => BooleanRule,
                 ReturnDecisionKind.NullableCall => NullableCallRule,
-                _ => null,
+                _ => throw new System.InvalidOperationException($"Unexpected decision kind {kind}."),
             };
-
-            if (rule is null)
-            {
-                continue;
-            }
 
             var location = nestedReturn.Expression!.GetLocation();
             context.ReportDiagnostic(Diagnostic.Create(rule, location));

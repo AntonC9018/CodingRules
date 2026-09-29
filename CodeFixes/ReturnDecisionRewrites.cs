@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Operations;
 
@@ -20,6 +22,71 @@ namespace CodingRules;
 /// </summary>
 internal static class ReturnDecisionRewrites
 {
+    /// <summary>
+    /// Shared registration for the return-decision code fixers: locates the
+    /// reported return, re-classifies it with the same rules the analyzer
+    /// used, and registers the canonical fix. The fix is only offered when a
+    /// behavior-preserving rewrite exists.
+    /// </summary>
+    public static async Task RegisterCodeFixesAsync(
+        CodeFixContext context,
+        string title,
+        string equivalenceKey,
+        bool requireBlockParent,
+        bool allowThrowArms)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return;
+        }
+
+        var diagnostic = context.Diagnostics[0];
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        var returnStatement = node.FirstAncestorOrSelf<ReturnStatementSyntax>();
+        if (returnStatement is null)
+        {
+            return;
+        }
+
+        if (requireBlockParent && returnStatement.Parent is not BlockSyntax)
+        {
+            return;
+        }
+
+        var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (semanticModel is null)
+        {
+            return;
+        }
+
+        if (!ReturnDecisionAnalysis.TryGetKind(
+                returnStatement,
+                semanticModel,
+                context.CancellationToken,
+                allowThrowArms,
+                out var kind))
+        {
+            return;
+        }
+
+        var replacement = CreateReplacement(returnStatement, kind, semanticModel);
+        if (replacement.Count == 0)
+        {
+            return;
+        }
+
+        var action = CodeAction.Create(
+            title,
+            cancellationToken => ApplyFormattedAsync(
+                context.Document,
+                returnStatement,
+                replacement,
+                cancellationToken),
+            equivalenceKey);
+        context.RegisterCodeFix(action, diagnostic);
+    }
+
     /// <summary>
     /// Applies the replacement, lays it out with the Roslyn formatter so the
     /// document's editorconfig options drive spacing and braces, and aligns

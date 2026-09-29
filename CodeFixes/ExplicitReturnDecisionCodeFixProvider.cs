@@ -1,11 +1,8 @@
 using System.Collections.Immutable;
 using System.Composition;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CodingRules;
 
@@ -18,47 +15,13 @@ public sealed class ExplicitReturnDecisionCodeFixProvider : CodeFixProvider
 
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        var diagnostic = context.Diagnostics[0];
-        var node = root.FindNode(diagnostic.Location.SourceSpan);
-        var finalReturn = node.FirstAncestorOrSelf<ReturnStatementSyntax>();
-        if (finalReturn?.Parent is not BlockSyntax)
-        {
-            return;
-        }
-
-        var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (semanticModel is null)
-        {
-            return;
-        }
-
-        if (!ReturnDecisionAnalysis.TryGetKind(finalReturn, semanticModel, context.CancellationToken, out var kind))
-        {
-            return;
-        }
-
-        var replacement = ReturnDecisionRewrites.CreateReplacement(finalReturn, kind, semanticModel);
-        if (replacement.Count == 0)
-        {
-            return;
-        }
-
-        var action = CodeAction.Create(
-            "Make return outcomes explicit",
-            cancellationToken => ReturnDecisionRewrites.ApplyFormattedAsync(
-                context.Document,
-                finalReturn,
-                replacement,
-                cancellationToken),
-            nameof(ExplicitReturnDecisionCodeFixProvider));
-        context.RegisterCodeFix(action, diagnostic);
+        return ReturnDecisionRewrites.RegisterCodeFixesAsync(
+            context,
+            title: "Make return outcomes explicit",
+            equivalenceKey: nameof(ExplicitReturnDecisionCodeFixProvider),
+            requireBlockParent: true,
+            allowThrowArms: false);
     }
 }

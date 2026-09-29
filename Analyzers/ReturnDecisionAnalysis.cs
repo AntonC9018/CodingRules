@@ -84,8 +84,9 @@ internal static class ReturnDecisionAnalysis
 
     /// <summary>
     /// Classifies a nested return for the nested decision rules (CR0003-CR0006).
-    /// Unlike <see cref="TryGetKind"/> it accepts a ternary with a throw arm,
-    /// which the nested fix rewrites to a guard statement.
+    /// Unlike <see cref="TryGetKind"/> it accepts a ternary with a throw arm and
+    /// a null-coalescing expression whose right side throws, both of which the
+    /// nested fix rewrites to guard statements.
     /// </summary>
     public static bool TryGetNestedKind(
         ReturnStatementSyntax returnStatement,
@@ -234,9 +235,12 @@ internal static class ReturnDecisionAnalysis
                 }
             }
 
-            if (coalesce.Right is ThrowExpressionSyntax)
+            if (Unwrap(coalesce.Right) is ThrowExpressionSyntax)
             {
-                return false;
+                if (!allowThrowArms)
+                {
+                    return false;
+                }
             }
 
             kind = ReturnDecisionKind.Coalesce;

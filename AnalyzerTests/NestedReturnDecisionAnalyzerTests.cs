@@ -535,6 +535,56 @@ public sealed class NestedReturnDecisionAnalyzerTests
     }
 
     [Fact]
+    public async Task ReportsCoalesceThrowInsideLock()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                string? Read() => null;
+
+                string Require(bool flag)
+                {
+                    lock (new object())
+                    {
+                        return {{InterpolateDiagnostic("Read() ?? throw new System.InvalidOperationException(\"Missing value.\")", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                    }
+                }
+            }
+            """);
+
+        await Builder()
+            .WithSource(source)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task ReportsNullableValueCoalesceThrowInsideIfBlock()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                int Count(bool flag)
+                {
+                    int? stored = null;
+
+                    if (flag)
+                    {
+                        return {{InterpolateDiagnostic("stored ?? throw new System.InvalidOperationException(\"Missing count.\")", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                    }
+
+                    return 0;
+                }
+            }
+            """);
+
+        await Builder()
+            .WithSource(source)
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task SkipsUnsupportedNestedDecisionForms()
     {
         var source = TestCode.Create($$"""
@@ -570,14 +620,6 @@ public sealed class NestedReturnDecisionAnalyzerTests
                     lock (new object())
                     {
                         return Read() ?? new Derived();
-                    }
-                }
-
-                Wrapper CoalesceThrow()
-                {
-                    lock (new object())
-                    {
-                        return Read() ?? throw new System.InvalidOperationException();
                     }
                 }
 

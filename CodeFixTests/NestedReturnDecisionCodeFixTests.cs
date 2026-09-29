@@ -197,6 +197,102 @@ public sealed class NestedReturnDecisionCodeFixTests
     }
 
     [Fact]
+    public async Task RewritesCoalesceThrowInsideLockToGuard()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                string? Read() => null;
+
+                string Require(bool flag)
+                {
+                    lock (new object())
+                    {
+                        return {{InterpolateDiagnostic("Read() ?? throw new System.InvalidOperationException(\"Missing value.\")", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                    }
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            class C
+            {
+                string? Read() => null;
+
+                string Require(bool flag)
+                {
+                    lock (new object())
+                    {
+                        var result = Read();
+                        if (result is null)
+                        {
+                            throw new System.InvalidOperationException("Missing value.");
+                        }
+
+                        return result;
+                    }
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task RewritesNullableValueCoalesceThrowToGuard()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                int Count(bool flag)
+                {
+                    int? stored = null;
+
+                    if (flag)
+                    {
+                        return {{InterpolateDiagnostic("stored ?? throw new System.InvalidOperationException(\"Missing count.\")", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                    }
+
+                    return 0;
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            class C
+            {
+                int Count(bool flag)
+                {
+                    int? stored = null;
+
+                    if (flag)
+                    {
+                        var result = stored;
+                        if (!result.HasValue)
+                        {
+                            throw new System.InvalidOperationException("Missing count.");
+                        }
+
+                        return result.Value;
+                    }
+
+                    return 0;
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
+    [Fact]
     public async Task RewritesNullableCallInsideCaseArm()
     {
         var source = TestCode.Create($$"""

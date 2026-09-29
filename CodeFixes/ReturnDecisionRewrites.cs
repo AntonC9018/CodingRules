@@ -237,14 +237,31 @@ internal static class ReturnDecisionRewrites
         var name = FindAvailableName(semanticModel, returnStatement);
         var leftType = semanticModel.GetTypeInfo(coalesce.Left).Type;
         var nullableValue = ReturnDecisionAnalysis.IsNullableValueType(leftType);
+        var left = TrimBoundaryLineBreaks(coalesce.Left);
+
+        if (ReturnDecisionAnalysis.Unwrap(coalesce.Right) is ThrowExpressionSyntax throwExpression)
+        {
+            // The left side is evaluated once into a local, a null guard
+            // throws, and the saved value falls through as the result.
+            var thrown = TrimBoundaryLineBreaks(throwExpression.Expression);
+            var condition = SyntaxFactory.ParseExpression(
+                nullableValue ? "!" + name + ".HasValue" : name + " is null");
+            var found = SyntaxFactory.ParseExpression(nullableValue ? name + ".Value" : name);
+            return new List<StatementSyntax>
+            {
+                CreateLocal(name, left),
+                CreateGuardThrow(condition, thrown),
+                SyntaxFactory.ReturnStatement(found),
+            };
+        }
+
         var conditionText = nullableValue ? name + ".HasValue" : name + " is not null";
-        var foundText = nullableValue ? name + ".Value" : name;
-        var condition = SyntaxFactory.ParseExpression(conditionText);
-        var found = SyntaxFactory.ParseExpression(foundText);
+        var foundCondition = SyntaxFactory.ParseExpression(conditionText);
+        var foundValue = SyntaxFactory.ParseExpression(nullableValue ? name + ".Value" : name);
         return new List<StatementSyntax>
         {
-            CreateLocal(name, TrimBoundaryLineBreaks(coalesce.Left)),
-            CreateIfReturn(condition, found),
+            CreateLocal(name, left),
+            CreateIfReturn(foundCondition, foundValue),
             SyntaxFactory.ReturnStatement(TrimBoundaryLineBreaks(coalesce.Right)),
         };
     }

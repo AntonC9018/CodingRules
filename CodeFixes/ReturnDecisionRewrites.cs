@@ -118,7 +118,8 @@ internal static class ReturnDecisionRewrites
     /// Replaces one return statement with the generated statements, in place
     /// for a parent block or switch section, or wrapped in a block when the
     /// return is an embedded (braceless) statement. Leading and trailing
-    /// trivia of the return are preserved.
+    /// trivia of the return are preserved, as is trivia between the return
+    /// keyword and its expression.
     /// </summary>
     public static async Task<Document> ApplyAsync(
         Document document,
@@ -132,7 +133,7 @@ internal static class ReturnDecisionRewrites
             return document;
         }
 
-        replacement[0] = replacement[0].WithLeadingTrivia(returnStatement.GetLeadingTrivia());
+        replacement[0] = WithPreservedDecisionTrivia(replacement[0], returnStatement);
         var lastIndex = replacement.Count - 1;
         replacement[lastIndex] = replacement[lastIndex].WithTrailingTrivia(returnStatement.GetTrailingTrivia());
 
@@ -149,7 +150,15 @@ internal static class ReturnDecisionRewrites
 
             case SwitchSectionSyntax section:
             {
-                var newStatements = section.Statements.ReplaceRange(returnStatement, replacement);
+                // All sections of a switch statement share one declaration
+                // space, so generated local declarations are wrapped in a
+                // block that scopes them to their own section (including
+                // during Fix-All, where two sections would otherwise emit
+                // duplicate declarations).
+                var statements = replacement.Any(statement => statement is LocalDeclarationStatementSyntax)
+                    ? new List<StatementSyntax> { SyntaxFactory.Block(replacement) }
+                    : replacement;
+                var newStatements = section.Statements.ReplaceRange(returnStatement, statements);
                 var newSection = section.WithStatements(newStatements).WithAdditionalAnnotations(Formatter.Annotation);
                 newRoot = root.ReplaceNode(section, newSection);
                 break;
@@ -181,6 +190,23 @@ internal static class ReturnDecisionRewrites
         }
 
         return document.WithSyntaxRoot(newRoot);
+    }
+
+    /// <summary>
+    /// Moves the trivia that surrounded the return onto the first generated
+    /// statement: the statement's own leading trivia, followed by anything
+    /// between the return keyword and its expression (typically a comment
+    /// annotating the decision), so no comment is dropped by the rewrite.
+    /// </summary>
+    private static StatementSyntax WithPreservedDecisionTrivia(
+        StatementSyntax firstStatement,
+        ReturnStatementSyntax returnStatement)
+    {
+        var firstToken = firstStatement.GetFirstToken(includeZeroWidth: false);
+        var leading = returnStatement.GetLeadingTrivia();
+        leading = leading.AddRange(returnStatement.ReturnKeyword.TrailingTrivia);
+        leading = leading.AddRange(firstToken.LeadingTrivia);
+        return firstStatement.ReplaceToken(firstToken, firstToken.WithLeadingTrivia(leading));
     }
 
     private static List<StatementSyntax> CreateConditionalReplacement(
@@ -322,13 +348,34 @@ internal static class ReturnDecisionRewrites
     private static string FindAvailableName(SemanticModel semanticModel, ReturnStatementSyntax returnStatement)
     {
         var symbols = semanticModel.LookupSymbols(returnStatement.SpanStart);
-        var block = returnStatement.Ancestors().OfType<BlockSyntax>().FirstOrDefault();
-        var names = block is null
-            ? Enumerable.Empty<string>()
-            : block.DescendantTokens()
-                .Where(token => token.IsKind(SyntaxKind.IdentifierToken))
-                .Select(token => token.ValueText);
-        var identifiers = new HashSet<string>(names);
+        var identifiers = new HashSet<string>();
+
+        // The replacement shares the return's parent block, so every
+        // declaration inside that block can conflict with a generated local.
+        if (returnStatement.Parent is BlockSyntax insertionBlock)
+        {
+            AddSubtreeIdentifiers(insertionBlock, identifiers);
+        }
+
+        // Every declaration space enclosing the return conflicts as well,
+        // including declarations that appear after the return: the space of
+        // each enclosing block and, inside a switch statement, the space
+        // shared by all sections. Locals inside a section's own blocks are
+        // scoped to those blocks (the fix wraps generated section
+        // declarations in such blocks), so they cannot collide and are
+        // skipped to keep the chosen name stable across Fix-All batches.
+        foreach (var ancestor in returnStatement.Ancestors())
+        {
+            if (ancestor is BlockSyntax enclosingBlock && !ReferenceEquals(enclosingBlock, returnStatement.Parent))
+            {
+                AddBlockSpaceIdentifiers(enclosingBlock, identifiers);
+            }
+            else if (ancestor is SwitchStatementSyntax switchStatement)
+            {
+                AddSwitchSpaceIdentifiers(switchStatement, identifiers);
+            }
+        }
+
         var name = "result";
         var suffix = 1;
         while (IsUsedName(symbols, identifiers, name))
@@ -338,6 +385,111 @@ internal static class ReturnDecisionRewrites
         }
 
         return name;
+    }
+
+    /// <summary>
+    /// Collects every identifier in the subtree that can conflict with a
+    /// declaration introduced into the block, skipping nested function
+    /// bodies whose locals live in their own declaration space.
+    /// </summary>
+    private static void AddSubtreeIdentifiers(SyntaxNode node, HashSet<string> identifiers)
+    {
+        foreach (var token in node.DescendantTokens(DescendsIntoConflicts))
+        {
+            if (token.IsKind(SyntaxKind.IdentifierToken))
+            {
+                identifiers.Add(token.ValueText);
+            }
+        }
+    }
+
+    private static bool DescendsIntoConflicts(SyntaxNode node)
+    {
+        if (node is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax)
+        {
+            return false;
+        }
+
+        // A local function's name conflicts, but its body has its own
+        // declaration space.
+        return node is not BlockSyntax { Parent: LocalFunctionStatementSyntax };
+    }
+
+    /// <summary>
+    /// Collects the identifiers that belong to the block's own declaration
+    /// space: its direct declarations and the variables of expressions in
+    /// its direct statements, but not declarations scoped to nested blocks
+    /// or nested function bodies.
+    /// </summary>
+    private static void AddBlockSpaceIdentifiers(BlockSyntax block, HashSet<string> identifiers)
+    {
+        foreach (var statement in block.Statements)
+        {
+            switch (statement)
+            {
+                case BlockSyntax:
+                    continue;
+                case SwitchStatementSyntax switchStatement:
+                    AddSwitchSpaceIdentifiers(switchStatement, identifiers);
+                    continue;
+                default:
+                    AddStatementSpaceIdentifiers(statement, identifiers);
+                    continue;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Collects the identifiers that belong to the declaration space shared
+    /// by a switch statement's sections: case label patterns and each
+    /// section's direct declarations.
+    /// </summary>
+    private static void AddSwitchSpaceIdentifiers(SwitchStatementSyntax switchStatement, HashSet<string> identifiers)
+    {
+        AddStatementSpaceIdentifiers(switchStatement.Expression, identifiers);
+        foreach (var section in switchStatement.Sections)
+        {
+            foreach (var label in section.Labels)
+            {
+                AddStatementSpaceIdentifiers(label, identifiers);
+            }
+
+            foreach (var statement in section.Statements)
+            {
+                if (statement is BlockSyntax)
+                {
+                    continue;
+                }
+
+                AddStatementSpaceIdentifiers(statement, identifiers);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Collects the identifiers visible around the node without descending
+    /// into blocks or nested function bodies, whose declarations live in
+    /// their own declaration spaces.
+    /// </summary>
+    private static void AddStatementSpaceIdentifiers(SyntaxNode node, HashSet<string> identifiers)
+    {
+        foreach (var token in node.DescendantTokens(DescendsIntoNodeSpace))
+        {
+            if (token.IsKind(SyntaxKind.IdentifierToken))
+            {
+                identifiers.Add(token.ValueText);
+            }
+        }
+    }
+
+    private static bool DescendsIntoNodeSpace(SyntaxNode node)
+    {
+        if (node is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax)
+        {
+            return false;
+        }
+
+        return node is not BlockSyntax;
     }
 
     private static bool IsUsedName(

@@ -346,13 +346,15 @@ public sealed class NestedReturnDecisionCodeFixTests
                     switch (mode)
                     {
                         case Mode.Cached:
-                            var result = cache.Get(key);
-                            if (result is not null)
                             {
-                                return result;
-                            }
+                                var result = cache.Get(key);
+                                if (result is not null)
+                                {
+                                    return result;
+                                }
 
-                            return null;
+                                return null;
+                            }
                     }
 
                     return null;
@@ -611,6 +613,274 @@ public sealed class NestedReturnDecisionCodeFixTests
                     }
 
                     return "fallback";
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task AvoidsNameClashWithLaterOuterDeclaration()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                string? Read() => null;
+
+                string Load(bool flag)
+                {
+                    if (flag)
+                    {
+                        return {{InterpolateDiagnostic("Read() ?? \"fallback\"", NestedReturnDecisionAnalyzer.CoalesceRule)}};
+                    }
+
+                    var result = "saved";
+                    return result;
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            class C
+            {
+                string? Read() => null;
+
+                string Load(bool flag)
+                {
+                    if (flag)
+                    {
+                        var result1 = Read();
+                        if (result1 is not null)
+                        {
+                            return result1;
+                        }
+
+                        return "fallback";
+                    }
+
+                    var result = "saved";
+                    return result;
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task KeepsCommentAfterReturnKeyword()
+    {
+        var source = TestCode.Create($$"""
+            class C
+            {
+                bool Check() => true;
+
+                bool M(bool flag)
+                {
+                    lock (new object())
+                    {
+                        return /* decision */ {{InterpolateDiagnostic("Check()", NestedReturnDecisionAnalyzer.BooleanRule)}}; // End of decision.
+                    }
+                }
+            }
+            """);
+        const string fixedSource = """
+            class C
+            {
+                bool Check() => true;
+
+                bool M(bool flag)
+                {
+                    lock (new object())
+                    {
+                        /* decision */
+                        if (Check())
+                        {
+                            return true;
+                        }
+
+                        return false; // End of decision.
+                    }
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task ScopesGeneratedLocalAwayFromSiblingSectionLocal()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            enum Mode
+            {
+                Cached,
+                Live,
+            }
+
+            class Entry { }
+
+            class Cache
+            {
+                public Entry? Get(string key) => null;
+            }
+
+            class C
+            {
+                Entry? Read(Cache cache, Mode mode, string key)
+                {
+                    switch (mode)
+                    {
+                        case Mode.Cached:
+                            return {{InterpolateDiagnostic("cache.Get(key)", NestedReturnDecisionAnalyzer.NullableCallRule)}};
+                        case Mode.Live:
+                            var result = cache.Get(key);
+                            return result;
+                    }
+
+                    return null;
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            enum Mode
+            {
+                Cached,
+                Live,
+            }
+
+            class Entry { }
+
+            class Cache
+            {
+                public Entry? Get(string key) => null;
+            }
+
+            class C
+            {
+                Entry? Read(Cache cache, Mode mode, string key)
+                {
+                    switch (mode)
+                    {
+                        case Mode.Cached:
+                            {
+                                var result1 = cache.Get(key);
+                                if (result1 is not null)
+                                {
+                                    return result1;
+                                }
+
+                                return null;
+                            }
+
+                        case Mode.Live:
+                            var result = cache.Get(key);
+                            return result;
+                    }
+
+                    return null;
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task FixAllWrapsGeneratedLocalsInSiblingSections()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            enum Mode
+            {
+                Cached,
+                Live,
+            }
+
+            class Entry { }
+
+            class Cache
+            {
+                public Entry? Get(string key) => null;
+            }
+
+            class C
+            {
+                Entry? Read(Cache cache, Mode mode, string key, string otherKey)
+                {
+                    switch (mode)
+                    {
+                        case Mode.Cached:
+                            return {{InterpolateDiagnostic("cache.Get(key)", NestedReturnDecisionAnalyzer.NullableCallRule)}};
+                        case Mode.Live:
+                            return {{InterpolateDiagnostic("cache.Get(otherKey)", NestedReturnDecisionAnalyzer.NullableCallRule)}};
+                    }
+
+                    return null;
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            enum Mode
+            {
+                Cached,
+                Live,
+            }
+
+            class Entry { }
+
+            class Cache
+            {
+                public Entry? Get(string key) => null;
+            }
+
+            class C
+            {
+                Entry? Read(Cache cache, Mode mode, string key, string otherKey)
+                {
+                    switch (mode)
+                    {
+                        case Mode.Cached:
+                            {
+                                var result = cache.Get(key);
+                                if (result is not null)
+                                {
+                                    return result;
+                                }
+
+                                return null;
+                            }
+
+                        case Mode.Live:
+                            {
+                                var result = cache.Get(otherKey);
+                                if (result is not null)
+                                {
+                                    return result;
+                                }
+
+                                return null;
+                            }
+                    }
+
+                    return null;
                 }
             }
             """;

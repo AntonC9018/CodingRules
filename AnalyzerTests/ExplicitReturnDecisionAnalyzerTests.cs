@@ -269,6 +269,8 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
 
             class C
             {
+                string? Read() => null;
+
                 string? CustomCondition(Choice choice, bool stop)
                 {
                     if (stop)
@@ -297,6 +299,16 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
                     }
 
                     return flag ? /* keep */ null : "found";
+                }
+
+                string CoalesceThrow(bool stop)
+                {
+                    if (stop)
+                    {
+                        return "found";
+                    }
+
+                    return Read() ?? throw new System.InvalidOperationException();
                 }
             }
             """);

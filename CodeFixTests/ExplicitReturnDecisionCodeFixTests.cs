@@ -453,6 +453,112 @@ public sealed class ExplicitReturnDecisionCodeFixTests
             .RunAsync();
     }
 
+    [Fact]
+    public async Task NegatesCallConditionWithoutParens()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class C
+            {
+                bool HasItems() => true;
+
+                string? Pick(bool stop)
+                {
+                    if (stop)
+                    {
+                        return null;
+                    }
+
+                    return {{InterpolateDiagnostic("HasItems() ? null : \"found\"", ExplicitReturnDecisionAnalyzer.Rule)}};
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            class C
+            {
+                bool HasItems() => true;
+
+                string? Pick(bool stop)
+                {
+                    if (stop)
+                    {
+                        return null;
+                    }
+
+                    if (!HasItems())
+                    {
+                        return "found";
+                    }
+
+                    return null;
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
+    [Fact]
+    public async Task NegatesMemberAccessConditionWithoutParens()
+    {
+        var source = TestCode.Create($$"""
+            #nullable enable
+            class Item
+            {
+                public bool Valid { get; set; }
+                public string Name { get; set; } = "";
+            }
+
+            class C
+            {
+                string? Pick(bool stop, Item item)
+                {
+                    if (stop)
+                    {
+                        return null;
+                    }
+
+                    return {{InterpolateDiagnostic("item.Valid ? null : item.Name", ExplicitReturnDecisionAnalyzer.Rule)}};
+                }
+            }
+            """);
+        const string fixedSource = """
+            #nullable enable
+            class Item
+            {
+                public bool Valid { get; set; }
+                public string Name { get; set; } = "";
+            }
+
+            class C
+            {
+                string? Pick(bool stop, Item item)
+                {
+                    if (stop)
+                    {
+                        return null;
+                    }
+
+                    if (!item.Valid)
+                    {
+                        return item.Name;
+                    }
+
+                    return null;
+                }
+            }
+            """;
+
+        await Builder()
+            .WithSource(source)
+            .WithFixedCode(fixedSource)
+            .RunAsync();
+    }
+
     private static CodeFixTestBuilder<
         ExplicitReturnDecisionAnalyzer,
         ExplicitReturnDecisionCodeFixProvider,

@@ -34,7 +34,7 @@ internal sealed class InlineConditionFixAllProvider : FixAllProvider
                 continue;
             }
 
-            for (var pass = 0; pass < 1000; pass++)
+            while (true)
             {
                 var document = solution.GetDocument(original.Id)!;
                 var compilation = await document.Project.GetCompilationAsync(context.CancellationToken).ConfigureAwait(false);
@@ -48,12 +48,22 @@ internal sealed class InlineConditionFixAllProvider : FixAllProvider
                 var root = await document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
                 var model = await document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
                 var extract = context.CodeActionEquivalenceKey == InlineConditionCodeFixProvider.ExtractKey;
-                var plan = diagnostics.Where(diagnostic => diagnostic.Location.SourceTree == model?.SyntaxTree)
+                var candidates = diagnostics.Where(diagnostic => diagnostic.Location.SourceTree == model?.SyntaxTree
+                        && context.DiagnosticIds.Contains(diagnostic.Id))
                     .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)
                     .Select(diagnostic => root!.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) as ExpressionSyntax)
                     .Where(expression => expression is not null)
                     .Select(expression => ConditionRewritePlan.Create(expression!, model!, context.CancellationToken))
-                    .FirstOrDefault(candidate => candidate is not null && (extract ? candidate.CanExtract : candidate.CanExpand));
+                    .Where(candidate => candidate is not null && (extract ? candidate.CanExtract : candidate.CanExpand));
+                ConditionRewritePlan? plan = null;
+                foreach (var candidate in candidates)
+                {
+                    if (await InlineConditionFixes.IsValidAsync(document, candidate!, extract, context.CancellationToken).ConfigureAwait(false))
+                    {
+                        plan = candidate;
+                        break;
+                    }
+                }
                 if (plan is null)
                 {
                     break;

@@ -40,7 +40,7 @@ public sealed class InlineConditionCodeFixProvider : CodeFixProvider
             return;
         }
 
-        if (plan.CanExtract)
+        if (plan.CanExtract && await InlineConditionFixes.IsValidAsync(context.Document, plan, extract: true, context.CancellationToken).ConfigureAwait(false))
         {
             var title = expression.Ancestors().OfType<MemberDeclarationSyntax>().FirstOrDefault() is FieldDeclarationSyntax or PropertyDeclarationSyntax
                 && plan.Statement is null ? "Extract condition to private helper" : "Extract condition to local function";
@@ -48,7 +48,7 @@ public sealed class InlineConditionCodeFixProvider : CodeFixProvider
                 token => InlineConditionFixes.ApplyAsync(context.Document, plan, extract: true, token), ExtractKey), context.Diagnostics);
         }
 
-        if (plan.CanExpand)
+        if (plan.CanExpand && await InlineConditionFixes.IsValidAsync(context.Document, plan, extract: false, context.CancellationToken).ConfigureAwait(false))
         {
             context.RegisterCodeFix(CodeAction.Create("Expand condition into statements",
                 token => InlineConditionFixes.ApplyAsync(context.Document, plan, extract: false, token), ExpandKey), context.Diagnostics);

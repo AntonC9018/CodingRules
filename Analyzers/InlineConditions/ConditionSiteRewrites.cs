@@ -39,8 +39,11 @@ internal static class ConditionSiteRewrites
         if (expression.Parent is ArgumentSyntax argument)
         {
             var call = argument.Parent?.Parent;
+            var assignedCall = call?.Parent is AssignmentExpressionSyntax callAssignment && callAssignment.Right == call
+                && callAssignment.Parent is ExpressionStatementSyntax
+                && plan.Model.GetSymbolInfo(callAssignment.Left).Symbol is ILocalSymbol { RefKind: RefKind.None };
             if (call is not InvocationExpressionSyntax and not ObjectCreationExpressionSyntax
-                || call.Parent is not ExpressionStatementSyntax and not EqualsValueClauseSyntax)
+                || call.Parent is not ExpressionStatementSyntax and not EqualsValueClauseSyntax && !assignedCall)
             {
                 return false;
             }
@@ -200,10 +203,9 @@ internal static class ConditionSiteRewrites
 
     private static StatementSyntax PrepareEarlierArguments(ConditionRewritePlan plan, ConditionEvaluator evaluator, List<StatementSyntax> prefixes)
     {
-        var statement = plan.Statement!.ReplaceNode(plan.Expression, plan.Expression.WithAdditionalAnnotations(Selected));
         if (plan.Expression.Parent is not ArgumentSyntax selectedArgument)
         {
-            return statement;
+            return plan.Statement!.ReplaceNode(plan.Expression, plan.Expression.WithAdditionalAnnotations(Selected));
         }
 
         var call = selectedArgument.Parent!.Parent!;
@@ -225,9 +227,9 @@ internal static class ConditionSiteRewrites
                 plan.Model.GetTypeInfo(argument.Expression).ConvertedType));
         }
 
-        // Match original spans because annotating the selected node rebuilt ancestors.
-        var nodes = statement.DescendantNodes().Where(node => replacements.Keys.Any(original => original.Span == node.Span && original.RawKind == node.RawKind)).ToList();
-        return statement.ReplaceNodes(nodes, (node, _) => replacements.First(pair => pair.Key.Span == node.Span && pair.Key.RawKind == node.RawKind).Value);
+        var nodes = replacements.Keys.Concat(new[] { plan.Expression });
+        return plan.Statement!.ReplaceNodes(nodes, (node, rewritten) => node == plan.Expression
+            ? rewritten.WithAdditionalAnnotations(Selected) : replacements[node]);
     }
 
     private static SyntaxNode ExpandFlowIf(ConditionRewritePlan plan)
@@ -319,6 +321,15 @@ internal static class ConditionSiteRewrites
             var members = statements.Select(item => SyntaxFactory.GlobalStatement(item));
             return root.ReplaceNode(compilationUnit, compilationUnit.WithMembers(compilationUnit.Members.RemoveAt(index)
                 .InsertRange(index, members)).WithAdditionalAnnotations(Generated));
+        }
+
+        if (statement.Parent is SwitchSectionSyntax section)
+        {
+            var index = section.Statements.IndexOf(statement);
+            var changedStatements = section.Statements.RemoveAt(index).InsertRange(index, statements);
+            var changed = section.WithStatements(SyntaxFactory.SingletonList<StatementSyntax>(SyntaxFactory.Block(changedStatements)))
+                .WithAdditionalAnnotations(Generated);
+            return root.ReplaceNode(section, changed);
         }
 
         return root.ReplaceNode(statement, SyntaxFactory.Block(statements).WithAdditionalAnnotations(Generated));

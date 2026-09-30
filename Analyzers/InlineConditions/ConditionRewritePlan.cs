@@ -43,6 +43,21 @@ internal sealed class ConditionRewritePlan
         }
 
         var plan = new ConditionRewritePlan(expression, model);
+        foreach (var invocation in ConditionFacts.EvaluationNodes(expression).OfType<InvocationExpressionSyntax>())
+        {
+            var hasRefArguments = invocation.ArgumentList.Arguments.Any(argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None));
+            var hasNestedProducer = ConditionFacts.EvaluationNodes(invocation).Skip(1).Any(node => ConditionFacts.IsProducer(node, model));
+            if (hasRefArguments && hasNestedProducer)
+            {
+                return null;
+            }
+        }
+
+        if (expression.Ancestors().Any(node => node is CheckedExpressionSyntax or UnsafeStatementSyntax or FixedStatementSyntax))
+        {
+            return null;
+        }
+
         if (plan.DeclarationSpace.DescendantNodes().Any(node => node is LabeledStatementSyntax or GotoStatementSyntax)
             || HasCallerInformation(expression, model))
         {
@@ -69,7 +84,10 @@ internal sealed class ConditionRewritePlan
         }
 
         var declared = new HashSet<ISymbol>(flow.VariablesDeclared, SymbolEqualityComparer.Default);
-        var symbols = flow.ReadInside.Concat(flow.WrittenInside).Distinct(SymbolEqualityComparer.Default).ToList();
+        var referencedMembers = ConditionFacts.EvaluationNodes(expression).OfType<ExpressionSyntax>()
+            .Select(node => model.GetSymbolInfo(node).Symbol).Where(symbol => symbol is IFieldSymbol or IPropertySymbol);
+        var symbols = flow.ReadInside.Concat(flow.WrittenInside).Concat(referencedMembers.OfType<ISymbol>())
+            .Distinct(SymbolEqualityComparer.Default).ToList();
         var externalDeclarations = declared.Where(symbol => HasExternalReference(symbol, expression, plan.DeclarationSpace, model)).ToList();
         var writes = flow.WrittenInside.Any(symbol => !declared.Contains(symbol));
         var unsafeCapture = symbols.Any(symbol => symbol is IParameterSymbol { RefKind: not RefKind.None }
@@ -115,6 +133,14 @@ internal sealed class ConditionRewritePlan
         {
             plan.CanExpand = plan.Statement is IfStatementSyntax { Else: null } flowIf
                 && IsFlowPreserving(flowIf, externalDeclarations, plan.DeclarationSpace, model);
+            if (plan.CanExpand && plan.Statement?.Parent is BlockSyntax block && ReturnDecisionAnalysis.IsFunctionBody(block)
+                && ReturnDecisionAnalysis.TryGetFinalReturn(block, out var finalReturn)
+                && ReturnDecisionAnalysis.HasTopLevelGuard(block)
+                && ReturnDecisionAnalysis.TryGetKind(finalReturn, model, token, out _)
+                && !ReturnDecisionAnalysis.HasTopLevelGuard(block.WithStatements(block.Statements.Remove(plan.Statement))))
+            {
+                plan.CanExpand = false;
+            }
         }
 
         if (plan.Statement is not null && expression.Parent is not CatchFilterClauseSyntax and not WhenClauseSyntax)
@@ -155,6 +181,8 @@ internal sealed class ConditionRewritePlan
     {
         ILocalSymbol local => local.Type,
         IParameterSymbol parameter => parameter.Type,
+        IFieldSymbol field => field.Type,
+        IPropertySymbol property => property.Type,
         _ => null,
     };
 
@@ -192,16 +220,23 @@ internal sealed class ConditionRewritePlan
 
     private static bool HasCallerInformation(ExpressionSyntax expression, SemanticModel model)
     {
-        var affectedCalls = ConditionFacts.EvaluationNodes(expression).OfType<InvocationExpressionSyntax>()
-            .Concat(expression.Ancestors().OfType<InvocationExpressionSyntax>());
+        var affectedCalls = ConditionFacts.EvaluationNodes(expression).OfType<ExpressionSyntax>()
+            .Concat(expression.Ancestors().OfType<ExpressionSyntax>())
+            .Where(node => node is InvocationExpressionSyntax or ObjectCreationExpressionSyntax);
         foreach (var call in affectedCalls)
         {
-            if (model.GetOperation(call) is not IInvocationOperation operation)
+            var arguments = model.GetOperation(call) switch
+            {
+                IInvocationOperation invocation => invocation.Arguments,
+                IObjectCreationOperation creation => creation.Arguments,
+                _ => default,
+            };
+            if (arguments.IsDefault)
             {
                 continue;
             }
 
-            if (operation.Arguments.Any(argument => argument.IsImplicit && argument.Parameter?.GetAttributes()
+            if (arguments.Any(argument => argument.IsImplicit && argument.Parameter?.GetAttributes()
                 .Any(attribute => attribute.AttributeClass?.ContainingNamespace.ToDisplayString() == "System.Runtime.CompilerServices"
                     && attribute.AttributeClass.Name.StartsWith("Caller", System.StringComparison.Ordinal)) == true))
             {

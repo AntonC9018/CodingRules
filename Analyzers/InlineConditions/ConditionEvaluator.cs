@@ -70,7 +70,8 @@ internal sealed class ConditionEvaluator
         var unwrapped = ConditionFacts.Unwrap(expression);
         if (unwrapped is BinaryExpressionSyntax binary
             && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression
-            && CollectGuards(unwrapped, binary.Kind(), leaves))
+            && CollectGuards(unwrapped, binary.Kind(), leaves)
+            && !leaves.Any(leaf => model.GetConstantValue(leaf).HasValue))
         {
             var guards = new List<StatementSyntax>();
             var isAnd = binary.IsKind(SyntaxKind.LogicalAndExpression);
@@ -133,7 +134,7 @@ internal sealed class ConditionEvaluator
         {
             var left = LowerOriginal(binary.Left, statements, saveProducer: true);
             if (ConditionFacts.EvaluationNodes(binary.Right).Any(node => ConditionFacts.IsProducer(node, model))
-                && left is not LiteralExpressionSyntax && left is not IdentifierNameSyntax)
+                && !model.GetConstantValue(binary.Left).HasValue)
             {
                 left = Save(binary.Left, left, statements);
             }
@@ -142,8 +143,10 @@ internal sealed class ConditionEvaluator
             expression = binary.WithLeft(left).WithRight(right);
         }
         else if (expression is InvocationExpressionSyntax invocation
-            && invocation.ArgumentList.Arguments.Any(argument => ConditionFacts.EvaluationNodes(argument.Expression)
-                .Any(node => ConditionFacts.IsProducer(node, model))))
+            && (invocation.ArgumentList.Arguments.Any(argument => ConditionFacts.EvaluationNodes(argument.Expression)
+                .Any(node => ConditionFacts.IsProducer(node, model)))
+                || invocation.Expression is MemberAccessExpressionSyntax receiverAccess
+                    && ConditionFacts.EvaluationNodes(receiverAccess.Expression).Any(node => ConditionFacts.IsProducer(node, model))))
         {
             var target = invocation.Expression;
             if (target is MemberAccessExpressionSyntax access

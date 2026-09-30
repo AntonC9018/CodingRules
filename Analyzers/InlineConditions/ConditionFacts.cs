@@ -59,7 +59,7 @@ internal sealed class ConditionFacts
         {
             var first = Subject(facts.Leaves[0], model);
             var second = Subject(facts.Leaves[1], model);
-            if (first is not null && second is not null && first != second)
+            if (first is not null && second is not null && !first.Matches(second))
             {
                 facts.Reasons.Add(DiagnosticIds.IndependentConditionChecks);
             }
@@ -145,6 +145,11 @@ internal sealed class ConditionFacts
         }
 
         var type = method.ContainingType.OriginalDefinition.ToDisplayString();
+        if (invocation.ArgumentList.Arguments.Any(argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None)))
+        {
+            return true;
+        }
+
         if (!IsFramework(method))
         {
             return false;
@@ -270,12 +275,12 @@ internal sealed class ConditionFacts
         var second = Leaves[1];
         var subject = Subject(first, model);
         if (IsNullGuard(first) && subject is not null
-            && EvaluationNodes(second).OfType<ExpressionSyntax>().Any(node => Subject(node, model) == subject))
+            && EvaluationNodes(second).OfType<ExpressionSyntax>().Any(node => subject.Matches(Subject(node, model))))
         {
             return true;
         }
 
-        if (subject is null || subject != Subject(second, model))
+        if (subject is null || !subject.Matches(Subject(second, model)))
         {
             return false;
         }
@@ -312,11 +317,14 @@ internal sealed class ConditionFacts
         || expression is BinaryExpressionSyntax binary && model.GetOperation(binary) is IBinaryOperation { OperatorMethod: null }
             && model.GetConstantValue(binary.Left).HasValue && model.GetSymbolInfo(binary.Right).Symbol is ILocalSymbol or IParameterSymbol;
 
-    private static string? Subject(ExpressionSyntax expression, SemanticModel model)
+    private static ConditionSubject? Subject(ExpressionSyntax expression, SemanticModel model)
     {
         expression = Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary)
         {
+            if (binary.Kind() is not (SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression or SyntaxKind.LessThanExpression
+                or SyntaxKind.LessThanOrEqualExpression or SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression)) return null;
+            if (model.GetOperation(binary) is not IBinaryOperation { OperatorMethod: null }) return null;
             if (IsBound(binary.Right, model))
             {
                 return Subject(binary.Left, model);
@@ -327,6 +335,7 @@ internal sealed class ConditionFacts
 
         if (expression is IsPatternExpressionSyntax pattern)
         {
+            if (pattern.Pattern.DescendantNodesAndSelf().Any(node => node is VariableDesignationSyntax)) return null;
             return Subject(pattern.Expression, model);
         }
 
@@ -341,25 +350,6 @@ internal sealed class ConditionFacts
             return invocation.ArgumentList.Arguments.Count > 0 ? Subject(invocation.ArgumentList.Arguments[0].Expression, model) : null;
         }
 
-        if (expression is ElementAccessExpressionSyntax element)
-        {
-            var receiver = Subject(element.Expression, model);
-            return receiver is null ? null : receiver + "[" + element.ArgumentList + "]";
-        }
-
-        var symbol = model.GetSymbolInfo(expression).Symbol;
-        if (symbol is not ILocalSymbol and not IParameterSymbol and not IFieldSymbol and not IPropertySymbol)
-        {
-            return null;
-        }
-
-        var identity = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (expression is MemberAccessExpressionSyntax member)
-        {
-            var receiver = Subject(member.Expression, model);
-            return receiver is null ? null : receiver + "." + identity;
-        }
-
-        return identity;
+        return ConditionSubject.Create(expression, model);
     }
 }

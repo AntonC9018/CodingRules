@@ -44,11 +44,9 @@ internal sealed class ConditionEvaluator
         expression = ConditionFacts.Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
-            var statements = Evaluate(binary.Left, result);
-            var condition = binary.IsKind(SyntaxKind.LogicalAndExpression)
-                ? SyntaxFactory.IdentifierName(result) : Negate(SyntaxFactory.IdentifierName(result));
-            statements.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(Evaluate(binary.Right, result))));
-            return statements;
+            var leaves = new List<ExpressionSyntax>();
+            CollectChain(binary, binary.Kind(), leaves);
+            return EvaluateChain(leaves, 0, binary.Kind(), result);
         }
 
         if (expression is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
@@ -62,6 +60,63 @@ internal sealed class ConditionEvaluator
         var leaf = LowerLeaf(expression, prefixes, saveProducer: false);
         prefixes.Add(Assign(result, leaf));
         return prefixes;
+    }
+
+    private List<StatementSyntax> EvaluateChain(List<ExpressionSyntax> leaves, int index, SyntaxKind kind, string result)
+    {
+        if (index == leaves.Count - 1)
+        {
+            return Evaluate(leaves[index], result);
+        }
+
+        var statements = new List<StatementSyntax>();
+        ExpressionSyntax condition;
+        if (IsAtomic(leaves[index]) && !model.GetConstantValue(leaves[index]).HasValue)
+        {
+            condition = LowerLeaf(leaves[index], statements, saveProducer: false);
+        }
+        else
+        {
+            statements.AddRange(Evaluate(leaves[index], result));
+            condition = SyntaxFactory.IdentifierName(result);
+        }
+
+        var next = SyntaxFactory.Block(EvaluateChain(leaves, index + 1, kind, result));
+        var terminal = SyntaxFactory.Block(Assign(result, SyntaxFactory.LiteralExpression(
+            kind == SyntaxKind.LogicalAndExpression ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)));
+        var trueBranch = kind == SyntaxKind.LogicalAndExpression ? next : terminal;
+        var falseBranch = kind == SyntaxKind.LogicalAndExpression ? terminal : next;
+        statements.Add(SyntaxFactory.IfStatement(condition, trueBranch, SyntaxFactory.ElseClause(falseBranch)));
+        return statements;
+    }
+
+    private static void CollectChain(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
+    {
+        expression = ConditionFacts.Unwrap(expression);
+        if (expression is BinaryExpressionSyntax binary && binary.IsKind(kind))
+        {
+            CollectChain(binary.Left, kind, leaves);
+            CollectChain(binary.Right, kind, leaves);
+            return;
+        }
+
+        leaves.Add(expression);
+    }
+
+    private static bool IsAtomic(ExpressionSyntax expression)
+    {
+        expression = ConditionFacts.Unwrap(expression);
+        if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
+        {
+            return false;
+        }
+
+        if (expression is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
+        {
+            return IsAtomic(unary.Operand);
+        }
+
+        return true;
     }
 
     public BlockSyntax ReturnBody(ExpressionSyntax expression)
@@ -110,7 +165,7 @@ internal sealed class ConditionEvaluator
         }
 
         leaves.Add(expression);
-        return true;
+        return IsAtomic(expression);
     }
 
     private ExpressionSyntax LowerLeaf(ExpressionSyntax expression, List<StatementSyntax> statements, bool saveProducer)

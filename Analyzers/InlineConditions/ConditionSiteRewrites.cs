@@ -42,8 +42,9 @@ internal static class ConditionSiteRewrites
             var assignedCall = call?.Parent is AssignmentExpressionSyntax callAssignment && callAssignment.Right == call
                 && callAssignment.Parent is ExpressionStatementSyntax
                 && plan.Model.GetSymbolInfo(callAssignment.Left).Symbol is ILocalSymbol { RefKind: RefKind.None };
+            var ifCall = call?.Parent is IfStatementSyntax ifHost && ifHost.Condition == call;
             if (call is not InvocationExpressionSyntax and not ObjectCreationExpressionSyntax
-                || call.Parent is not ExpressionStatementSyntax and not EqualsValueClauseSyntax && !assignedCall)
+                || call.Parent is not ExpressionStatementSyntax and not EqualsValueClauseSyntax && !assignedCall && !ifCall)
             {
                 return false;
             }
@@ -97,6 +98,22 @@ internal static class ConditionSiteRewrites
         var root = expression.SyntaxTree.GetRoot();
         var name = evaluator.FreshName("CheckCondition");
         var body = evaluator.ReturnBody(expression);
+        foreach (var ancestor in expression.Ancestors())
+        {
+            if (ancestor is CheckedStatementSyntax checkedStatement)
+            {
+                var kind = checkedStatement.IsKind(SyntaxKind.CheckedStatement) ? SyntaxKind.CheckedStatement : SyntaxKind.UncheckedStatement;
+                body = SyntaxFactory.Block(SyntaxFactory.CheckedStatement(kind, body));
+                break;
+            }
+
+            if (ancestor is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or BaseMethodDeclarationSyntax or AccessorDeclarationSyntax)
+            {
+                break;
+            }
+        }
+
+        body = AddElasticLineBreaks(body);
         var parameters = plan.BridgeVariables.Select(symbol => SyntaxFactory.Parameter(SyntaxFactory.Identifier(symbol.Name))
             .WithType(ConditionEvaluator.TypeSyntax(symbol.Type)));
         var arguments = plan.BridgeVariables.Select(symbol => SyntaxFactory.Argument(SyntaxFactory.IdentifierName(symbol.Name)));
@@ -133,7 +150,7 @@ internal static class ConditionSiteRewrites
         if (statement is ForStatementSyntax { Declaration: not null } forLoop && expression.Parent == statement)
         {
             var declaration = SyntaxFactory.LocalDeclarationStatement(forLoop.Declaration);
-            var rewrittenLoop = ((ForStatementSyntax)changed).WithDeclaration(null);
+            var rewrittenLoop = ((ForStatementSyntax)changed).WithDeclaration(null).WithoutLeadingTrivia().WithoutTrailingTrivia();
             return root.ReplaceNode(statement, SyntaxFactory.Block(declaration, helper, rewrittenLoop)
                 .WithTriviaFrom(statement).WithAdditionalAnnotations(Generated));
         }
@@ -270,6 +287,13 @@ internal static class ConditionSiteRewrites
     private static IfStatementSyntax FalseBreak(string result) => SyntaxFactory.IfStatement(
         ConditionEvaluator.Negate(SyntaxFactory.IdentifierName(result)), SyntaxFactory.Block(SyntaxFactory.BreakStatement()));
 
+    private static BlockSyntax AddElasticLineBreaks(BlockSyntax body)
+    {
+        var statements = body.DescendantNodes().OfType<StatementSyntax>();
+        body = body.ReplaceNodes(statements, (_, changed) => changed.WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed));
+        return body.WithOpenBraceToken(body.OpenBraceToken.WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed));
+    }
+
     private static bool IsMemberInitializer(ExpressionSyntax expression) => expression.Parent is EqualsValueClauseSyntax
         && expression.Ancestors().TakeWhile(node => node is not StatementSyntax).Any(node => node is FieldDeclarationSyntax or PropertyDeclarationSyntax);
 
@@ -305,6 +329,11 @@ internal static class ConditionSiteRewrites
 
     private static SyntaxNode ReplaceStatement(SyntaxNode root, StatementSyntax statement, List<StatementSyntax> statements)
     {
+        if (statements.Count > 1)
+        {
+            statements[statements.Count - 1] = statements[statements.Count - 1].WithoutLeadingTrivia();
+        }
+
         statements[0] = statements[0].WithLeadingTrivia(statement.GetLeadingTrivia());
         statements[statements.Count - 1] = statements[statements.Count - 1].WithTrailingTrivia(statement.GetTrailingTrivia());
         if (statement.Parent is BlockSyntax block)

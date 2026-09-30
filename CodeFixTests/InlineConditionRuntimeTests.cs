@@ -144,4 +144,14 @@ public sealed class InlineConditionRuntimeTests
             """;
         await FixRetainsObservableHostTrace(source, both: true);
     }
+
+    [Theory]
+    [InlineData("checked")]
+    [InlineData("unchecked")]
+    public async Task HelperRetainsLexicalOverflowContext(string context)
+    {
+        var source = "public class C { public static string Run() { int value = int.MaxValue; bool a = true, b = true; try { " + context
+            + " { if (value + 1 > 0 && a && b) return \"true\"; } } catch(System.OverflowException) { return \"overflow\"; } return \"false\"; } }";
+        await FixRetainsObservableHostTrace(source, both: true);
+    }
 }

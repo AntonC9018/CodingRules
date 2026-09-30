@@ -103,4 +103,41 @@ public sealed class InlineConditionSafetyTests
         await InlineConditionTestFixture.Compiles(changed);
         Assert.DoesNotContain("return Use", (await changed.GetTextAsync()).ToString());
     }
+
+    [Fact]
+    public async Task TopLevelStatementKeepsLocalFunctionBinding()
+    {
+        var document = InlineConditionTestFixture.Document("bool A()=>true; bool B()=>true; bool D()=>true; if(A() && B() && D()) System.Console.WriteLine(\"work\");");
+        document = document.Project.WithCompilationOptions(new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+            Microsoft.CodeAnalysis.OutputKind.ConsoleApplication)).GetDocument(document.Id)!;
+        foreach (var key in new[] { InlineConditionCodeFixProvider.ExtractKey, InlineConditionCodeFixProvider.ExpandKey })
+        {
+            var changed = await InlineConditionTestFixture.Fix(document, key);
+            await InlineConditionTestFixture.Compiles(changed);
+            Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed));
+        }
+    }
+
+    [Fact]
+    public async Task UncheckedHelperOverridesProjectOverflowChecking()
+    {
+        var document = InlineConditionTestFixture.Document("public class C { public static string Run() { int value=int.MaxValue; bool a=true,b=true; unchecked { if(value+1>0 && a && b) return \"true\"; } return \"false\"; } }");
+        var options = (Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions)document.Project.CompilationOptions!;
+        document = document.Project.WithCompilationOptions(options.WithOverflowChecks(true)).GetDocument(document.Id)!;
+        var before = await InlineConditionTestFixture.Run(document);
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        Assert.Equal(before, await InlineConditionTestFixture.Run(changed));
+    }
+
+    [Theory]
+    [InlineData(InlineConditionCodeFixProvider.ExtractKey)]
+    [InlineData(InlineConditionCodeFixProvider.ExpandKey)]
+    public async Task HostCommentIsPreservedExactlyOnce(string key)
+    {
+        var document = InlineConditionTestFixture.Document("class C { void M(bool a, bool b, bool c) {\n// Keep the explanation.\nif(a && b && c) { }\n} }");
+        var changed = await InlineConditionTestFixture.Fix(document, key);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, "Keep the explanation"));
+        await InlineConditionTestFixture.Compiles(changed);
+    }
 }

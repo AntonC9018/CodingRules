@@ -60,12 +60,16 @@ internal static class InlineConditionFixes
         var options = await changed.GetOptionsAsync(token).ConfigureAwait(false);
         var language = document.Project.Language;
         var configured = options.GetOption(FormattingOptions.NewLine, language);
-        var workspaceDefault = document.Project.Solution.Workspace.Options.GetOption(FormattingOptions.NewLine, language);
         var source = await document.GetTextAsync(token).ConfigureAwait(false);
         var text = source.ToString();
         var firstNewline = text.IndexOf('\n');
         var original = firstNewline > 0 && text[firstNewline - 1] == '\r' ? "\r\n" : "\n";
-        var newline = string.Equals(configured, workspaceDefault, StringComparison.Ordinal) ? original : configured;
+        var config = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(plan.Expression.SyntaxTree);
+        var newline = original;
+        if (config.TryGetValue("end_of_line", out var configuredConvention))
+        {
+            newline = configuredConvention switch { "lf" => "\n", "crlf" => "\r\n", "cr" => "\r", _ => configured };
+        }
         return await Formatter.FormatAsync(changed, Formatter.Annotation,
             options.WithChangedOption(FormattingOptions.NewLine, language, newline), token).ConfigureAwait(false);
     }

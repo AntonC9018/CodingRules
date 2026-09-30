@@ -32,12 +32,7 @@ internal sealed class ConditionRewritePlan
 
     public static ConditionRewritePlan? Create(ExpressionSyntax expression, SemanticModel model, CancellationToken token)
     {
-        if (ConditionHosts.IsInsideExpressionTree(expression, model)
-            || expression.ContainsDiagnostics || expression.ContainsDirectives
-            || expression.DescendantTrivia().Any(trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
-                || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia) || trivia.IsKind(SyntaxKind.DisabledTextTrivia))
-            || ConditionFacts.EvaluationNodes(expression).Any(node => node is AwaitExpressionSyntax or RefExpressionSyntax)
-            || model.GetDiagnostics(expression.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
+        if (!CanMoveSyntax(expression, model, token))
         {
             return null;
         }
@@ -90,20 +85,17 @@ internal sealed class ConditionRewritePlan
             .Distinct(SymbolEqualityComparer.Default).ToList();
         var externalDeclarations = declared.Where(symbol => HasExternalReference(symbol, expression, plan.DeclarationSpace, model)).ToList();
         var writes = flow.WrittenInside.Any(symbol => !declared.Contains(symbol));
-        var unsafeCapture = symbols.Any(symbol => symbol is IParameterSymbol { RefKind: not RefKind.None }
-            or ILocalSymbol { RefKind: not RefKind.None } || SymbolType(symbol)?.IsRefLikeType == true);
+        var unsafeCapture = symbols.Any(CannotCapture);
         var containing = model.GetEnclosingSymbol(expression.SpanStart, token);
-        var structThis = containing?.ContainingType?.IsValueType == true
-            && ConditionFacts.EvaluationNodes(expression).Any(node => node is ThisExpressionSyntax
-                || model.GetSymbolInfo(node, token).Symbol is IFieldSymbol { IsStatic: false }
-                    or IPropertySymbol { IsStatic: false } or IMethodSymbol { IsStatic: false });
-        var nullableDependency = expression.Ancestors().OfType<IfStatementSyntax>().FirstOrDefault() is { } ifHost
-            && symbols.Any(symbol => SymbolType(symbol)?.NullableAnnotation == NullableAnnotation.Annotated
-                && ifHost.DescendantNodes().OfType<IdentifierNameSyntax>().Any(identifier => !expression.Span.Contains(identifier.Span)
-                    && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol)
-                    && model.GetTypeInfo(identifier).Nullability.FlowState == NullableFlowState.NotNull));
+        var structThis = containing?.ContainingType?.IsValueType == true && CapturesThis(expression, model);
+        var nullableDependency = NeedsNullableFlow(expression, symbols, model);
 
-        plan.CanExtract = !writes && !unsafeCapture && !structThis && externalDeclarations.Count == 0 && !nullableDependency;
+        plan.CanExtract = true;
+        if (writes) plan.CanExtract = false;
+        if (unsafeCapture) plan.CanExtract = false;
+        if (structThis) plan.CanExtract = false;
+        if (externalDeclarations.Count != 0) plan.CanExtract = false;
+        if (nullableDependency) plan.CanExtract = false;
         plan.NeedsFlowPreservingIf = externalDeclarations.Count != 0 || nullableDependency;
         plan.CanExpand = plan.Statement is not null;
         if (expression.Parent is ArrowExpressionClauseSyntax or LambdaExpressionSyntax)
@@ -133,11 +125,7 @@ internal sealed class ConditionRewritePlan
         {
             plan.CanExpand = plan.Statement is IfStatementSyntax { Else: null } flowIf
                 && IsFlowPreserving(flowIf, externalDeclarations, plan.DeclarationSpace, model);
-            if (plan.CanExpand && plan.Statement?.Parent is BlockSyntax block && ReturnDecisionAnalysis.IsFunctionBody(block)
-                && ReturnDecisionAnalysis.TryGetFinalReturn(block, out var finalReturn)
-                && ReturnDecisionAnalysis.HasTopLevelGuard(block)
-                && ReturnDecisionAnalysis.TryGetKind(finalReturn, model, token, out _)
-                && !ReturnDecisionAnalysis.HasTopLevelGuard(block.WithStatements(block.Statements.Remove(plan.Statement))))
+            if (WouldHideReturnWarning(plan, token))
             {
                 plan.CanExpand = false;
             }
@@ -185,6 +173,81 @@ internal sealed class ConditionRewritePlan
         IPropertySymbol property => property.Type,
         _ => null,
     };
+
+    private static bool CanMoveSyntax(ExpressionSyntax expression, SemanticModel model, CancellationToken token)
+    {
+        if (ConditionHosts.IsInsideExpressionTree(expression, model)) return false;
+        if (expression.ContainsDiagnostics) return false;
+        if (expression.ContainsDirectives) return false;
+        if (expression.DescendantTrivia().Any(IsUnsafeTrivia)) return false;
+        if (ConditionFacts.EvaluationNodes(expression).Any(node => node is AwaitExpressionSyntax or RefExpressionSyntax)) return false;
+        if (model.GetDiagnostics(expression.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return false;
+        return true;
+    }
+
+    private static bool IsUnsafeTrivia(SyntaxTrivia trivia) => trivia.Kind() is SyntaxKind.SingleLineCommentTrivia
+        or SyntaxKind.MultiLineCommentTrivia or SyntaxKind.DisabledTextTrivia;
+
+    private static bool CannotCapture(ISymbol symbol)
+    {
+        if (symbol is IParameterSymbol { RefKind: not RefKind.None }) return true;
+        if (symbol is ILocalSymbol { RefKind: not RefKind.None }) return true;
+        if (symbol is not ILocalSymbol and not IParameterSymbol) return false;
+        if (SymbolType(symbol)?.IsRefLikeType == true) return true;
+        return false;
+    }
+
+    private static bool NeedsNullableFlow(ExpressionSyntax expression, List<ISymbol> symbols, SemanticModel model)
+    {
+        var host = expression.Ancestors().OfType<IfStatementSyntax>().FirstOrDefault();
+        if (host is null) return false;
+        foreach (var symbol in symbols)
+        {
+            if (SymbolType(symbol)?.NullableAnnotation != NullableAnnotation.Annotated) continue;
+            foreach (var identifier in host.DescendantNodes().OfType<IdentifierNameSyntax>())
+            {
+                if (expression.Span.Contains(identifier.Span)) continue;
+                if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol)) continue;
+                if (model.GetTypeInfo(identifier).Nullability.FlowState == NullableFlowState.NotNull) return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool WouldHideReturnWarning(ConditionRewritePlan plan, CancellationToken token)
+    {
+        if (!plan.CanExpand) return false;
+        if (plan.Statement?.Parent is not BlockSyntax block) return false;
+        if (!ReturnDecisionAnalysis.IsFunctionBody(block)) return false;
+        if (!ReturnDecisionAnalysis.TryGetFinalReturn(block, out var finalReturn)) return false;
+        if (!ReturnDecisionAnalysis.HasTopLevelGuard(block)) return false;
+        if (!ReturnDecisionAnalysis.TryGetKind(finalReturn, plan.Model, token, out _)) return false;
+        var remaining = block.WithStatements(block.Statements.Remove(plan.Statement));
+        if (ReturnDecisionAnalysis.HasTopLevelGuard(remaining)) return false;
+        return true;
+    }
+
+    private static bool CapturesThis(ExpressionSyntax expression, SemanticModel model)
+    {
+        foreach (var node in ConditionFacts.EvaluationNodes(expression).OfType<ExpressionSyntax>())
+        {
+            var instance = model.GetOperation(node) switch
+            {
+                IFieldReferenceOperation field => field.Instance,
+                IPropertyReferenceOperation property => property.Instance,
+                IInvocationOperation invocation => invocation.Instance,
+                IInstanceReferenceOperation reference => reference,
+                _ => null,
+            };
+            if (instance is IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static bool HasExternalReference(ISymbol symbol, ExpressionSyntax expression, SyntaxNode scope, SemanticModel model) =>
         scope.DescendantNodes().OfType<IdentifierNameSyntax>().Any(identifier => !expression.Span.Contains(identifier.Span)

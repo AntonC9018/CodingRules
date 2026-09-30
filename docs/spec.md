@@ -216,6 +216,17 @@ safety boundaries. Omitted caller-information arguments prohibit affected moves;
 explicit original caller constants remain supported. Params, ref/out/in and
 location-sensitive argument expansion is omitted when faithful timing cannot
 be established. A safe same-site helper remains available where possible.
+Nested short-circuit and typed conditional operands lower producers only on
+their reached branches; element-index producers keep the receiver and index
+evaluation order. Original parentheses survive reinsertion, and fixes are
+validated against formatted, reparsed source. Producing operations inside
+unsupported lazy shapes, such as null coalescing or conditional access, are
+individual conservative skips. Target-typed or throwing conditional operands
+and moves that would copy a mutable value-type receiver also remain skips.
+A flow-preserving whole-if expansion requires the diagnosed expression to be
+that if's condition. A nested Boolean argument depending on the outer guard's
+nullable flow is omitted when neither an independent helper nor a rewrite of
+the selected argument is safe; it cannot borrow the outer condition's plan.
 Frozen return diagnostics retain their classification and may overlap Boolean
 returns: extraction leaves an existing return warning available; direct literal
 return expansion resolves that same decision. Unrelated return warnings remain.

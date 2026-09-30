@@ -32,7 +32,7 @@ internal sealed class ConditionRewritePlan
 
     public static ConditionRewritePlan? Create(ExpressionSyntax expression, SemanticModel model, CancellationToken token)
     {
-        if (!CanMoveSyntax(expression, model, token))
+        if (!CanMoveSyntax(expression, model, token) || !CanLowerOperations(expression, model))
         {
             return null;
         }
@@ -90,7 +90,7 @@ internal sealed class ConditionRewritePlan
         var structThis = containing?.ContainingType?.IsValueType == true && CapturesThis(expression, model);
         var nullableDependency = NeedsNullableFlow(expression, symbols, model);
 
-        plan.CanExtract = true;
+        plan.CanExtract = ConditionSiteRewrites.SupportsExtraction(expression);
         if (writes) plan.CanExtract = false;
         if (unsafeCapture) plan.CanExtract = false;
         if (structThis) plan.CanExtract = false;
@@ -124,6 +124,7 @@ internal sealed class ConditionRewritePlan
         if (plan.NeedsFlowPreservingIf)
         {
             plan.CanExpand = plan.Statement is IfStatementSyntax { Else: null } flowIf
+                && ConditionFacts.Unwrap(expression) == ConditionFacts.Unwrap(flowIf.Condition)
                 && IsFlowPreserving(flowIf, externalDeclarations, plan.DeclarationSpace, model);
             if (WouldHideReturnWarning(plan, token))
             {
@@ -163,6 +164,45 @@ internal sealed class ConditionRewritePlan
         }
 
         return plan;
+    }
+
+    private static bool CanLowerOperations(ExpressionSyntax expression, SemanticModel model)
+    {
+        foreach (var node in ConditionFacts.EvaluationNodes(expression).OfType<ExpressionSyntax>())
+        {
+            if (!ConditionFacts.EvaluationNodes(node).Skip(1).Any(child => ConditionFacts.IsProducer(child, model)))
+            {
+                continue;
+            }
+
+            var supported = node switch
+            {
+                ParenthesizedExpressionSyntax => true,
+                BinaryExpressionSyntax binary => !binary.IsKind(SyntaxKind.CoalesceExpression)
+                    && model.GetOperation(binary) is IBinaryOperation operation
+                    && (operation.OperatorMethod is null || model.ClassifyConversion(binary.Left, operation.LeftOperand.Type!).IsIdentity
+                        && model.ClassifyConversion(binary.Right, operation.RightOperand.Type!).IsIdentity)
+                    && model.GetTypeInfo(binary).Type?.TypeKind != TypeKind.Dynamic,
+                PrefixUnaryExpressionSyntax unary => unary.Kind() is SyntaxKind.LogicalNotExpression
+                    or SyntaxKind.UnaryMinusExpression or SyntaxKind.UnaryPlusExpression or SyntaxKind.BitwiseNotExpression,
+                ConditionalExpressionSyntax conditional => model.GetTypeInfo(conditional).Type is { IsRefLikeType: false }
+                    && conditional.WhenTrue is not ThrowExpressionSyntax && conditional.WhenFalse is not ThrowExpressionSyntax,
+                InvocationExpressionSyntax invocation => model.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+                    && (method.IsStatic || method.ContainingType.IsReferenceType) && !method.ReturnsByRef && !method.ReturnsByRefReadonly,
+                ElementAccessExpressionSyntax element => model.GetTypeInfo(element.Expression).Type?.IsReferenceType == true
+                    && model.GetSymbolInfo(element).Symbol is not IPropertySymbol { ReturnsByRef: true }
+                    and not IPropertySymbol { ReturnsByRefReadonly: true },
+                MemberAccessExpressionSyntax => true,
+                CastExpressionSyntax => true,
+                _ => false,
+            };
+            if (!supported)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static ITypeSymbol? SymbolType(ISymbol symbol) => symbol switch

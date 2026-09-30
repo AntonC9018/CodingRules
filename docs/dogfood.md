@@ -68,3 +68,27 @@ loops/continue, filter search before finally, switch guards and initialization.
 The final solution run passed 41 analyzer and 177 code-fix/package tests,
 including the two comment-preservation regression cases and both fresh-package
 consumer tests.
+
+### Review corrections, 2026-09-30
+
+After the consolidated review fixes, the Release solution passed **245 tests**:
+41 analyzer tests and 204 code-fix/package tests, including both fresh-package
+consumers and 27 new regression cases. The regressions compile and execute
+saved/reparsed fixes, check reached producer evaluation, preserve unrelated
+diagnostics, and bound Fix All completion and idempotence.
+
+The new `0.1.0-issue003fixes` package was restored into a separate cache for the
+pinned temporary reference copy. A stalled third-party dependency download was
+replaced by seeding those unchanged dependencies from the earlier cache; the
+CodingRules package itself was freshly restored from the new package feed.
+The reference Release build again succeeded with **66 warnings and zero errors**.
+All seven expected positive roots, ten distinct CR02xx sites, and the four
+negative boundary groups above remained unchanged. The original FindJobHelper
+checkout stayed clean at the pinned commit.
+
+The nested nullable-argument case that previously rewrote its outer if now
+produces no diagnostic when neither action can safely rewrite the selected
+argument. Flow-preserving expansion remains supported for the actual whole-if
+root, including mixed trees and producing leaves. Nested logical/conditional
+producer operands and element indices now retain laziness and grouping; nested
+member initializers and constructor/destructor arrows have working extraction.

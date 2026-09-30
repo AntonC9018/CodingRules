@@ -78,6 +78,9 @@ internal static class InlineConditionTestFixture
         Assert.True(diagnostics.Length == 0, string.Join(Environment.NewLine, diagnostics.Select(diagnostic => diagnostic.ToString())));
     }
 
+    public static async Task<Document> Reparse(Document document) => document.WithSyntaxRoot(CSharpSyntaxTree.ParseText(
+        await document.GetTextAsync(), (CSharpParseOptions)document.Project.ParseOptions!).GetRoot());
+
     public static async Task<string> Run(Document document)
     {
         await Compiles(document);

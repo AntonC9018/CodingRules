@@ -70,6 +70,13 @@ internal sealed class InlineConditionFixAllProvider : FixAllProvider
                 }
 
                 var changed = await InlineConditionFixes.ApplyAsync(document, plan, extract, context.CancellationToken).ConfigureAwait(false);
+                var before = await document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
+                var after = await changed.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
+                if (before.ContentEquals(after))
+                {
+                    break;
+                }
+
                 solution = changed.Project.Solution;
             }
         }

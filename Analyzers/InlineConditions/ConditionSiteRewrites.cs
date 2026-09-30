@@ -12,6 +12,9 @@ internal static class ConditionSiteRewrites
 {
     internal static readonly SyntaxAnnotation Generated = new("InlineConditionGenerated");
 
+    public static bool SupportsExtraction(ExpressionSyntax expression) =>
+        ConditionHosts.FindStatement(expression) is not null || IsMemberInitializer(expression) || FindExpressionBody(expression) is not null;
+
     public static bool SupportsExpansion(ConditionRewritePlan plan)
     {
         var expression = plan.Expression;
@@ -175,7 +178,7 @@ internal static class ConditionSiteRewrites
 
         if (plan.NeedsFlowPreservingIf)
         {
-            return ExpandFlowIf(plan);
+            return ExpandFlowIf(plan, evaluator);
         }
 
         var result = evaluator.FreshName("conditionResult");
@@ -249,39 +252,36 @@ internal static class ConditionSiteRewrites
             ? rewritten.WithAdditionalAnnotations(Selected) : replacements[node]);
     }
 
-    private static SyntaxNode ExpandFlowIf(ConditionRewritePlan plan)
+    private static SyntaxNode ExpandFlowIf(ConditionRewritePlan plan, ConditionEvaluator evaluator)
     {
         var statement = (IfStatementSyntax)plan.Statement!;
         var condition = ConditionFacts.Unwrap(statement.Condition);
         var conjunction = ((BinaryExpressionSyntax)condition).IsKind(SyntaxKind.LogicalAndExpression);
         var leaves = new List<ExpressionSyntax>();
-        CollectHomogeneous(condition, conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression, leaves);
+        ConditionFacts.CollectChain(condition, conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression, leaves);
         if (conjunction)
         {
             StatementSyntax body = statement.Statement;
             for (var index = leaves.Count - 1; index >= 0; index--)
             {
-                body = SyntaxFactory.IfStatement(leaves[index], index == leaves.Count - 1 ? body : SyntaxFactory.Block(body));
+                var prefixes = new List<StatementSyntax>();
+                var leaf = evaluator.LowerCondition(leaves[index], prefixes);
+                var guard = SyntaxFactory.IfStatement(leaf, index == leaves.Count - 1 ? body : SyntaxFactory.Block(body));
+                prefixes.Add(guard);
+                body = prefixes.Count == 1 ? guard : SyntaxFactory.Block(prefixes);
             }
 
             return statement.SyntaxTree.GetRoot().ReplaceNode(statement, body.WithTriviaFrom(statement).WithAdditionalAnnotations(Generated));
         }
 
-        var guards = leaves.Select(leaf => (StatementSyntax)SyntaxFactory.IfStatement(leaf, statement.Statement.WithoutTrivia())).ToList();
-        return ReplaceStatement(statement.SyntaxTree.GetRoot(), statement, guards);
-    }
-
-    private static void CollectHomogeneous(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
-    {
-        expression = ConditionFacts.Unwrap(expression);
-        if (expression is BinaryExpressionSyntax binary && binary.IsKind(kind))
+        var guards = new List<StatementSyntax>();
+        foreach (var leaf in leaves)
         {
-            CollectHomogeneous(binary.Left, kind, leaves);
-            CollectHomogeneous(binary.Right, kind, leaves);
-            return;
+            var conditionLeaf = evaluator.LowerCondition(leaf, guards);
+            guards.Add(SyntaxFactory.IfStatement(conditionLeaf, statement.Statement.WithoutTrivia()));
         }
 
-        leaves.Add(expression);
+        return ReplaceStatement(statement.SyntaxTree.GetRoot(), statement, guards);
     }
 
     private static IfStatementSyntax FalseBreak(string result) => SyntaxFactory.IfStatement(
@@ -294,8 +294,10 @@ internal static class ConditionSiteRewrites
         return body.WithOpenBraceToken(body.OpenBraceToken.WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed));
     }
 
-    private static bool IsMemberInitializer(ExpressionSyntax expression) => expression.Parent is EqualsValueClauseSyntax
-        && expression.Ancestors().TakeWhile(node => node is not StatementSyntax).Any(node => node is FieldDeclarationSyntax or PropertyDeclarationSyntax);
+    private static bool IsMemberInitializer(ExpressionSyntax expression) => expression.Ancestors()
+        .TakeWhile(node => node is not StatementSyntax and not ArrowExpressionClauseSyntax and not AnonymousFunctionExpressionSyntax)
+        .OfType<EqualsValueClauseSyntax>().Any(initializer => initializer.Parent is PropertyDeclarationSyntax
+            || initializer.Parent?.Parent?.Parent is FieldDeclarationSyntax);
 
     private static SyntaxNode? FindExpressionBody(ExpressionSyntax expression) => expression.Ancestors()
         .TakeWhile(node => node is not StatementSyntax and not MemberDeclarationSyntax)
@@ -312,6 +314,8 @@ internal static class ConditionSiteRewrites
         SyntaxNode replacement = arrow.Parent switch
         {
             MethodDeclarationSyntax method => method.WithExpressionBody(null).WithSemicolonToken(default).WithBody(body),
+            ConstructorDeclarationSyntax constructor => constructor.WithExpressionBody(null).WithSemicolonToken(default).WithBody(body),
+            DestructorDeclarationSyntax destructor => destructor.WithExpressionBody(null).WithSemicolonToken(default).WithBody(body),
             OperatorDeclarationSyntax method => method.WithExpressionBody(null).WithSemicolonToken(default).WithBody(body),
             ConversionOperatorDeclarationSyntax method => method.WithExpressionBody(null).WithSemicolonToken(default).WithBody(body),
             AccessorDeclarationSyntax accessor => accessor.WithExpressionBody(null).WithSemicolonToken(default).WithBody(body),
@@ -322,7 +326,7 @@ internal static class ConditionSiteRewrites
             IndexerDeclarationSyntax indexer => indexer.WithExpressionBody(null).WithSemicolonToken(default)
                 .WithAccessorList(SyntaxFactory.AccessorList(SyntaxFactory.SingletonList(
                     SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration).WithBody(body)))),
-            _ => arrow.Parent!,
+            _ => throw new System.InvalidOperationException("Unsupported expression body"),
         };
         return root.ReplaceNode(arrow.Parent!, replacement.WithAdditionalAnnotations(Generated));
     }

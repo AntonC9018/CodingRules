@@ -9,6 +9,7 @@ namespace CodingRules;
 /// <summary>Evaluates the original tree once, in order, without Boolean algebra.</summary>
 internal sealed class ConditionEvaluator
 {
+    internal static readonly SyntaxAnnotation Linearized = new("InlineConditionLinearized");
     private readonly SemanticModel model;
     private readonly HashSet<string> names;
 
@@ -45,7 +46,7 @@ internal sealed class ConditionEvaluator
         if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
             var leaves = new List<ExpressionSyntax>();
-            CollectChain(binary, binary.Kind(), leaves);
+            ConditionFacts.CollectChain(binary, binary.Kind(), leaves);
             return EvaluateChain(leaves, 0, binary.Kind(), result);
         }
 
@@ -88,19 +89,6 @@ internal sealed class ConditionEvaluator
         var falseBranch = kind == SyntaxKind.LogicalAndExpression ? terminal : next;
         statements.Add(SyntaxFactory.IfStatement(condition, trueBranch, SyntaxFactory.ElseClause(falseBranch)));
         return statements;
-    }
-
-    private static void CollectChain(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
-    {
-        expression = ConditionFacts.Unwrap(expression);
-        if (expression is BinaryExpressionSyntax binary && binary.IsKind(kind))
-        {
-            CollectChain(binary.Left, kind, leaves);
-            CollectChain(binary.Right, kind, leaves);
-            return;
-        }
-
-        leaves.Add(expression);
     }
 
     private static bool IsAtomic(ExpressionSyntax expression)
@@ -158,29 +146,62 @@ internal sealed class ConditionEvaluator
 
     private static bool CollectGuards(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
     {
-        expression = ConditionFacts.Unwrap(expression);
-        if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
+        ConditionFacts.CollectChain(expression, kind, leaves);
+        return leaves.All(IsAtomic);
+    }
+
+    public ExpressionSyntax LowerCondition(ExpressionSyntax expression, List<StatementSyntax> statements)
+    {
+        if (IsAtomic(expression) && !model.GetConstantValue(expression).HasValue)
         {
-            return binary.IsKind(kind) && CollectGuards(binary.Left, kind, leaves) && CollectGuards(binary.Right, kind, leaves);
+            return LowerLeaf(expression, statements, saveProducer: false);
         }
 
-        leaves.Add(expression);
-        return IsAtomic(expression);
+        var result = FreshName("conditionResult");
+        statements.Add(DeclareBool(result));
+        statements.AddRange(Evaluate(expression, result));
+        return SyntaxFactory.IdentifierName(result);
     }
 
-    private ExpressionSyntax LowerLeaf(ExpressionSyntax expression, List<StatementSyntax> statements, bool saveProducer)
-    {
-        expression = ConditionFacts.Unwrap(expression);
-        // Semantic queries refer to original nodes, so keep them until recursion completes.
-        return LowerOriginal(expression, statements, saveProducer);
-    }
+    private ExpressionSyntax LowerLeaf(ExpressionSyntax expression, List<StatementSyntax> statements, bool saveProducer) =>
+        LowerOriginal(expression, statements, saveProducer).WithAdditionalAnnotations(Linearized);
 
     private ExpressionSyntax LowerOriginal(ExpressionSyntax expression, List<StatementSyntax> statements, bool saveProducer)
     {
         var original = expression;
-        expression = ConditionFacts.Unwrap(expression);
+        if (expression is ParenthesizedExpressionSyntax parentheses)
+        {
+            return parentheses.WithExpression(LowerOriginal(parentheses.Expression, statements, saveProducer)).WithoutTrivia();
+        }
+
         var producer = ConditionFacts.IsProducer(expression, model);
-        if (expression is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
+        if (expression is BinaryExpressionSyntax lazy && lazy.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
+        {
+            var result = FreshName("conditionResult");
+            statements.Add(DeclareBool(result));
+            statements.AddRange(Evaluate(lazy, result));
+            return SyntaxFactory.IdentifierName(result);
+        }
+
+        if (expression is ConditionalExpressionSyntax conditional && HasProducer(conditional))
+        {
+            var result = FreshName("conditionValue");
+            statements.Add(SyntaxFactory.LocalDeclarationStatement(SyntaxFactory.VariableDeclaration(
+                TypeSyntax(model.GetTypeInfo(conditional).Type), SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator(result)))));
+            var condition = LowerCondition(conditional.Condition, statements);
+            var whenTrue = new List<StatementSyntax>();
+            var trueValue = LowerOriginal(conditional.WhenTrue, whenTrue, saveProducer: true);
+            whenTrue.Add(Assign(result, trueValue));
+            var whenFalse = new List<StatementSyntax>();
+            var falseValue = LowerOriginal(conditional.WhenFalse, whenFalse, saveProducer: true);
+            whenFalse.Add(Assign(result, falseValue));
+            statements.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(whenTrue),
+                SyntaxFactory.ElseClause(SyntaxFactory.Block(whenFalse))));
+            return SyntaxFactory.IdentifierName(result);
+        }
+
+        if (expression is PrefixUnaryExpressionSyntax unary && unary.Kind() is SyntaxKind.LogicalNotExpression
+            or SyntaxKind.UnaryMinusExpression or SyntaxKind.UnaryPlusExpression or SyntaxKind.BitwiseNotExpression)
         {
             expression = unary.WithOperand(LowerOriginal(unary.Operand, statements, saveProducer: true));
         }
@@ -228,6 +249,21 @@ internal sealed class ConditionEvaluator
         {
             expression = member.WithExpression(LowerOriginal(member.Expression, statements, saveProducer: true));
         }
+        else if (expression is ElementAccessExpressionSyntax element && HasProducer(element))
+        {
+            var receiver = LowerOriginal(element.Expression, statements, saveProducer: true);
+            receiver = Save(element.Expression, receiver, statements);
+            var arguments = new List<ArgumentSyntax>();
+            foreach (var argument in element.ArgumentList.Arguments)
+            {
+                var value = LowerOriginal(argument.Expression, statements, saveProducer: true);
+                value = Save(argument.Expression, value, statements, model.GetTypeInfo(argument.Expression).ConvertedType);
+                arguments.Add(argument.WithExpression(value));
+            }
+
+            expression = element.WithExpression(receiver).WithArgumentList(
+                element.ArgumentList.WithArguments(SyntaxFactory.SeparatedList(arguments)));
+        }
         else if (expression is CastExpressionSyntax cast)
         {
             expression = cast.WithExpression(LowerOriginal(cast.Expression, statements, saveProducer: true));
@@ -241,12 +277,16 @@ internal sealed class ConditionEvaluator
         return expression.WithoutTrivia();
     }
 
+    private bool HasProducer(ExpressionSyntax expression) =>
+        ConditionFacts.EvaluationNodes(expression).Any(node => ConditionFacts.IsProducer(node, model));
+
     public ExpressionSyntax Save(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
     {
         var name = FreshName("conditionValue");
         type ??= model.GetTypeInfo(original).Type;
         var declaration = SyntaxFactory.VariableDeclaration(TypeSyntax(type), SyntaxFactory.SingletonSeparatedList(
-            SyntaxFactory.VariableDeclarator(name).WithInitializer(SyntaxFactory.EqualsValueClause(value.WithoutTrivia()))));
+            SyntaxFactory.VariableDeclarator(name).WithInitializer(SyntaxFactory.EqualsValueClause(
+                value.WithoutTrivia().WithAdditionalAnnotations(Linearized)))));
         statements.Add(SyntaxFactory.LocalDeclarationStatement(declaration));
         return SyntaxFactory.IdentifierName(name);
     }
@@ -259,7 +299,8 @@ internal sealed class ConditionEvaluator
             SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator(name))));
 
     private static ExpressionStatementSyntax Assign(string name, ExpressionSyntax expression) => SyntaxFactory.ExpressionStatement(
-        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName(name), expression));
+        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName(name),
+            expression.WithAdditionalAnnotations(Linearized)));
 
     internal static ExpressionSyntax Negate(ExpressionSyntax expression) => SyntaxFactory.PrefixUnaryExpression(
         SyntaxKind.LogicalNotExpression, SyntaxFactory.ParenthesizedExpression(expression));

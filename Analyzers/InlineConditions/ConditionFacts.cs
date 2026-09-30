@@ -120,6 +120,19 @@ internal sealed class ConditionFacts
         return expression;
     }
 
+    internal static void CollectChain(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
+    {
+        var unwrapped = Unwrap(expression);
+        if (unwrapped is BinaryExpressionSyntax binary && binary.IsKind(kind))
+        {
+            CollectChain(binary.Left, kind, leaves);
+            CollectChain(binary.Right, kind, leaves);
+            return;
+        }
+
+        leaves.Add(expression);
+    }
+
     internal static IEnumerable<SyntaxNode> EvaluationNodes(ExpressionSyntax expression) =>
         expression.DescendantNodesAndSelf(node => node is not AnonymousFunctionExpressionSyntax);
 

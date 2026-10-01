@@ -36,7 +36,7 @@ internal static class SelectorRewrites
         }
         var changedCall = plan.Call.WithArgumentList(plan.Call.ArgumentList.WithArguments(SyntaxFactory.SeparatedList(arguments)))
             .WithAdditionalAnnotations(ProjectionRewrites.Selected, ProjectionRewrites.Generated);
-        if (plan.IdentityPair is not null)
+        if (plan.IdentityPair is not null && plan.IdentityPair.TypeArguments.All(ProjectionPlan.Renderable))
         {
             var generic = SyntaxFactory.GenericName(SyntaxFactory.Identifier(plan.IdentityPair.Name), SyntaxFactory.TypeArgumentList(
                 SyntaxFactory.SeparatedList(plan.IdentityPair.TypeArguments.Select(EvaluationSyntax.Type))));

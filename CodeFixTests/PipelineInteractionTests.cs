@@ -86,29 +86,57 @@ public sealed class PipelineInteractionTests
         Assert.Equal(2,all.Length);Assert.Single(all.Where(item=>item.IsSuppressed));
     }
     [Theory]
-    [InlineData(PipelineCodeFixProvider.ExtractKey)]
-    [InlineData(PipelineCodeFixProvider.BlockKey)]
-    [InlineData(PipelineCodeFixProvider.SelectorsKey)]
-    public async Task SequentialFixAllMultipleDocumentsOverlapFreshNamesAndSecondPass(string key)
+    [InlineData(PipelineCodeFixProvider.ExtractKey, FixAllScope.Document)]
+    [InlineData(PipelineCodeFixProvider.ExtractKey, FixAllScope.Project)]
+    [InlineData(PipelineCodeFixProvider.ExtractKey, FixAllScope.Solution)]
+    [InlineData(PipelineCodeFixProvider.BlockKey, FixAllScope.Document)]
+    [InlineData(PipelineCodeFixProvider.BlockKey, FixAllScope.Project)]
+    [InlineData(PipelineCodeFixProvider.BlockKey, FixAllScope.Solution)]
+    [InlineData(PipelineCodeFixProvider.SelectorsKey, FixAllScope.Document)]
+    [InlineData(PipelineCodeFixProvider.SelectorsKey, FixAllScope.Project)]
+    [InlineData(PipelineCodeFixProvider.SelectorsKey, FixAllScope.Solution)]
+    public async Task SequentialFixAllMultipleDocumentsOverlapFreshNamesAndSecondPass(string key, FixAllScope scope)
     {
         const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs){int ProjectValue=1;var first=xs.Select(x=>F(F(x))).ToDictionary(x=>x);var second=xs.Select(x=>F(x)+1);return second;}}";
         var document=PipelineTestFixture.Document(source);
         var second=document.Project.AddDocument("Second.cs",source.Replace("class C","class D"),filePath:"/Second.cs");
-        document=second.Project.GetDocument(document.Id)!;
+        var otherProject=ProjectId.CreateNewId();
+        var otherDocument=DocumentId.CreateNewId(otherProject);
+        var solution=second.Project.Solution.AddProject(otherProject,"Other","Other",LanguageNames.CSharp)
+            .WithProjectMetadataReferences(otherProject,document.Project.MetadataReferences)
+            .WithProjectParseOptions(otherProject,document.Project.ParseOptions!)
+            .WithProjectCompilationOptions(otherProject,document.Project.CompilationOptions!)
+            .AddDocument(otherDocument,"Other.cs",Microsoft.CodeAnalysis.Text.SourceText.From(source.Replace("class C","class E")),filePath:"/Other.cs");
+        document=solution.GetDocument(document.Id)!;
         using var timeout=new CancellationTokenSource(System.TimeSpan.FromSeconds(30));
         var provider=new PipelineCodeFixProvider();
-        var context=new FixAllContext(document,provider,FixAllScope.Project,key,provider.FixableDiagnosticIds,new Diagnostics(),timeout.Token);
+        var context=new FixAllContext(document,provider,scope,key,provider.FixableDiagnosticIds,new Diagnostics(),timeout.Token);
         var action=await provider.GetFixAllProvider().GetFixAsync(context);
         var operation=Assert.Single((await action!.GetOperationsAsync(timeout.Token)).OfType<ApplyChangesOperation>());
-        foreach(var item in operation.ChangedSolution.GetProject(document.Project.Id)!.Documents){
+        foreach(var item in operation.ChangedSolution.Projects.SelectMany(project=>project.Documents)){
+            if(scope!=FixAllScope.Solution&&(item.Project.Id!=document.Project.Id||scope==FixAllScope.Document&&item.Id!=document.Id)){
+                Assert.Equal((await solution.GetDocument(item.Id)!.GetTextAsync()).ToString(),(await item.GetTextAsync()).ToString());continue;
+            }
             var saved=await StatementOperationTestFixture.Reparse(item);await StatementOperationTestFixture.Compiles(saved);
-            var remaining=await PipelineTestFixture.Diagnostics(saved);
+            var model=(await saved.GetSemanticModelAsync())!;
+            var remaining=(await PipelineTestFixture.Diagnostics(saved)).Where(diagnostic=>diagnostic.Location.SourceTree==model.SyntaxTree);
             Assert.DoesNotContain(remaining,diagnostic=>key==PipelineCodeFixProvider.SelectorsKey?diagnostic.Id=="CR0402":diagnostic.Id=="CR0400");
             var again=new FixAllContext(saved,provider,FixAllScope.Document,key,provider.FixableDiagnosticIds,new Diagnostics(),timeout.Token);
             var repeated=await provider.GetFixAllProvider().GetFixAsync(again);
             var repeatOperation=Assert.Single((await repeated!.GetOperationsAsync(timeout.Token)).OfType<ApplyChangesOperation>());
             Assert.Equal((await saved.GetTextAsync()).ToString(),(await repeatOperation.ChangedSolution.GetDocument(saved.Id)!.GetTextAsync()).ToString());
         }
+    }
+    [Fact]
+    public async Task FixAllHonorsCancellation()
+    {
+        var document=PipelineTestFixture.Document("using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(x)));}");
+        using var cancellation=new CancellationTokenSource();
+        cancellation.Cancel();
+        var provider=new PipelineCodeFixProvider();
+        var context=new FixAllContext(document,provider,FixAllScope.Document,PipelineCodeFixProvider.ExtractKey,provider.FixableDiagnosticIds,new Diagnostics(),cancellation.Token);
+        var action=await provider.GetFixAllProvider().GetFixAsync(context);
+        await Assert.ThrowsAnyAsync<System.OperationCanceledException>(()=>action!.GetOperationsAsync(cancellation.Token));
     }
     private sealed class Diagnostics:FixAllContext.DiagnosticProvider
     {

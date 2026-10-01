@@ -22,6 +22,7 @@ internal sealed class SelectorPlan
     {
         if (model.GetOperation(call) is not IInvocationOperation operation || !catalog.IsMaterializer(operation.TargetMethod)
             || ConditionHosts.IsInsideExpressionTree(call, model) || call.ContainsDirectives || call.ContainsDiagnostics
+            || CallerInformation.AffectedDefaults(call, call, model)
             || model.GetDiagnostics(call.Span).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return null;
         // No KVP/builder insertion: immutable overloads can preserve returned identity
         // and avoid enumeration even when their source's static type is IEnumerable.

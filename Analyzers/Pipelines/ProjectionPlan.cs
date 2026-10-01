@@ -66,7 +66,8 @@ internal sealed class ProjectionPlan
         {
             if (model.GetTypeInfo(creation).Type?.IsReferenceType != true || creation.ArgumentList?.Arguments.Count > 0
                 || creation.Initializer!.Expressions.Any(value => value is not AssignmentExpressionSyntax { Left: IdentifierNameSyntax } assignment
-                    || model.GetSymbolInfo(assignment.Left).Symbol is not IFieldSymbol and not IPropertySymbol { SetMethod.IsInitOnly: false })) return false;
+                    || model.GetSymbolInfo(assignment.Left).Symbol is not IFieldSymbol { IsRequired: false } and not IPropertySymbol { IsRequired: false, SetMethod.IsInitOnly: false })) return false;
+            if (model.GetTypeInfo(creation).Type is INamedTypeSymbol type && HasRequiredMembers(type)) return false;
         }
         return AggregateComponents(body).All(component => model.GetTypeInfo(component).ConvertedType is { } type && Renderable(type)
             && OperationPlan.ProjectionComponent(component, model, token) is not null);
@@ -81,11 +82,7 @@ internal sealed class ProjectionPlan
         // Moving a whole block also moves its nested callables. Inserting the
         // external helper can move an enclosing call's original source site.
         // Both boundaries must retain caller constants before a plan is offered.
-        if (lambda.Body.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Concat(lambda.Ancestors().OfType<InvocationExpressionSyntax>())
-            .Any(call => model.GetOperation(call) is IInvocationOperation operation && operation.Arguments.Any(value => value.IsImplicit
-                && value.Parameter?.GetAttributes().Any(attribute => attribute.AttributeClass?.ContainingNamespace.ToDisplayString() == "System.Runtime.CompilerServices"
-                    && attribute.AttributeClass.Name is "CallerMemberNameAttribute" or "CallerArgumentExpressionAttribute"
-                        or "CallerFilePathAttribute" or "CallerLineNumberAttribute") == true))) return false;
+        if (CallerInformation.AffectedDefaults(lambda, InsertionSite(lambda) ?? lambda, model)) return false;
         foreach (var node in PipelineFacts.StageNodes(lambda.Body))
         {
             if (node is AwaitExpressionSyntax or YieldStatementSyntax or GotoStatementSyntax or LabeledStatementSyntax
@@ -95,15 +92,19 @@ internal sealed class ProjectionPlan
                 var type = model.GetTypeInfo(expression).Type;
                 if (type is not null && !Renderable(type) && !type.IsAnonymousType) return false;
                 if (model.GetOperation(expression) is IInstanceReferenceOperation { Type.IsValueType: true }) return false;
-                if (expression is InvocationExpressionSyntax invocation && model.GetOperation(invocation) is IInvocationOperation operation
-                    && operation.Arguments.Any(value => value.IsImplicit && value.Parameter?.GetAttributes().Any(attribute =>
-                        attribute.AttributeClass?.ContainingNamespace.ToDisplayString() == "System.Runtime.CompilerServices"
-                        && attribute.AttributeClass.Name is "CallerMemberNameAttribute" or "CallerArgumentExpressionAttribute"
-                            or "CallerFilePathAttribute" or "CallerLineNumberAttribute") == true)) return false;
             }
         }
         var flow = model.AnalyzeDataFlow(lambda.Body);
         return flow?.Succeeded == true && !flow.Captured.Any(symbol => symbol is IParameterSymbol { RefKind: not RefKind.None }
             or ILocalSymbol { RefKind: not RefKind.None } || OperationPlan.SymbolType(symbol)?.IsRefLikeType == true);
     }
+
+    internal static SyntaxNode? InsertionSite(LambdaExpressionSyntax lambda) => lambda.Ancestors().FirstOrDefault(node =>
+        node is StatementSyntax and not BlockSyntax || node is ArrowExpressionClauseSyntax
+        || node is LambdaExpressionSyntax { Body: ExpressionSyntax }
+        || node is EqualsValueClauseSyntax && (node.Parent is PropertyDeclarationSyntax || node.Parent?.Parent?.Parent is FieldDeclarationSyntax));
+
+    private static bool HasRequiredMembers(INamedTypeSymbol type) => type.GetMembers().Any(member =>
+        member is IFieldSymbol { IsRequired: true } or IPropertySymbol { IsRequired: true })
+        || type.BaseType is not null && HasRequiredMembers(type.BaseType);
 }

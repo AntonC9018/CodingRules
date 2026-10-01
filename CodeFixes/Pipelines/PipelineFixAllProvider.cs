@@ -27,7 +27,7 @@ internal sealed class PipelineFixAllProvider : FixAllProvider
                 if (model is null) break;
                 var root = await document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
                 var diagnostics = await model.Compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new PipelineAnalyzer()), document.Project.AnalyzerOptions)
-                    .GetAnalyzerDiagnosticsAsync(context.CancellationToken).ConfigureAwait(false);
+                    .GetAnalyzerSemanticDiagnosticsAsync(model, null, context.CancellationToken).ConfigureAwait(false);
                 Document? changed = null;
                 foreach (var diagnostic in diagnostics.Where(item => item.Location.SourceTree == model.SyntaxTree && context.DiagnosticIds.Contains(item.Id)).OrderBy(item => item.Location.SourceSpan.Start))
                 {

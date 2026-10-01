@@ -20,8 +20,9 @@ Actual immutable dictionary parameters are **elementSelector**, including sorted
 dictionaries. ImmutableArray dictionary generic order is TKey,TElement,T;
 Enumerable and immutable dictionary order is TSource,TKey,TElement. The paired
 identity transition substitutes the source type for the element type and retains
-the same key/source/result types and comparer tail. Explicit type arguments avoid
-accidental generic inference changes; the fixer still verifies the bound pair
+the same key/source/result types and comparer tail. Renderable explicit type
+arguments avoid accidental generic inference changes; anonymous types retain
+inference with the same bound-pair check. The fixer still verifies the bound pair
 and each original argument conversion after saving/reparsing.
 
 The key-only identity pairs are Enumerable ToDictionary/ToLookup,
@@ -58,7 +59,11 @@ extraction remain judgment rather than implemented diagnostics.
 
 Individual safety omissions include async/yield, unrenderable helper results,
 ref-like/pointer/unsafe values, expression trees, internal directives/comments,
-labels/gotos and omitted caller-information defaults. Whole block extraction can
+labels/gotos and omitted caller-information defaults in the stage or enclosing
+method/constructor calls. A site is also omitted when later omitted
+CallerLineNumber arguments in the same file could move as generated lines are
+inserted. Explicit original caller constants remain supported; earlier unaffected
+caller-line sites do not exclude a stage. Whole block extraction can
 retain FormattableString without lowering its formatting; expression linearization
 does not support FormattableString/handler lowering. Mutable receiver/location,
 ref/params allocation, lazy custom operations and narrowed nullable dependencies

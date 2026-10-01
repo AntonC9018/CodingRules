@@ -26,13 +26,13 @@ internal static class ProjectionRewrites
                     ? SyntaxKind.CheckedStatement : SyntaxKind.UncheckedStatement, body));
             var helper = SyntaxFactory.LocalFunctionStatement(EvaluationSyntax.Type(plan.Callable.ReturnType), name).WithBody(body)
                 .WithParameterList(SyntaxFactory.ParameterList());
-            var parameters = plan.Callable.Parameters.Select(parameter => SyntaxFactory.Parameter(SyntaxFactory.Identifier(parameter.Name))
+            var parameters = plan.Callable.Parameters.Select(parameter => SyntaxFactory.Parameter(SyntaxFactory.Identifier(
+                    SyntaxFacts.GetKeywordKind(parameter.Name) != SyntaxKind.None || SyntaxFacts.GetContextualKeywordKind(parameter.Name) != SyntaxKind.None
+                        ? "@" + parameter.Name : parameter.Name))
                 .WithType(EvaluationSyntax.Type(parameter.Type)));
             var typedHelper = helper.WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)));
             if (lambda.Modifiers.Any(SyntaxKind.StaticKeyword)) typedHelper = typedHelper.WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.StaticKeyword)));
-            var host = lambda.Ancestors().FirstOrDefault(node => node is StatementSyntax and not BlockSyntax
-                || node is ArrowExpressionClauseSyntax || node is LambdaExpressionSyntax { Body: ExpressionSyntax }
-                || node is EqualsValueClauseSyntax && (node.Parent is PropertyDeclarationSyntax || node.Parent?.Parent?.Parent is FieldDeclarationSyntax));
+            var host = ProjectionPlan.InsertionSite(lambda);
             var flow = plan.Model.AnalyzeDataFlow(lambda.Body)!;
             var unavailable = flow.ReadInside.Concat(flow.WrittenInside).Except(flow.VariablesDeclared, SymbolEqualityComparer.Default)
                 .Except(plan.Callable.Parameters, SymbolEqualityComparer.Default).Any(symbol => symbol is ILocalSymbol or IParameterSymbol
@@ -45,17 +45,22 @@ internal static class ProjectionRewrites
             if (!unavailable && host is ArrowExpressionClauseSyntax or LambdaExpressionSyntax)
             {
                 var hostExpression = host is ArrowExpressionClauseSyntax arrow ? arrow.Expression : (ExpressionSyntax)((LambdaExpressionSyntax)host).Body;
-                var completion = SyntaxFactory.ReturnStatement(hostExpression.ReplaceNode(lambda, group));
+                var returnsVoid = host is LambdaExpressionSyntax enclosing
+                    ? plan.Model.GetSymbolInfo(enclosing).Symbol is IMethodSymbol { ReturnsVoid: true }
+                    : plan.Model.GetDeclaredSymbol(host.Parent!) is IMethodSymbol { ReturnsVoid: true };
+                StatementSyntax completion = returnsVoid
+                    ? SyntaxFactory.ExpressionStatement(hostExpression.ReplaceNode(lambda, group))
+                    : SyntaxFactory.ReturnStatement(hostExpression.ReplaceNode(lambda, group));
                 return ConditionSiteRewrites.ReplaceExpressionBody(root, host, SyntaxFactory.Block(typedHelper, completion).WithAdditionalAnnotations(Generated));
             }
-            if (host is EqualsValueClauseSyntax && !flow.ReadInside.Concat(flow.WrittenInside).Any(symbol => symbol is ILocalSymbol or IParameterSymbol
+            if (host is EqualsValueClauseSyntax && !flow.ReadInside.Concat(flow.WrittenInside).Except(flow.VariablesDeclared, SymbolEqualityComparer.Default).Any(symbol => symbol is ILocalSymbol or IParameterSymbol
                     && !plan.Callable.Parameters.Contains(symbol, SymbolEqualityComparer.Default))
                 && !PipelineFacts.StageNodes(lambda.Body).OfType<ExpressionSyntax>().Any(value => plan.Model.GetOperation(value) is Microsoft.CodeAnalysis.Operations.IInstanceReferenceOperation))
             {
                 var type = lambda.Ancestors().OfType<TypeDeclarationSyntax>().First();
                 var method = SyntaxFactory.MethodDeclaration(typedHelper.ReturnType, name).WithParameterList(typedHelper.ParameterList).WithBody(body)
                     .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword)));
-                return root.ReplaceNode(type, type.ReplaceNode(lambda, group).AddMembers(method).WithAdditionalAnnotations(Generated));
+                return root.ReplaceNode(type, type.ReplaceNode(lambda, group).AddMembers(method.WithAdditionalAnnotations(Generated)));
             }
             // Invocation-local capture keeps iteration/filter/pattern values in scope,
             // preserves delegate construction and reads all captures on each invocation.

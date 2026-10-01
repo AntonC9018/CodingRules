@@ -47,7 +47,7 @@ internal static class PipelineFixes
         {
             // Naming/insertion leaves every original argument subtree in its
             // original source order. Map occurrences by relative ordinal, not a set.
-            var selected = parsed.FindNode(formatted.GetAnnotatedNodes(ProjectionRewrites.Selected).Single().Span) as InvocationExpressionSyntax;
+            var selected = parsed.FindNode(formatted.GetAnnotatedNodes(ProjectionRewrites.Selected).Single().Span, getInnermostNodeForTie: true) as InvocationExpressionSyntax;
             if (selected is null || after.GetOperation(selected) is not IInvocationOperation bound) return null;
             var expected = selector.IdentityPair ?? selector.Operation.TargetMethod;
             if (Method(bound.TargetMethod) != Method(expected) || after.GetTypeInfo(selected).Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)

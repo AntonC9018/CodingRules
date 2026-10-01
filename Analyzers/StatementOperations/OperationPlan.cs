@@ -237,6 +237,9 @@ internal sealed class OperationPlan
     {
         if (expression.ContainsDiagnostics || expression.ContainsDirectives || ConditionHosts.IsInsideExpressionTree(expression, model)) return false;
         if (expression.Ancestors().Any(node => node is ConstructorInitializerSyntax or AttributeSyntax or UnsafeStatementSyntax or FixedStatementSyntax)) return false;
+        var formattable = model.Compilation.GetTypeByMetadataName("System.FormattableString");
+        if (expression.AncestorsAndSelf().OfType<CastExpressionSyntax>().Any(cast =>
+                SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(cast).Type, formattable))) return false;
         if (expression.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().Any(call => HasCallerDefaults(call, model))) return false;
         if (expression.DescendantTrivia().Any(trivia => trivia.Kind() is SyntaxKind.SingleLineCommentTrivia or SyntaxKind.MultiLineCommentTrivia or SyntaxKind.DisabledTextTrivia)) return false;
         foreach (var value in OperationFacts.EvaluationNodes(expression).OfType<ExpressionSyntax>())
@@ -247,6 +250,8 @@ internal sealed class OperationPlan
             if (type is { TypeKind: TypeKind.Dynamic or TypeKind.Pointer or TypeKind.FunctionPointer or TypeKind.Error }
                 || type?.IsRefLikeType == true) return false;
             if (value is InvocationExpressionSyntax invocation && HasCallerDefaults(invocation, model)) return false;
+            if (value is InterpolatedStringExpressionSyntax && (SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(value).ConvertedType, formattable)
+                || value.Ancestors().OfType<CastExpressionSyntax>().Any(cast => SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(cast).Type, formattable)))) return false;
         }
 
         return !model.GetDiagnostics(expression.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);

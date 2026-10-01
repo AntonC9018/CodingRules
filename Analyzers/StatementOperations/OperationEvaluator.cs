@@ -227,7 +227,7 @@ internal sealed class OperationEvaluator
                 ? SyntaxKind.CheckedStatement : SyntaxKind.UncheckedStatement;
             body = SyntaxFactory.Block(SyntaxFactory.CheckedStatement(kind, body));
         }
-        return body;
+        return ConditionSiteRewrites.AddElasticLineBreaks(body);
     }
 
     private static LocalDeclarationStatementSyntax Declare(ITypeSymbol type, string name) => SyntaxFactory.LocalDeclarationStatement(
@@ -239,7 +239,8 @@ internal sealed class OperationEvaluator
     internal static string Key(SyntaxNode node) => node.SpanStart.ToString(CultureInfo.InvariantCulture) + ":" + node.Span.Length + ":" + node.RawKind;
 
     private SyntaxAnnotation Conversion(ExpressionSyntax original, ITypeSymbol type) => new(ConversionAnnotation,
-        ConversionFingerprint(model.ClassifyConversion(original, type)));
+        ConversionFingerprint(SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(original).ConvertedType, type)
+            ? model.GetConversion(original) : model.ClassifyConversion(original, type)));
 
     internal static string ConversionFingerprint(Conversion conversion) => string.Join(":", conversion.Exists, conversion.IsIdentity,
         conversion.IsImplicit, conversion.IsNumeric, conversion.IsReference, conversion.IsBoxing, conversion.IsUnboxing,

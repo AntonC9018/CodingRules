@@ -287,7 +287,7 @@ internal static class ConditionSiteRewrites
     private static IfStatementSyntax FalseBreak(string result) => SyntaxFactory.IfStatement(
         ConditionEvaluator.Negate(SyntaxFactory.IdentifierName(result)), SyntaxFactory.Block(SyntaxFactory.BreakStatement()));
 
-    private static BlockSyntax AddElasticLineBreaks(BlockSyntax body)
+    internal static BlockSyntax AddElasticLineBreaks(BlockSyntax body)
     {
         var statements = body.DescendantNodes().OfType<StatementSyntax>();
         body = body.ReplaceNodes(statements, (_, changed) => changed.WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed));

@@ -67,7 +67,7 @@ internal sealed class OperationFacts
     {
         var method = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
         var type = (method?.ReducedFrom ?? method)?.ContainingType;
-        if (type?.ContainingNamespace.ToDisplayString() == "System.Linq" && type.Name is "Enumerable" or "Queryable") return true;
+        if (IsLinq(invocation, model)) return true;
         if (type?.SpecialType != SpecialType.System_String || method?.Name != "Join") return false;
         return invocation.ArgumentList.Arguments.Any(argument => EvaluationNodes(argument.Expression)
             .OfType<InvocationExpressionSyntax>().Any(call => IsLinq(call, model)));
@@ -77,7 +77,9 @@ internal sealed class OperationFacts
     {
         var method = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
         var type = (method?.ReducedFrom ?? method)?.ContainingType;
-        return type?.ContainingNamespace.ToDisplayString() == "System.Linq" && type.Name is "Enumerable" or "Queryable";
+        return type?.ContainingNamespace.ToDisplayString() == "System.Linq"
+            && (type.Name is "Enumerable" or "Queryable" && type.ContainingAssembly.Name is "System.Linq" or "System.Linq.Queryable" or "System.Core"
+                || type.Name == "ImmutableArrayExtensions" && type.ContainingAssembly.Name == "System.Collections.Immutable");
     }
 
     public static bool IsCalculation(ExpressionSyntax expression, SemanticModel model)

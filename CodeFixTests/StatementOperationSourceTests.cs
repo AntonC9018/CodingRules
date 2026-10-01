@@ -6,6 +6,35 @@ namespace CodingRules;
 
 public sealed class StatementOperationSourceTests
 {
+    [Fact]
+    public async Task ImmutableArrayJoinPipelineAndDeferredFormattableReturnRemainAllowed()
+    {
+        const string source = """
+            using System;
+            using System.Collections.Immutable;
+            using System.Collections.Generic;
+            using System.Linq;
+            class C
+            {
+                readonly record struct Category(string Name);
+                readonly record struct Info(Category Category, ImmutableArray<string> Values);
+                static FormattableString CategoryValue(Category category, string value) => $"{category.Name}:{value}";
+                static string RenderList(Info list)
+                {
+                    var values = string.Join(", ", list.Values.Select(value => CategoryValue(list.Category, value)));
+                    return values;
+                }
+                static FormattableString? RenderLinks(List<FormattableString> links)
+                {
+                    return links.Count == 0 ? null : (FormattableString)$"{string.Join(" · ", links)}";
+                }
+            }
+            """;
+        var document = StatementOperationTestFixture.Document(source);
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await StatementOperationTestFixture.Diagnostics(document));
+    }
+
     [Theory]
     [InlineData(StatementOperationCodeFixProvider.ExtractKey)]
     [InlineData(StatementOperationCodeFixProvider.ExpandKey)]

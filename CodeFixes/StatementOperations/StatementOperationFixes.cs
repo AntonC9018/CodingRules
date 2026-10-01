@@ -88,6 +88,3 @@ internal static class StatementOperationFixes
             + (argument.IsImplicit && argument.ArgumentKind == ArgumentKind.DefaultValue ? ":" + argument.Value.ConstantValue.Value : "")));
     }
 }
-
-
-

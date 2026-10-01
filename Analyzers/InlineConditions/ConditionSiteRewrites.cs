@@ -303,7 +303,7 @@ internal static class ConditionSiteRewrites
         .TakeWhile(node => node is not StatementSyntax and not MemberDeclarationSyntax)
         .FirstOrDefault(node => node is ArrowExpressionClauseSyntax or LambdaExpressionSyntax { Body: ExpressionSyntax });
 
-    private static SyntaxNode ReplaceExpressionBody(SyntaxNode root, SyntaxNode expressionBody, BlockSyntax body)
+    internal static SyntaxNode ReplaceExpressionBody(SyntaxNode root, SyntaxNode expressionBody, BlockSyntax body)
     {
         if (expressionBody is LambdaExpressionSyntax lambda)
         {
@@ -331,7 +331,7 @@ internal static class ConditionSiteRewrites
         return root.ReplaceNode(arrow.Parent!, replacement.WithAdditionalAnnotations(Generated));
     }
 
-    private static SyntaxNode ReplaceStatement(SyntaxNode root, StatementSyntax statement, List<StatementSyntax> statements)
+    internal static SyntaxNode ReplaceStatement(SyntaxNode root, StatementSyntax statement, List<StatementSyntax> statements)
     {
         if (statements.Count > 1)
         {

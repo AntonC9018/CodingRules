@@ -30,6 +30,9 @@ public sealed class NamedArgumentClassificationTests
     [InlineData("static int M<T,U>(T first, U second) => 0;", "M(1, 2)", true)]
     [InlineData("static int M(string? first, string second) => 0;", "M(null, \"x\")", true)]
     [InlineData("static int M((int x,int y) first, (int a,int b) second) => 0;", "M((1,2), (3,4))", true)]
+    [InlineData("static int M(System.Collections.Generic.List<(int x,int y)> first, System.Collections.Generic.List<(int a,int b)> second) => 0;", "M(new System.Collections.Generic.List<(int,int)>(), new System.Collections.Generic.List<(int,int)>())", true)]
+    [InlineData("static int M((int x,int y)[] first, (int a,int b)[] second) => 0;", "M(new (int,int)[0], new (int,int)[0])", true)]
+    [InlineData("static int M((int x,int y)[] first, (int a,int b)[,] second) => 0;", "M(new (int,int)[0], new (int,int)[0,0])", false)]
     [InlineData("static int M(int first, int? second) => 0;", "M(1, 2)", false)]
     [InlineData("static int M(int first, params int[] rest) => 0;", "M(1, 2, 3)", false)]
     [InlineData("static int M(int first, int second, params string[] rest) => 0;", "M(1, 2, \"a\", \"b\")", true)]
@@ -51,6 +54,20 @@ public sealed class NamedArgumentClassificationTests
             """);
         await StatementOperationTestFixture.Compiles(document);
         Assert.Empty(await NamedArgumentTestFixture.Diagnostics(document));
+    }
+
+    [Theory]
+    [InlineData("int", false)]
+    [InlineData("long", true)]
+    public async Task ConstructedContainingTypesRemainDistinct(string firstOuter, bool positive)
+    {
+        var document = NamedArgumentTestFixture.Document("class Outer<T> { public class Inner<U> {} } class C { static int M(Outer<" + firstOuter
+            + ">.Inner<(int x,int y)> first, Outer<long>.Inner<(int a,int b)> second) => 0; static int F() => M(new Outer<"
+            + firstOuter + ">.Inner<(int,int)>(),new Outer<long>.Inner<(int,int)>()); }");
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostics = await NamedArgumentTestFixture.Diagnostics(document);
+        if (!positive) { Assert.Empty(diagnostics); return; }
+        await NamedArgumentTestFixture.Fix(document, Assert.Single(diagnostics));
     }
 
     [Theory]

@@ -114,6 +114,31 @@ public sealed class NamedArgumentPolicyTests
 
     private static Task<ImmutableArray<Diagnostic>> Analyze(Compilation compilation, AnalyzerConfigOptionsProvider options) => compilation.WithAnalyzers(
         ImmutableArray.Create<DiagnosticAnalyzer>(new NamedArgumentAnalyzer()), new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty, options)).GetAnalyzerDiagnosticsAsync();
+
+    [Fact]
+    public async Task NativeReservedIdTransportAndExplicitImplementationIsolation()
+    {
+        const string source = "interface I { int M(int x,int y); } class C : I { int I.M(int x,int y) => x; static int F(I c) => c.M(1,2); }";
+        var document = NamedArgumentTestFixture.Document(source);
+        var compilation = (await document.Project.GetCompilationAsync())!;
+        var implementation = compilation.GetTypeByMetadataName("C")!.GetMembers().OfType<IMethodSymbol>()
+            .Single(method => method.MethodKind == MethodKind.ExplicitInterfaceImplementation);
+        var id = DocumentationCommentId.CreateDeclarationId(implementation)!;
+        Assert.Contains("I#M", id);
+        var raw = NamedArgumentTestFixture.Document(source, "root=true\n[*.cs]\ndotnet_code_quality.CR0500.allow_positional_arguments = " + compilation.Assembly.Name + "::" + id);
+        raw.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions((await raw.GetSyntaxTreeAsync())!)
+            .TryGetValue("dotnet_code_quality.CR0500.allow_positional_arguments", out var truncated);
+        Assert.Equal(compilation.Assembly.Name + "::M:C.I", truncated);
+        var encoded = id.Replace("#", "%23");
+        var configured = NamedArgumentTestFixture.Document(source, "root=true\n[*.cs]\ndotnet_code_quality.CR0500.allow_positional_arguments = " + compilation.Assembly.Name + "::" + encoded);
+        configured.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions((await configured.GetSyntaxTreeAsync())!)
+            .TryGetValue("dotnet_code_quality.CR0500.allow_positional_arguments", out var preserved);
+        Assert.Equal(compilation.Assembly.Name + "::" + encoded, preserved);
+        var current = (await configured.Project.GetCompilationAsync())!;
+        Assert.Contains(DocumentationCommentId.GetSymbolsForDeclarationId(Uri.UnescapeDataString(encoded), current),
+            symbol => symbol is IMethodSymbol { MethodKind: MethodKind.ExplicitInterfaceImplementation } && DocumentationCommentId.CreateDeclarationId(symbol) == id);
+        await NamedArgumentTestFixture.Fix(configured, Assert.Single(await NamedArgumentTestFixture.Diagnostics(configured)));
+    }
     private sealed class Options : AnalyzerConfigOptionsProvider
     {
         private readonly AnalyzerConfigOptions global;

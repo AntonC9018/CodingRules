@@ -25,14 +25,14 @@ internal sealed class NamedArgumentPlan
             || model.GetDiagnostics(owner.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             || NamedArgumentPolicy.For(model.Compilation).Exempt(site.Method, owner.SyntaxTree, options, token)) return null;
         var indices = ImmutableArray.CreateBuilder<int>();
-        var groups = site.BoundArguments.Select(argument => argument.Parameter!).GroupBy(parameter => GroupType(parameter.Type), SymbolEqualityComparer.Default);
+        var groups = site.BoundArguments.Select(argument => argument.Parameter!).GroupBy(parameter => parameter.Type, NamedArgumentTypes.Instance);
         foreach (var group in groups)
         {
             token.ThrowIfCancellationRequested();
             if (group.Key is not ITypeSymbol { TypeKind: not TypeKind.Error and not TypeKind.Dynamic }
                 || group.Distinct(SymbolEqualityComparer.Default).Count() < 2) continue;
             for (var index = 0; index < site.Arguments.Length; index++)
-                if (!NamedArgumentSite.Named(site.Arguments[index]) && SymbolEqualityComparer.Default.Equals(GroupType(site.BoundArguments[index].Parameter!.Type), group.Key)) indices.Add(index);
+                if (!NamedArgumentSite.Named(site.Arguments[index]) && NamedArgumentTypes.Instance.Equals(site.BoundArguments[index].Parameter!.Type, group.Key)) indices.Add(index);
         }
         if (indices.Count == 0) return null;
         if (((CSharpParseOptions)owner.SyntaxTree.Options).LanguageVersion < LanguageVersion.CSharp7_2)
@@ -48,8 +48,6 @@ internal sealed class NamedArgumentPlan
 
     public SyntaxNode Rewrite() => Site.Owner.ReplaceNodes(Indices.Select(index => Site.Arguments[index]), (old, _) =>
         NamedArgumentSite.Name(old, Site.BoundArguments[Site.Arguments.IndexOf(old)].Parameter!.Name));
-
-    private static ITypeSymbol GroupType(ITypeSymbol type) => type is INamedTypeSymbol { IsTupleType: true, TupleUnderlyingType: { } underlying } ? underlying : type;
 
     // Naming leaves the original argument correspondence applicable. It can only
     // enable a new overload by changing that overload's source-to-parameter map.
@@ -70,6 +68,7 @@ internal sealed class NamedArgumentPlan
             token.ThrowIfCancellationRequested();
             if (SymbolEqualityComparer.Default.Equals(alternative, site.Method)) found = true;
             if (SymbolEqualityComparer.Default.Equals(NamedArgumentPolicy.Declaration(alternative), NamedArgumentPolicy.Declaration(site.Method))) continue;
+            if (alternative.Parameters.Count(parameter => !parameter.IsOptional && !parameter.IsParams) > site.Arguments.Length) continue;
             foreach (var index in indices)
             {
                 var original = site.BoundArguments[index].Parameter!;

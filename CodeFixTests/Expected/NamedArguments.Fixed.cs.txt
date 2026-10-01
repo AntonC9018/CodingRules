@@ -1,0 +1,5 @@
+public static class Consumer
+{
+    private static int Copy(int source, int destination) => source + destination;
+    public static int Run() => Copy(source: 1, destination: 2);
+}

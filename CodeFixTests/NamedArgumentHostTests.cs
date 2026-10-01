@@ -23,6 +23,10 @@ public sealed class NamedArgumentHostTests
     [InlineData("interface I { void M(int source,int target); } class C { static void F(I c) { c.M(1,2); } }", "M(source: 1,target: 2)")]
     [InlineData("class C { static void M<T>(T x,T y) {} static void F() { M(new { P=1 },new { P=2 }); } }", "M(x: new { P=1 },y: new { P=2 })")]
     [InlineData("class C { static void M(ref int x,out int y) { y=x; } static int F() { int v=1; M(ref v,out var b); return b; } }", "M(x: ref v,y: out var b)")]
+    [InlineData("class C { static void M(in int x,in int y) {} static void F() { int a=1,b=2; M(in a,in b); } }", "M(x: in a,y: in b)")]
+    [InlineData("class C { static void M(System.ReadOnlySpan<char> x,System.ReadOnlySpan<char> y) {} static void F() { M(\"a\",\"b\"); } }", "M(x: \"a\",y: \"b\")")]
+    [InlineData("class C { static int M(int x,int y) => x; static System.Threading.Tasks.Task<int> G() => System.Threading.Tasks.Task.FromResult(1); static async System.Threading.Tasks.Task<int> F() => M(await G(),await G()); }", "M(x: await G(),y: await G())")]
+    [InlineData("class C { static void M(int a,int b,int c,string x,string y) {} static void F() => M(1,2,3,\"x\",\"y\"); }", "M(a: 1,b: 2,c: 3,x: \"x\",y: \"y\")")]
     public async Task AcceptedHostsHaveSavedActions(string source, string expected)
     {
         var document = NamedArgumentTestFixture.Document(source);

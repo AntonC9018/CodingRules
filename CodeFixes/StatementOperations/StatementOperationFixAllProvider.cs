@@ -84,4 +84,3 @@ internal sealed class StatementOperationFixAllProvider : FixAllProvider
         return solution;
     }
 }
-

@@ -15,6 +15,9 @@ CR0204 | Readability | Warning | Linearize three or more repeated alternatives
 CR0300 | Readability | Warning | Calculate nested arguments in named steps
 CR0301 | Readability | Warning | Assign conditional values to named variables
 CR0302 | Readability | Warning | Separate combined statement operations
+CR0400 | Readability | Warning | Name structurally composed delegate projection stages
+CR0401 | Readability | Warning | Extract whole delegate stages with several result-feeding temporaries or nested decisions
+CR0402 | Readability | Warning | Make materializer key and element selectors explicit
 
 ### Removed Rules
 

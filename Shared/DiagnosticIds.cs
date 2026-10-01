@@ -15,4 +15,7 @@ public static class DiagnosticIds
     public const string NestedArgumentOperation = "CR0300";
     public const string UnnamedConditionalValue = "CR0301";
     public const string CombinedStatementOperations = "CR0302";
+    public const string ComposedProjection = "CR0400";
+    public const string StageImplementation = "CR0401";
+    public const string ExplicitCollectionSelectors = "CR0402";
 }

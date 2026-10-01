@@ -108,6 +108,11 @@ internal sealed class OperationPlan
         return plan.CanExtract || plan.CanExpand ? plan : null;
     }
 
+    // CR04 uses the existing evaluator for independently reached aggregate
+    // components. This factory does not change CR03 ownership or feasibility.
+    internal static OperationPlan? ProjectionComponent(ExpressionSyntax owner, SemanticModel model, CancellationToken token) =>
+        SafeSyntax(owner, model, token) && CanLower(owner, model) ? new OperationPlan(owner, model) : null;
+
     private static bool RequiresConstant(ExpressionSyntax owner) => owner.Ancestors()
         .TakeWhile(node => node is not AnonymousFunctionExpressionSyntax and not BaseMethodDeclarationSyntax
             and not LocalFunctionStatementSyntax and not AccessorDeclarationSyntax)

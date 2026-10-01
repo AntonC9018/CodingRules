@@ -296,6 +296,52 @@ property/index lookups, fluent business APIs, several assignments representing
 one state transition, argument count, naming quality and user declarative APIs
 are not diagnosed by line length, call counts or guessed method names.
 
+## Pipelines, delegate stages and final shaping (ticket 5)
+
+`CR0400` reports a structurally composed expression projection in a catalogued
+delegate selector. Composition uses the existing operation facts: a producer
+with explicitly supplied arguments inside another ordinary call, or a producer
+consumed by a supported calculation/conversion/formatting stage. Direct shaping,
+one simple stage and independent simple aggregate components stay allowed.
+Each aggregate component is classified separately. Ordinary constructor
+arguments, tuple components and supported settable object initializer values
+can be linearized; unsupported individual transformations are omitted.
+
+`CR0401` covers whole delegate stage blocks containing at least two ordinary
+non-alias value declarations feeding their returns directly or transitively,
+or a decision inside another decision's branch. One temporary, a lone guard,
+an else-if sequence and nested callable implementation details do not qualify.
+The fixer extracts a typed local function and prefers a method group when
+scope and binding permit. Otherwise an invocation-local helper retains the
+original lambda parameters and capture timing. A block projection action
+keeps the named implementation in an invocation-local helper when placing
+several temporaries directly in the lambda would introduce CR0401. Safe member
+initializers use a private static helper. Neither action performs selector work
+while constructing a lazy pipeline or changes materialization.
+
+`CR0402` uses actual bound keySelector/elementSelector parameter names. Key-only
+overloads receive an explicit identity element selector only through the paired
+framework signatures documented in [the catalogue](pipelines.md). Comparer and
+source expression order remain intact. Already named explicit selector calls,
+ToArray/ToList/ToImmutableArray, query providers and unproved KVP/builder fast
+paths remain allowed. Named arguments are sufficient; named selector functions
+are optional for simple mappings.
+
+All three are Readability warnings, excluded from generated code and controlled
+by ordinary Roslyn severity, pragma and SuppressMessage configuration. CR0402
+is independent of stage warnings; existing CR02/CR03/return reporting is unchanged.
+Fixers validate formatted, saved and reparsed source, occurrence bindings,
+argument mappings, conversions, original stage delegate binding and root
+progress. Fix All reparses/replans each edit with fresh names and does not carry
+validation annotations into a later pass. Framework definitions are resolved
+once per compilation; analyzer feasibility never replaces a compilation.
+
+Containing-method declaration chains are already compliant named linear steps.
+Nested calls outside lambdas retain CR0300 ownership, including its parameterless
+exemption. General method-region extraction, identifying semantic reuse and
+selecting a private-method abstraction remain manual judgment. The bounded
+automatic stage rule does not replace those parts of the coding standard.
+
 For a genuine mathematical formula, use standard method/member
 `System.Diagnostics.CodeAnalysis.SuppressMessage("Readability", "CR0302",
 Justification = "Keep the formula intact for comparison with its derivation.")`

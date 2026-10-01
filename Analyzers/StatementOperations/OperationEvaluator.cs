@@ -202,12 +202,12 @@ internal sealed class OperationEvaluator
         return SyntaxFactory.IdentifierName(name);
     }
 
-    public BlockSyntax ReturnBody(ExpressionSyntax expression)
+    public BlockSyntax ReturnBody(ExpressionSyntax expression, bool discard = false)
     {
         var statements = new List<StatementSyntax>();
         var value = Lower(expression, statements);
         var type = model.GetTypeInfo(expression).Type ?? model.GetTypeInfo(expression).ConvertedType!;
-        if (type.SpecialType == SpecialType.System_Void) statements.Add(SyntaxFactory.ExpressionStatement(value));
+        if (discard || type.SpecialType == SpecialType.System_Void) statements.Add(SyntaxFactory.ExpressionStatement(value));
         else
         {
             value = Save(expression, value, statements, type);

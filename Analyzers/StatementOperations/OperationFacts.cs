@@ -78,7 +78,7 @@ internal sealed class OperationFacts
         var method = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
         var type = (method?.ReducedFrom ?? method)?.ContainingType;
         return type?.ContainingNamespace.ToDisplayString() == "System.Linq"
-            && (type.Name is "Enumerable" or "Queryable" && type.ContainingAssembly.Name is "System.Linq" or "System.Linq.Queryable" or "System.Core"
+            && (type.Name is "Enumerable" or "Queryable" && type.ContainingAssembly.Name is "System.Linq" or "System.Linq.Queryable" or "System.Core" or "netstandard"
                 || type.Name == "ImmutableArrayExtensions" && type.ContainingAssembly.Name == "System.Collections.Immutable");
     }
 

@@ -1,7 +1,11 @@
+using System;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Xunit;
 
@@ -10,6 +14,73 @@ namespace CodingRules;
 public sealed class StatementOperationClassificationTests
 {
     private const string Prelude = "using System; using System.Linq; class C { static int Use(int value) => value; static string Use(string value) => value; static int Get(int value = 1) => value; static int Collect(params int[] values) => 1; ";
+
+    [Theory]
+    [InlineData("string.Join(\",\", values.Select(x => x))", "Enumerable", "")]
+    [InlineData("string.Join(\",\", values.AsQueryable().Select(x => x))", "Queryable", "")]
+    [InlineData("string.Join(\",\", System.Linq.Enumerable.Select(values, x => x))", "Enumerable", "")]
+    [InlineData("string.Join(\",\", System.Linq.Enumerable.Select(values, x => x))", "Enumerable", "namespace System.Linq { static class Enumerable { public static System.Collections.Generic.IEnumerable<int> Select(int[] values, System.Func<int, int> selector) => values; } }")]
+    [InlineData("string.Join(\",\", System.Linq.Queryable.Select(values, x => x))", "Queryable", "namespace System.Linq { static class Queryable { public static System.Collections.Generic.IEnumerable<int> Select(int[] values, System.Func<int, int> selector) => values; } }")]
+    public async Task NetstandardFrameworkPipelinesAreAllowedButSourceImitationsStillWarn(string expression, string type, string imitation)
+    {
+        var source = "using System.Linq; class C { static string M(int[] values) => " + expression + "; } " + imitation;
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var reference = MetadataReference.CreateFromFile(Path.Combine(AppContext.BaseDirectory, "References", "netstandard.dll"));
+        var compilation = CSharpCompilation.Create("PipelineTest", new[] { tree }, new[] { reference },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        var select = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single(call => call.Expression.ToString().EndsWith("Select", StringComparison.Ordinal));
+        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(select).Symbol);
+        Assert.Equal(type, symbol.ContainingType.Name);
+        Assert.Equal(imitation.Length == 0 ? "netstandard" : "PipelineTest", symbol.ContainingAssembly.Name);
+        var diagnostics = await compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new StatementOperationAnalyzer())).GetAnalyzerDiagnosticsAsync();
+        if (imitation.Length == 0) Assert.Empty(diagnostics);
+        else Assert.Equal("CR0300", Assert.Single(diagnostics).Id);
+    }
+
+    [Theory]
+    [InlineData("const int Value = 1 + 2 + 3;", "return Value;")]
+    [InlineData("", "const int constant = (1 + 2) + 3; return constant;")]
+    [InlineData("", "switch (value) { case (1 + 2) + 3: return 1; default: return 0; }")]
+    [InlineData("", "return value switch { 1 + 2 + 3 => 1, _ => 0 };")]
+    [InlineData("", "return value is (1 + 2 + 3) ? 1 : 0;")]
+    [InlineData("", "return value is not (1 + 2 + 3) ? 1 : 0;")]
+    [InlineData("", "return value is >= (1 + 2 + 3) and < (4 + 5 + 6) ? 1 : 0;")]
+    public async Task ConstantRequiredOperandsAreSilentAndRuntimeNeighborsStillFix(string member, string body)
+    {
+        var source = "class C { " + member + " static int Constant(int value) { " + body
+            + " } static int Runtime() { var value = 1 + 2 + 3; return value; } }";
+        var document = StatementOperationTestFixture.Document(source);
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
+        Assert.Equal("CR0302", diagnostic.Id);
+        var root = await document.GetSyntaxRootAsync();
+        Assert.Equal("Runtime", root!.FindNode(diagnostic.Location.SourceSpan).Ancestors()
+            .OfType<MethodDeclarationSyntax>().First().Identifier.Text);
+        var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
+        Assert.Equal(2, actions.Count);
+        foreach (var action in actions)
+        {
+            var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document, action.EquivalenceKey!));
+            await StatementOperationTestFixture.Compiles(changed);
+            Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
+        }
+    }
+
+    [Fact]
+    public async Task RuntimePatternGuardRemainsFixable()
+    {
+        var document = StatementOperationTestFixture.Document(Prelude
+            + "static int M(object value) => value switch { int x when Use(Get(x)) > 0 => x, _ => 0 }; }");
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
+        Assert.Equal("CR0300", diagnostic.Id);
+        var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document,
+            StatementOperationCodeFixProvider.ExtractKey));
+        await StatementOperationTestFixture.Compiles(changed);
+        Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
+    }
 
     [Theory]
     [InlineData("Use(Get())")]

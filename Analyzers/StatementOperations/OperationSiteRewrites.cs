@@ -39,7 +39,7 @@ internal static class OperationSiteRewrites
             var enclosing = plan.ExpressionBody is ArrowExpressionClauseSyntax arrow ? arrow.Expression
                 : (ExpressionSyntax)((LambdaExpressionSyntax)plan.ExpressionBody).Body;
             var value = enclosing.ReplaceNode(expression, call);
-            var completion = plan.Model.GetTypeInfo(enclosing).Type?.SpecialType == SpecialType.System_Void ? (StatementSyntax)SyntaxFactory.ExpressionStatement(value)
+            var completion = DiscardsExpressionBody(plan) ? (StatementSyntax)SyntaxFactory.ExpressionStatement(value)
                 : SyntaxFactory.ReturnStatement(value);
             return ConditionSiteRewrites.ReplaceExpressionBody(root, plan.ExpressionBody,
                 SyntaxFactory.Block(helper, completion).WithAdditionalAnnotations(Generated));
@@ -57,7 +57,8 @@ internal static class OperationSiteRewrites
     private static SyntaxNode Expand(OperationPlan plan, OperationEvaluator evaluator, SyntaxNode root, ExpressionSyntax expression)
     {
         if (plan.ExpressionBody is not null)
-            return ConditionSiteRewrites.ReplaceExpressionBody(root, plan.ExpressionBody, evaluator.ReturnBody(expression).WithAdditionalAnnotations(Generated));
+            return ConditionSiteRewrites.ReplaceExpressionBody(root, plan.ExpressionBody,
+                evaluator.ReturnBody(expression, DiscardsExpressionBody(plan)).WithAdditionalAnnotations(Generated));
         if (plan.Statement is ReturnStatementSyntax)
             return ConditionSiteRewrites.ReplaceStatement(root, plan.Statement, evaluator.ReturnBody(expression).Statements.ToList());
         var statements = new List<StatementSyntax>();
@@ -66,4 +67,8 @@ internal static class OperationSiteRewrites
         statements.Add(changed);
         return ConditionSiteRewrites.ReplaceStatement(root, plan.Statement!, statements);
     }
+
+    private static bool DiscardsExpressionBody(OperationPlan plan) => plan.ExpressionBody is LambdaExpressionSyntax lambda
+        ? plan.Model.GetSymbolInfo(lambda).Symbol is IMethodSymbol { ReturnsVoid: true }
+        : plan.Model.GetDeclaredSymbol(plan.ExpressionBody!.Parent!) is IMethodSymbol { ReturnsVoid: true };
 }

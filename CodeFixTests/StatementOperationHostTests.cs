@@ -9,6 +9,33 @@ public sealed class StatementOperationHostTests
     private const string Prelude = "using System; using System.Collections.Generic; class C { static int Get(int x) => x; static int Use(int x) => x; static int[] Items(int x) => new[] { x }; ";
 
     [Theory]
+    [InlineData("public static string Run() { Action action = () => Use(Get(1)); action(); return Events; }")]
+    [InlineData("C() => Use(Get(1)); public static string Run() { new C(); return Events; }")]
+    [InlineData("static void Apply() => Use(Get(1)); public static string Run() { Apply(); return Events; }")]
+    [InlineData("public static string Run() { void Apply() => Use(Get(1)); Apply(); return Events; }")]
+    [InlineData("~C() => Use(Get(1)); public static string Run() { var value = new C(); typeof(C).GetMethod(\"Finalize\", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(value, null); GC.SuppressFinalize(value); return Events; }")]
+    [InlineData("int Value { set => Use(Get(value)); } public static string Run() { new C().Value = 1; return Events; }")]
+    public async Task VoidExpressionBodiesDiscardValueReturningCalls(string member)
+    {
+        var source = "using System; public class C { static string Events = \"\"; "
+            + "static int Get(int x) { Events += \"get\"; return x; } "
+            + "static int Use(int x) { Events += \"use\"; return x; } " + member + " }";
+        var document = StatementOperationTestFixture.Document(source);
+        Assert.Equal("getuse", await StatementOperationTestFixture.Run(document));
+        var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
+        Assert.Equal("CR0300", diagnostic.Id);
+        var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
+        Assert.Equal(new[] { StatementOperationCodeFixProvider.ExtractKey, StatementOperationCodeFixProvider.ExpandKey },
+            actions.Select(action => action.EquivalenceKey));
+        foreach (var action in actions)
+        {
+            var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document, action.EquivalenceKey!));
+            Assert.Equal("getuse", await StatementOperationTestFixture.Run(changed));
+            Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
+        }
+    }
+
+    [Theory]
     [InlineData("var x = Use(Get(1)); return x;", true)]
     [InlineData("return Use(Get(1));", true)]
     [InlineData("int x = 0; x = Use(Get(1)); return x;", true)]

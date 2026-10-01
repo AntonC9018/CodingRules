@@ -276,6 +276,9 @@ parameter mapping and staged conversions, and selected/generated-root progress.
 Fix All replans current roots and fresh names sequentially and is idempotent.
 Analyzer feasibility never replaces a compilation per root.
 
+Constant-required expressions (const declarations, case labels and constant or
+relational pattern operands) cannot be staged and are excluded. Ordinary runtime
+arithmetic still counts its original operators even when constant-folded.
 Expression trees, attributes/base/this constructor initializers, invalid/dynamic
 binding, ref-like/pointer/unsafe values, internal comments/directives and labels
 or gotos are conservative boundaries. Individual actions are omitted for

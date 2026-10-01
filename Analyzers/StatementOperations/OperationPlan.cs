@@ -42,11 +42,10 @@ internal sealed class OperationPlan
 
     public static OperationPlan? Create(ExpressionSyntax owner, SemanticModel model, CancellationToken token)
     {
-        if (!SafeSyntax(owner, model, token) || !CanLower(owner, model)) return null;
+        if (RequiresConstant(owner) || !SafeSyntax(owner, model, token) || !CanLower(owner, model)) return null;
         var plan = new OperationPlan(owner, model);
         if (plan.Statement is null && plan.ExpressionBody is null && plan.MemberInitializer is null) return null;
         if (plan.DeclarationSpace.DescendantNodes().Any(node => node is LabeledStatementSyntax or GotoStatementSyntax)) return null;
-        if (plan.MemberInitializer?.Parent?.Parent?.Parent is FieldDeclarationSyntax field && field.Modifiers.Any(SyntaxKind.ConstKeyword)) return null;
 
         // Pattern/filter/header variables are unavailable where a helper is declared.
         // Bridge the complete evaluation site, so its parameterized invocation is
@@ -108,6 +107,13 @@ internal sealed class OperationPlan
             && SupportsExpansion(expansion, plan, model)) plan.ExpansionRoot = expansion;
         return plan.CanExtract || plan.CanExpand ? plan : null;
     }
+
+    private static bool RequiresConstant(ExpressionSyntax owner) => owner.Ancestors()
+        .TakeWhile(node => node is not AnonymousFunctionExpressionSyntax and not BaseMethodDeclarationSyntax
+            and not LocalFunctionStatementSyntax and not AccessorDeclarationSyntax)
+        .Any(node => node is ConstantPatternSyntax or RelationalPatternSyntax or CaseSwitchLabelSyntax
+            || node is LocalDeclarationStatementSyntax local && local.Modifiers.Any(SyntaxKind.ConstKeyword)
+            || node is FieldDeclarationSyntax field && field.Modifiers.Any(SyntaxKind.ConstKeyword));
 
     private static ExpressionSyntax? FindExpansionRoot(OperationPlan plan)
     {

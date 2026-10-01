@@ -88,3 +88,8 @@ diagnostic locations. It rechecks current callee policy and selected progress.
 Fix All rediscovers sites after each saved edit in document/project/solution scope,
 honors suppression/cancellation and is idempotent. Earlier diagnostic families,
 including overlapping CR0402 selectors, remain independent.
+
+A cached individual action rechecks current callee policy when its document's
+source is unchanged. If the source changed after registration, the action leaves
+the current document untouched; requesting a fresh action replans the new source.
+Fix All observes both its context and action-execution cancellation tokens.

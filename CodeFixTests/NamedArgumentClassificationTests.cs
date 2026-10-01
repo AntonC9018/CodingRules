@@ -7,6 +7,31 @@ namespace CodingRules;
 public sealed class NamedArgumentClassificationTests
 {
     [Theory]
+    [InlineData("delegate*<(int x,int y),void>", "delegate*<(int a,int b),void>", true)]
+    [InlineData("delegate*<(int x,int y)>", "delegate*<(int a,int b)>", true)]
+    [InlineData("delegate*<ref (int x,int y),ref (int x,int y)>", "delegate*<ref (int a,int b),ref (int a,int b)>", true)]
+    [InlineData("delegate* unmanaged[Cdecl]<(int x,int y),void>", "delegate* unmanaged[Cdecl]<(int a,int b),void>", true)]
+    [InlineData("delegate*<delegate*<(int x,int y),void>,void>", "delegate*<delegate*<(int a,int b),void>,void>", true)]
+    [InlineData("delegate*<(int x,int y),void>", "delegate* unmanaged[Cdecl]<(int a,int b),void>", false)]
+    [InlineData("delegate* unmanaged[Cdecl]<(int x,int y),void>", "delegate* unmanaged[Stdcall]<(int a,int b),void>", false)]
+    [InlineData("delegate*<ref (int x,int y),void>", "delegate*<in (int a,int b),void>", false)]
+    [InlineData("delegate*<ref (int x,int y)>", "delegate*<ref readonly (int a,int b)>", false)]
+    [InlineData("delegate*<(int x,int y),int>", "delegate*<(int a,int b),long>", false)]
+    public async Task FunctionPointerSignaturesIgnoreOnlyTupleLabels(string first, string second, bool positive)
+    {
+        var document = NamedArgumentTestFixture.Document("unsafe class C { static void M(" + first + " first," + second
+            + " second) {} static void F() => M(default,default); }");
+        document = document.Project.WithCompilationOptions(((Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions)document.Project.CompilationOptions!)
+            .WithAllowUnsafe(true)).GetDocument(document.Id)!;
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostics = await NamedArgumentTestFixture.Diagnostics(document);
+        if (!positive) { Assert.Empty(diagnostics); return; }
+        var changed = await NamedArgumentTestFixture.Fix(document, Assert.Single(diagnostics));
+        Assert.Contains("M(first: default,second: default)", (await changed.GetTextAsync()).ToString());
+        Assert.Empty(await NamedArgumentTestFixture.Diagnostics(changed));
+    }
+
+    [Theory]
     [InlineData("M(1, 2)", "M(first: 1, second: 2)")]
     [InlineData("M(first, second)", "M(first: first, second: second)")]
     [InlineData("M(first: 1, 2)", "M(first: 1, second: 2)")]

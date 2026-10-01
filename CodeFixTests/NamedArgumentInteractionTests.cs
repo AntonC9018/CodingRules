@@ -15,6 +15,74 @@ namespace CodingRules;
 
 public sealed class NamedArgumentInteractionTests
 {
+    [Fact]
+    public async Task CachedActionDoesNotRedirectToNewCallAtOldSpan()
+    {
+        var document = NamedArgumentTestFixture.Document("class C { static int M(int x,int y) => x; static int F() => M(1,2); }");
+        var workspace = document.Project.Solution.Workspace;
+        Assert.True(workspace.TryApplyChanges(document.Project.Solution));
+        document = workspace.CurrentSolution.GetDocument(document.Id)!;
+        var action = Assert.Single(await NamedArgumentTestFixture.Actions(document, Assert.Single(await NamedArgumentTestFixture.Diagnostics(document))));
+        var inserted = (await document.GetTextAsync()).ToString().Replace("static int F() => M(1,2);", "static int G() => M(3,4); static int F() => M(1,2);");
+        Assert.True(workspace.TryApplyChanges(document.WithText(SourceText.From(inserted)).Project.Solution));
+        var operation = Assert.Single((await action.GetOperationsAsync(CancellationToken.None)).OfType<ApplyChangesOperation>());
+        Assert.Equal(inserted, (await operation.ChangedSolution.GetDocument(document.Id)!.GetTextAsync()).ToString());
+    }
+
+    [Fact]
+    public async Task CachedActionRechecksCurrentPolicyWithUnchangedSource()
+    {
+        var document = NamedArgumentTestFixture.Document("class C { static int M(int x,int y) => x; static int F() => M(1,2); }");
+        var workspace = document.Project.Solution.Workspace;
+        Assert.True(workspace.TryApplyChanges(document.Project.Solution));
+        document = workspace.CurrentSolution.GetDocument(document.Id)!;
+        var action = Assert.Single(await NamedArgumentTestFixture.Actions(document, Assert.Single(await NamedArgumentTestFixture.Diagnostics(document))));
+        var compilation = (await document.Project.GetCompilationAsync())!;
+        var id = DocumentationCommentId.CreateDeclarationId(compilation.GetTypeByMetadataName("C")!.GetMembers("M").Single());
+        var updated = document.Project.AddAnalyzerConfigDocument(".editorconfig", SourceText.From("root=true\n[*.cs]\ndotnet_code_quality.CR0500.allow_positional_arguments = "
+            + compilation.Assembly.Name + "::" + id), filePath: "/.editorconfig").Project.GetDocument(document.Id)!;
+        Assert.True(workspace.TryApplyChanges(updated.Project.Solution));
+        var operation = Assert.Single((await action.GetOperationsAsync(CancellationToken.None)).OfType<ApplyChangesOperation>());
+        var changed = operation.ChangedSolution.GetDocument(document.Id)!;
+        Assert.Equal((await updated.GetTextAsync()).ToString(), (await changed.GetTextAsync()).ToString());
+        Assert.Empty(await NamedArgumentTestFixture.Diagnostics(changed));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FixAllPropagatesCancellationDuringDiagnosticRetrieval(bool cancelExecution)
+    {
+        var source = "class C { static int M(int x,int y) => x; static void F() {"
+            + string.Concat(Enumerable.Range(0, 30).Select(index => "M(" + index + "," + (index + 1) + ");")) + "} }";
+        var document = NamedArgumentTestFixture.Document(source);
+        var diagnostics = await NamedArgumentTestFixture.Diagnostics(document);
+        Assert.Equal(30, diagnostics.Length);
+        using var execution = new CancellationTokenSource();
+        using var contextCancellation = new CancellationTokenSource();
+        var diagnosticProvider = new CancelDuringRetrieval(diagnostics, cancelExecution ? execution : contextCancellation);
+        var provider = new NamedArgumentCodeFixProvider();
+        var context = new FixAllContext(document, provider, FixAllScope.Document, NamedArgumentCodeFixProvider.Key,
+            provider.FixableDiagnosticIds, diagnosticProvider, contextCancellation.Token);
+        var action = await provider.GetFixAllProvider().GetFixAsync(context);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => action!.GetOperationsAsync(execution.Token));
+        Assert.True(diagnosticProvider.ReceivedCanceledToken);
+    }
+
+    private sealed class CancelDuringRetrieval(ImmutableArray<Diagnostic> diagnostics, CancellationTokenSource cancellation) : FixAllContext.DiagnosticProvider
+    {
+        public bool ReceivedCanceledToken { get; private set; }
+        public override Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(Document document, CancellationToken token)
+        {
+            Assert.False(token.IsCancellationRequested);
+            cancellation.Cancel();
+            ReceivedCanceledToken = token.IsCancellationRequested;
+            return Task.FromResult<IEnumerable<Diagnostic>>(diagnostics);
+        }
+        public override Task<IEnumerable<Diagnostic>> GetProjectDiagnosticsAsync(Project project, CancellationToken token) => Task.FromResult(Enumerable.Empty<Diagnostic>());
+        public override Task<IEnumerable<Diagnostic>> GetAllDiagnosticsAsync(Project project, CancellationToken token) => GetDocumentDiagnosticsAsync(project.Documents.First(), token);
+    }
+
     [Theory]
     [InlineData("#pragma warning disable CR0500\n", "#pragma warning restore CR0500\n")]
     [InlineData("[System.Diagnostics.CodeAnalysis.SuppressMessage(\"Readability\",\"CR0500\")]\n", "")]

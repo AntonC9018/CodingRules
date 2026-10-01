@@ -31,6 +31,11 @@ public sealed class NamedArgumentCodeFixProvider : CodeFixProvider
     {
         token.ThrowIfCancellationRequested();
         var document = original.Project.Solution.Workspace.CurrentSolution.GetDocument(original.Id) ?? original;
+        // A cached diagnostic span belongs to the received source snapshot. Read
+        // current policy only while that source is unchanged; otherwise an edit
+        // could put an unrelated call at the old span.
+        var originalText = await original.GetTextAsync(token).ConfigureAwait(false);
+        if (!originalText.ContentEquals(await document.GetTextAsync(token).ConfigureAwait(false))) return document;
         var root = await document.GetSyntaxRootAsync(token).ConfigureAwait(false);
         var model = await document.GetSemanticModelAsync(token).ConfigureAwait(false);
         if (root is null || model is null || diagnostic.Location.SourceSpan.End > root.FullSpan.End) return document;

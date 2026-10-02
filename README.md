@@ -53,23 +53,26 @@ dotnet_diagnostic.CR0001.severity = error
 
 ## Local build
 
-The SourceGeneration SDK has not been published yet. Pack it and its helper
-libraries from a local checkout, then build and test CodingRules:
+After SourceGenerators PR #10 publishes the SDK and helper packages, build
+and test using .NET 10:
 
 ```sh
-./build/prepare-local-sdk.sh /path/to/SourceGenerators
+mkdir -p artifacts/local-feed
 dotnet test CodingRules.slnx -c Release
 dotnet pack Package/CodingRules.Package.csproj -c Release --output artifacts/local-feed
 ```
 
-The versioned project SDK restores from `artifacts/local-feed` through
-`NuGet.Config`, which also uses a repository-local package cache. The prepare
-script refreshes that cache after packing the SDK and package-testing helper
-so a previous local build of the same version cannot be reused. The normal
+The versioned project SDK is `Anton.SourceGeneration.Sdk` 1.1.0.
+For local SDK development, run `./build/prepare-local-sdk.sh /path/to/SourceGenerators`
+first. `NuGet.Config` includes this optional feed and a repository-local cache;
+the prepare script refreshes cached development dependencies. CI uses only
+NuGet.org and a fresh cache. The normal
 analyzer package is `Anton.CodingRules`; it contains the analyzer and code fix
 assemblies. The code-fix test project uses `Anton.SourceGeneration.PackageTesting`
 to pack `Anton.CodingRules` into a temporary feed, check `CR0001` in a fresh
 consumer, apply its packaged fix, and build the consumer. See the
 [dependency pass](docs/sdk-dependencies.md) and [WebUI dogfood run](docs/dogfood.md).
 
-This repository does not have CI yet.
+CI tests every PR and main push. NuGet publishing runs only when a maintainer
+publishes a GitHub release, using the exact package retained by successful
+main CI. See [CI and release setup](docs/releases.md).

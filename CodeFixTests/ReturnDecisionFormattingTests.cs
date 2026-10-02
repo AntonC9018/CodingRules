@@ -59,4 +59,80 @@ public sealed class ReturnDecisionFormattingTests
 
         await test.RunAsync();
     }
+
+    [Theory]
+    [InlineData("\r\n", "lf", "\n")]
+    [InlineData("\n", "crlf", "\r\n")]
+    [InlineData("\r\n", "cr", "\r")]
+    public async Task UsesConfiguredLineEndingForMinimalNestedReturn(
+        string existingEndOfLine,
+        string setting,
+        string generatedEndOfLine)
+    {
+        await VerifyMinimalNestedReturnAsync(
+            existingEndOfLine: existingEndOfLine,
+            setting: setting,
+            generatedEndOfLine: generatedEndOfLine);
+    }
+
+    [Theory]
+    [InlineData("\n", null)]
+    [InlineData("\r\n", null)]
+    [InlineData("\r\n", "unset")]
+    [InlineData("\r\n", "invalid")]
+    public async Task PreservesDocumentLineEndingWithoutValidConfiguration(
+        string existingEndOfLine,
+        string? setting)
+    {
+        await VerifyMinimalNestedReturnAsync(
+            existingEndOfLine: existingEndOfLine,
+            setting: setting,
+            generatedEndOfLine: existingEndOfLine);
+    }
+
+    private static async Task VerifyMinimalNestedReturnAsync(
+        string existingEndOfLine,
+        string? setting,
+        string generatedEndOfLine)
+    {
+        var prefix = string.Concat(
+            "class C", existingEndOfLine,
+            "{", existingEndOfLine,
+            "    bool M(bool flag)", existingEndOfLine,
+            "    {", existingEndOfLine,
+            "        lock (new object())", existingEndOfLine);
+        var suffix = string.Concat(
+            "    }", existingEndOfLine,
+            "}", existingEndOfLine);
+        var originalBlock = string.Concat(
+            "        {", existingEndOfLine,
+            "            return {|CR0006:flag == true|};", existingEndOfLine,
+            "        }", existingEndOfLine);
+        var fixedBlock = string.Concat(
+            "        {", generatedEndOfLine,
+            "            if (flag == true)", generatedEndOfLine,
+            "            {", generatedEndOfLine,
+            "                return true;", generatedEndOfLine,
+            "            }", generatedEndOfLine,
+            generatedEndOfLine,
+            "            return false;", generatedEndOfLine,
+            "        }", generatedEndOfLine);
+        var testCode = string.Concat(prefix, originalBlock, suffix);
+        var fixedCode = string.Concat(prefix, fixedBlock, suffix);
+        var test = new CSharpCodeFixTest<
+            NestedReturnDecisionAnalyzer,
+            NestedReturnDecisionCodeFixProvider,
+            DefaultVerifier>
+        {
+            TestCode = testCode,
+            FixedCode = fixedCode,
+        };
+        if (setting is not null)
+        {
+            var editorConfig = $"root = true\n\n[*]\nend_of_line = {setting}\n";
+            test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", editorConfig));
+        }
+
+        await test.RunAsync();
+    }
 }

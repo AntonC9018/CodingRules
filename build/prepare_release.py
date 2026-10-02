@@ -18,86 +18,131 @@ VERSION_PATTERN = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[
 
 
 def git(*arguments):
-    return subprocess.check_output(["git", *arguments], text=True).strip()
+    output = subprocess.check_output(["git", *arguments], text=True)
+    return output.strip()
 
 
 def api(endpoint, paginated=False):
     command = ["gh", "api", endpoint]
     if paginated:
         command.extend(["--paginate", "--slurp"])
-    return json.loads(subprocess.check_output(command))
+    output = subprocess.check_output(command)
+    return json.loads(output)
 
 
 def valid_run(run, repository, workflow_id, commit):
-    return (
-        run.get("workflow_id") == workflow_id
-        and run.get("path") == CI_PATH
-        and run.get("event") == "push"
-        and run.get("head_branch") == "main"
-        and run.get("head_sha") == commit
-        and run.get("status") == "completed"
-        and run.get("conclusion") == "success"
-        and run.get("repository", {}).get("id") == repository["id"]
-        and run.get("head_repository", {}).get("id") == repository["id"]
-    )
+    run_workflow_id = run.get("workflow_id")
+    if run_workflow_id != workflow_id:
+        return False
+    path = run.get("path")
+    if path != CI_PATH:
+        return False
+    event = run.get("event")
+    if event != "push":
+        return False
+    branch = run.get("head_branch")
+    if branch != "main":
+        return False
+    head_commit = run.get("head_sha")
+    if head_commit != commit:
+        return False
+    status = run.get("status")
+    if status != "completed":
+        return False
+    conclusion = run.get("conclusion")
+    if conclusion != "success":
+        return False
+    run_repository = run.get("repository", {})
+    run_repository_id = run_repository.get("id")
+    if run_repository_id != repository["id"]:
+        return False
+    head_repository = run.get("head_repository", {})
+    head_repository_id = head_repository.get("id")
+    if head_repository_id != repository["id"]:
+        return False
+    return True
 
 
 def select_artifact(artifacts, run, repository, commit):
     expected_name = f"codingrules-package-{commit}-attempt-{run['run_attempt']}"
     matches = [artifact for artifact in artifacts if artifact.get("name") == expected_name]
-    require(len(matches) == 1, "Expected one artifact from the successful CI attempt")
+    match_count = len(matches)
+    require(match_count == 1, "Expected one artifact from the successful CI attempt")
     artifact = matches[0]
-    require(not artifact.get("expired", True), "Tested artifact has expired; rerun main CI")
+    expired = artifact.get("expired", True)
+    require(not expired, "Tested artifact has expired; rerun main CI")
     provenance = artifact.get("workflow_run", {})
-    for key, expected in {"id": run["id"], "repository_id": repository["id"],
-                          "head_repository_id": repository["id"], "head_branch": "main",
-                          "head_sha": commit}.items():
-        require(provenance.get(key) == expected, f"Artifact {key} provenance mismatch")
+    expected_provenance = {"id": run["id"], "repository_id": repository["id"],
+                           "head_repository_id": repository["id"], "head_branch": "main",
+                           "head_sha": commit}
+    for key, expected in expected_provenance.items():
+        actual = provenance.get(key)
+        message = f"Artifact {key} provenance mismatch"
+        require(actual == expected, message)
     digest = artifact.get("digest")
-    require(isinstance(digest, str), "Artifact has no immutable archive digest")
-    require(re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is not None,
-            "Artifact has no valid immutable archive digest")
+    digest_is_text = isinstance(digest, str)
+    require(digest_is_text, "Artifact has no immutable archive digest")
+    digest_match = re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+    require(digest_match is not None, "Artifact has no valid immutable archive digest")
     return artifact
 
 
 def verify_archive(data, artifact, repository, run, commit, version):
-    digest = "sha256:" + hashlib.sha256(data).hexdigest()
+    archive_hash = hashlib.sha256(data)
+    archive_digest = archive_hash.hexdigest()
+    digest = "sha256:" + archive_digest
     require(digest == artifact["digest"], "Downloaded archive SHA-256 mismatch")
-    with ZipFile(BytesIO(data)) as archive:
-        require(len(archive.namelist()) == 2, "Unexpected artifact entries")
-        manifest = json.loads(archive.read("manifest.json"))
+    archive_stream = BytesIO(data)
+    with ZipFile(archive_stream) as archive:
+        entries = archive.namelist()
+        entry_count = len(entries)
+        require(entry_count == 2, "Unexpected artifact entries")
+        manifest_json = archive.read("manifest.json")
+        manifest = json.loads(manifest_json)
         expected = {"schema": 1, "repository": repository["full_name"], "commit": commit,
                     "run_id": run["id"], "run_attempt": run["run_attempt"],
                     "package_id": PACKAGE_ID, "version": version,
                     "file": f"{PACKAGE_ID}.{version}.nupkg"}
         for key, value in expected.items():
-            require(manifest.get(key) == value, f"Manifest {key} mismatch")
-        require(set(archive.namelist()) == {"manifest.json", expected["file"]},
-                "Artifact contains unexpected paths")
+            actual = manifest.get(key)
+            message = f"Manifest {key} mismatch"
+            require(actual == value, message)
+        actual_paths = set(entries)
+        expected_paths = {"manifest.json", expected["file"]}
+        require(actual_paths == expected_paths, "Artifact contains unexpected paths")
         package = archive.read(expected["file"])
-        require(hashlib.sha256(package).hexdigest() == manifest.get("sha256"),
-                "Tested nupkg SHA-256 mismatch")
+        package_hash = hashlib.sha256(package)
+        package_digest = package_hash.hexdigest()
+        expected_package_digest = manifest.get("sha256")
+        require(package_digest == expected_package_digest, "Tested nupkg SHA-256 mismatch")
     return expected["file"], package
 
 
 def main():
-    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+    event_path = Path(os.environ["GITHUB_EVENT_PATH"])
+    event_json = event_path.read_text()
+    event = json.loads(event_json)
     release = event["release"]
-    require(os.environ["GITHUB_EVENT_NAME"] == "release" and event["action"] == "published",
-            "Publishing requires a published GitHub release")
+    require(os.environ["GITHUB_EVENT_NAME"] == "release", "Publishing requires a published GitHub release")
+    require(event["action"] == "published", "Publishing requires a published GitHub release")
     require(not release["draft"], "Cannot publish a draft")
     tag = release["tag_name"]
-    require(re.fullmatch("v" + VERSION_PATTERN, tag) is not None, "Expected a v<package-version> tag")
+    tag_pattern = "v" + VERSION_PATTERN
+    tag_match = re.fullmatch(tag_pattern, tag)
+    require(tag_match is not None, "Expected a v<package-version> tag")
     repository_name = os.environ["GITHUB_REPOSITORY"]
     require(repository_name == "AntonC9018/CodingRules", "Unexpected release repository")
     endpoint = f"repos/{repository_name}"
     repository = api(endpoint)
     require(repository["default_branch"] == "main", "Expected default branch main")
     # Full checkout includes main history and tags. Resolve annotated tags to commits too.
-    commit = git("rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}")
+    tag_ref = f"refs/tags/{tag}^{{commit}}"
+    commit = git("rev-parse", "--verify", tag_ref)
     require(commit == os.environ["GITHUB_SHA"], "Release tag moved from its published event commit")
     subprocess.run(["git", "merge-base", "--is-ancestor", commit, "origin/main"], check=True)
-    version = source_version(git("show", f"{commit}:Package/CodingRules.Package.csproj"))
+    project_ref = f"{commit}:Package/CodingRules.Package.csproj"
+    project_xml = git("show", project_ref)
+    version = source_version(project_xml)
     require(tag == "v" + version, "Release tag does not match the source package version")
     workflow = api(endpoint + "/actions/workflows/ci.yml")
     require(workflow["path"] == CI_PATH, "Unexpected CI workflow")
@@ -109,22 +154,28 @@ def main():
     require(runs, "No successful main push CI run for this exact release commit")
     run = max(runs, key=lambda item: item["id"])
     # Re-read to reject an in-progress or failed rerun that started during selection.
-    run = api(endpoint + f"/actions/runs/{run['id']}")
-    require(valid_run(run, repository, workflow["id"], commit), "Selected CI run is no longer successful")
-    pages = api(endpoint + f"/actions/runs/{run['id']}/artifacts?per_page=100", paginated=True)
+    run_endpoint = f"{endpoint}/actions/runs/{run['id']}"
+    run = api(run_endpoint)
+    run_is_valid = valid_run(run, repository, workflow["id"], commit)
+    require(run_is_valid, "Selected CI run is no longer successful")
+    artifacts_endpoint = f"{endpoint}/actions/runs/{run['id']}/artifacts?per_page=100"
+    pages = api(artifacts_endpoint, paginated=True)
     artifacts = [artifact for page in pages for artifact in page["artifacts"]]
     artifact = select_artifact(artifacts, run, repository, commit)
-    data = subprocess.check_output(["gh", "api", endpoint + f"/actions/artifacts/{artifact['id']}/zip"])
+    archive_endpoint = f"{endpoint}/actions/artifacts/{artifact['id']}/zip"
+    data = subprocess.check_output(["gh", "api", archive_endpoint])
     name, package = verify_archive(data, artifact, repository, run, commit, version)
     directory = Path(sys.argv[1])
-    require(not directory.exists(), "Publish directory must be fresh")
+    directory_exists = directory.exists()
+    require(not directory_exists, "Publish directory must be fresh")
     directory.mkdir(parents=True)
     path = directory / name
     path.write_bytes(package)
     package_version, package_commit = package_metadata(path)
-    require(package_version == version and package_commit == commit,
-            "Nuspec source/version provenance mismatch")
-    print(f"Verified {tag} at {commit}; CI run {run['id']} attempt {run['run_attempt']}; artifact {artifact['id']}")
+    require(package_version == version, "Nuspec source/version provenance mismatch")
+    require(package_commit == commit, "Nuspec source/version provenance mismatch")
+    message = f"Verified {tag} at {commit}; CI run {run['id']} attempt {run['run_attempt']}; artifact {artifact['id']}"
+    print(message)
 
 
 if __name__ == "__main__":

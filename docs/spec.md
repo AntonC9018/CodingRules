@@ -83,6 +83,11 @@ through `.editorconfig`.
   spans when the string need not be owned and the lifetime permits it. Create
   a string when ownership is needed.
 
+Ticket 9 implements `CR0700` for immediate Length and non-null constant ordinal
+equality inspection of genuine parameterless framework string trims. The
+[span assessment](spans.md) records the exact available-API catalogue, safe
+synchronous helper rewrite and manual ownership/signature/slicing boundaries.
+
 ## Primitive sentinel implementation (ticket 8)
 
 The accepted first version proves exactly `int -1` absence from resolved

@@ -92,3 +92,44 @@ argument. Flow-preserving expansion remains supported for the actual whole-if
 root, including mixed trees and producing leaves. Nested logical/conditional
 producer operands and element indices now retain laziness and grouping; nested
 member initializers and constructor/destructor arrows have working extraction.
+
+## Span inspection, 2026-10-02
+
+The bounded CR0700 package was validated in an isolated archive of pinned
+FindJobHelper 0f579ef650d0f06c7bb04ff7c32b8daf97b65986, with the original checkout
+unchanged. Production builds report **920 warnings and zero errors**: the exact
+919 older warning occurrences and 46 informational occurrences retain their
+IDs, paths, full regions, levels and messages, and one new CR0700 appears at
+ApplicationIndexStore.cs:224, columns 16-53, on
+`rows[0].FirstOrDefault().Value.Trim()` in the literal header comparison.
+
+The actual packaged analyzer/fixer runs in SDK10.0.302's Roslyn5.6 MSBuild
+workspace. All seven source/test projects compile without errors. The header
+has one action; saved/reparsed source removes its temporary trim and compiles.
+The selected condition's producing-trim CR0203 disappears (two WebUi CR0203
+roots become one); unrelated old roots are preserved by the fixer's occurrence
+audit. Field/GetField and SelectErrorOutput owned-result cases remain negative.
+Dictionary strings, deferred/iterator owned fields and existing spans retain
+their ownership/lifetime contracts.
+
+Actual package consumers use real references and C#7 without changing their
+language or adding dependencies: netstandard2.0 without System.Memory has no
+CR0700; its System.Memory4.5.5-backed counterpart supports Trim Length/equality
+(two roots), while old params TrimStart/TrimEnd signatures are omitted.
+Netstandard2.1 and modern .NET support all four fixture roots. Every supported
+root's saved fix compiles with no warnings/errors and leaves no CR0700.
+The regular package-consumption test separately restores the package into a
+fresh cache, verifies the exported action and rebuilds its saved consumer.
+
+A warmed actual-package runtime probe preserves empty/nonempty/Unicode/NUL/
+surrogate results and the null receiver's NullReferenceException. Its padded
+20,000-inspection measured loop allocates 1,920,000 bytes with the original
+Trim and zero with the synchronous helper, with the same 1,440,000 consumed
+checksum. This proves removal of that selected temporary materialization;
+it does not claim universal receiver allocation or throughput improvement.
+
+The final solution run, unique-package hash/assets, fresh CLI consumers and
+exact reference SARIF comparison are recorded in the workspace's
+`reviews/issue009-implementation.md` delivery evidence. Shared remains version
+1.0.0.0, and only PackageVersion is overridden for isolated final packaging.
+No SDK/SourceGenerators source or protected reference checkout is changed.

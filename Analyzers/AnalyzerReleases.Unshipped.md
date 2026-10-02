@@ -21,6 +21,7 @@ CR0402 | Readability | Warning | Make materializer key and element selectors exp
 CR0500 | Readability | Warning | Name arguments with ambiguous same-type roles
 CR0600 | Readability | Warning | Represent proven index-search absence in the return type
 CR0601 | Readability | Warning | Check a private helper's proven index-search sentinel before forwarding
+CR0700 | Readability | Warning | Use a span for transient text inspection
 
 ### Removed Rules
 

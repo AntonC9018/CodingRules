@@ -20,7 +20,11 @@ public sealed class NamedArgumentReferenceTests
         var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
         var defaultPackages = Path.Combine(repository, "artifacts/nuget-packages");
         var configuredPackages = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
-        var packages = configuredPackages ?? defaultPackages;
+        var packages = defaultPackages;
+        if (!string.IsNullOrEmpty(configuredPackages))
+        {
+            packages = configuredPackages;
+        }
         var folder = version == "2.0" ? Path.Combine(packages, "netstandard.library/2.0.3/build/netstandard2.0/ref")
             : Path.Combine(Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "../../..")),
                 "packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1");

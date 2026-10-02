@@ -108,14 +108,8 @@ internal static class ReturnDecisionRewrites
         var options = await changed.GetOptionsAsync(cancellationToken).ConfigureAwait(false);
         var language = changed.Project.Language;
         var configuredEndOfLine = options.GetOption(FormattingOptions.NewLine, language);
-        var workspaceEndOfLine = changed.Project.Solution.Workspace.Options.GetOption(FormattingOptions.NewLine, language);
 
-        // When an editorconfig configures the line ending it governs the
-        // generated code; without one, the document's own convention wins
-        // over the workspace's platform default.
-        var endOfLine = string.Equals(configuredEndOfLine, workspaceEndOfLine, StringComparison.Ordinal)
-            ? FindDocumentEndOfLine(root) ?? configuredEndOfLine
-            : configuredEndOfLine;
+        var endOfLine = GetEndOfLine(changed, root, configuredEndOfLine);
         var alignedOptions = options.WithChangedOption(FormattingOptions.NewLine, language, endOfLine);
         var formatted = await Formatter.FormatAsync(changed, Formatter.Annotation, alignedOptions, cancellationToken).ConfigureAwait(false);
 
@@ -135,6 +129,34 @@ internal static class ReturnDecisionRewrites
             containers,
             (_, rewrittenNode) => NormalizeEndOfLines(rewrittenNode, endOfLine));
         return formatted.WithSyntaxRoot(normalizedRoot);
+    }
+
+    private static string GetEndOfLine(Document document, SyntaxNode root, string configuredEndOfLine)
+    {
+        var provider = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider;
+        var configOptions = provider.GetOptions(root.SyntaxTree);
+        var hasSetting = configOptions.TryGetValue(key: "end_of_line", value: out var setting);
+        if (hasSetting)
+        {
+            // An explicit setting can equal the workspace's platform default.
+            // Check its presence rather than inferring it from option equality.
+            var trimmedSetting = setting?.Trim();
+            switch (trimmedSetting)
+            {
+                case "lf":
+                case "crlf":
+                case "cr":
+                    return configuredEndOfLine;
+            }
+        }
+
+        var documentEndOfLine = FindDocumentEndOfLine(root);
+        if (documentEndOfLine is not null)
+        {
+            return documentEndOfLine;
+        }
+
+        return configuredEndOfLine;
     }
 
     public static List<StatementSyntax> CreateReplacement(

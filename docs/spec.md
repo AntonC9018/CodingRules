@@ -352,6 +352,29 @@ around the intended function. Neighboring functions and other rule IDs remain
 enabled. Real analyzer-driver tests verify both suppressions and restored scope;
 there is no custom opt-out attribute or handwritten suppression matcher.
 
+## Constructor overloads (ticket 7)
+
+The constructor-overload policy remains a maintainer judgment without an
+analyzer diagnostic. Review why an overload is being introduced: when its
+sole purpose is dependency injection or test setup, update the existing
+constructor and callers; use a builder when several optional configurations
+justify one.
+
+Roslyn exposes [current source, references and bound symbols](https://learn.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/work-with-semantics#compilation),
+which do not establish why an overload was added or whether it serves a genuine
+production construction form. Constructor chaining, defaults, accessibility,
+interface parameters and calls observed only in tests do not prove exclusive
+test or injection intent. The same signatures and bodies can provide genuine
+default or configurable behavior. Whether compatibility was requested also
+requires maintainer judgment under the existing compatibility policy; it is
+not an automatic exemption from the constructor-overload rule.
+[DI constructor selection](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection/overview#constructor-selection-rules)
+and an [ActivatorUtilitiesConstructor attribute](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.dependencyinjection.activatorutilitiesconstructorattribute?view=net-10.0)
+establish activation behavior, not the sole reason for introducing an overload.
+
+Ticket 7 therefore adds no diagnostic or code fix. Existing rules still apply
+independently to constructor calls and bodies, including named arguments.
+
 ## Delivery decisions
 
 - Publish the source in the public `AntonC9018/CodingRules` repository.

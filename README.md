@@ -6,8 +6,10 @@ Roslyn analyzers and code fixes for the C# coding standards in
 The [spec](docs/spec.md) records the complete set of rules. Implementation
 is split into [GitHub issues](https://github.com/AntonC9018/CodingRules/issues).
 `CR0001` checks explicit return decisions after a top-level guard and offers
-code fixes for every form it reports. Diagnostics are warnings by default. A
-consumer can change severity through `.editorconfig`:
+code fixes for every form it reports. `CR0003` through `CR0006` check the same
+decision forms in returns nested deeper than the function body's top level.
+Diagnostics are warnings by default. A consumer can change severity through
+`.editorconfig`:
 
 ```ini
 dotnet_diagnostic.CR0001.severity = error

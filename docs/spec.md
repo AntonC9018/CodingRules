@@ -58,8 +58,8 @@ through `.editorconfig`.
 
 - After a conditional early return, later decisions among return outcomes
   should use `if` or `switch` statements with explicit returns. A final
-  predicate, nullable expression, ternary, or switch expression that still
-  chooses among outcomes violates the rule, regardless of return type.
+  predicate, nullable expression, or ternary that still chooses among outcomes
+  violates the rule, regardless of return type.
 - Returning a value already known to represent one outcome is allowed. A lone
   conditional return with no preceding conditional return is also allowed.
 - For a final lookup that may be absent, test the result and return the found
@@ -133,9 +133,10 @@ Acceptance tests include:
   expression can be evaluated once and rewritten with an explicit fallback.
 - The same patterns work in a block-bodied local function, accessor, and
   lambda, without a nested function's guard affecting its parent.
-- A lone conditional return, a plain value return, generated code, a switch
-  expression, and a conditional return inside deeper control flow do not
-  report in this ticket.
+- A lone conditional return, a plain value return, generated code, and a
+  switch expression do not report in this ticket. A conditional return inside
+  deeper control flow also does not report in this ticket; it reports from
+  ticket #2 onward through the nested return decision rules below.
 - Fixes preserve comments and do not change the number or order of evaluations
   of calls and property accesses.
 
@@ -144,6 +145,32 @@ leaves the fallback as the final return. For example, after an earlier guard,
 `return value.Length == 0 ? null : value;` becomes
 `if (value.Length != 0) return value; return null;` with normal C# block
 formatting. The fix may invert the condition to keep this branch direction.
+
+## Nested return decisions (ticket 2)
+
+Diagnostics `CR0003` through `CR0006` report a return whose expression decides
+among outcomes when it sits deeper than the function body's top level, for
+example inside a `lock`, an `if` or `else` branch, a loop, `try`/`catch`/
+`finally`, a `switch` statement case arm, or a nested block. Nesting alone
+triggers the warning; a preceding guard is not required. `CR0003` covers
+ternaries, `CR0004` null-coalescing expressions, `CR0005` nullable-returning
+calls, and `CR0006` boolean predicates and boolean-returning calls. Returns
+inside nested function bodies (lambdas, local functions, and anonymous
+methods) are not affected by the containing body's scope, and switch-expression
+returns are allowed style.
+
+Each rule offers one canonical fix that rewrites the return in place into
+explicit `if` statements and returns. The fix preserves evaluation order and
+the number of times every subexpression runs, and all generated code is
+formatted through the document's `.editorconfig` options. A ternary whose
+branch throws, and a null-coalescing expression whose right side throws, are
+reported and fix to a guard whose branch throws, followed by a return of the
+remaining arm or the saved value. Generated local declarations inserted into
+a switch section are wrapped in a block, because all sections of a switch
+share one declaration space. Final-position decision returns stay governed by
+`CR0001` alone; the nested rules never re-report them. Generated code and the
+conservative skips of the first implementation (comments or directives inside
+the decision, ref returns, and non-identity return conversions) still apply.
 
 ## Delivery decisions
 
@@ -163,7 +190,7 @@ formatting. The fix may invert the condition to keep this branch direction.
 
 [Ticket 1](https://github.com/AntonC9018/CodingRules/issues/1) implements
 `CR0001` as described above. Follow-up tickets cover
-[switch expressions and deeper control flow](https://github.com/AntonC9018/CodingRules/issues/2),
+[conditional returns nested beyond the top level](https://github.com/AntonC9018/CodingRules/issues/2),
 [inline conditions](https://github.com/AntonC9018/CodingRules/issues/3),
 [statement and argument structure](https://github.com/AntonC9018/CodingRules/issues/4),
 [pipelines and lambdas](https://github.com/AntonC9018/CodingRules/issues/5),

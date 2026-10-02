@@ -98,8 +98,9 @@ member initializers and constructor/destructor arrows have working extraction.
 The bounded CR0700 package was validated in an isolated archive of pinned
 FindJobHelper 0f579ef650d0f06c7bb04ff7c32b8daf97b65986, with the original checkout
 unchanged. Production builds report **920 warnings and zero errors**: the exact
-919 older warning occurrences and 46 informational occurrences retain their
-IDs, paths, full regions, levels and messages, and one new CR0700 appears at
+919 older warning occurrences plus one new CR0700. Separately, all 46
+informational occurrences retain their IDs, paths, full regions, levels and
+messages, as do the older warnings. The new CR0700 appears at
 ApplicationIndexStore.cs:224, columns 16-53, on
 `rows[0].FirstOrDefault().Value.Trim()` in the literal header comparison.
 

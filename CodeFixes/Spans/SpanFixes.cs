@@ -25,7 +25,7 @@ internal static class SpanFixes
 
     public static async Task<Document?> ChangeAsync(Document document, InvocationExpressionSyntax trim, SemanticModel model, CancellationToken token)
     {
-        var plan = SpanPlan.Create(trim, model, SpanCatalog.For(model.Compilation), token);
+        var plan = SpanPlan.Create(trim, model, SpanCatalog.For(model.Compilation), token, document.Project.AnalyzerOptions);
         var root = await document.GetSyntaxRootAsync(token).ConfigureAwait(false);
         if (plan is null || root is null) return null;
         var before = await Diagnostics(model.Compilation, document.Project.AnalyzerOptions, token).ConfigureAwait(false);
@@ -58,7 +58,8 @@ internal static class SpanFixes
         proposed = document.WithText(text);
         var after = await proposed.GetSemanticModelAsync(token).ConfigureAwait(false);
         var parsed = await proposed.GetSyntaxRootAsync(token).ConfigureAwait(false);
-        if (formatted is null || after is null || parsed is null || !CompilerMessages(model, token).SequenceEqual(CompilerMessages(after, token))) return null;
+        if (formatted is null || after is null || parsed is null || !CompilerMessages(model.Compilation, token).SequenceEqual(CompilerMessages(after.Compilation, token))) return null;
+        if (!UneditedBindingsSurvive(model.Compilation, after.Compilation, model.SyntaxTree, token)) return null;
         var seen = new HashSet<int>();
         foreach (var node in formatted.GetAnnotatedNodes(Original))
         {
@@ -74,12 +75,15 @@ internal static class SpanFixes
             || NamedArgumentIdentity.Type(model.GetTypeInfo(plan.Inspection, token).Type) != NamedArgumentIdentity.Type(after.GetTypeInfo(saved, token).Type)
             || NamedArgumentIdentity.Type(model.GetTypeInfo(plan.Inspection, token).ConvertedType) != NamedArgumentIdentity.Type(after.GetTypeInfo(saved, token).ConvertedType)
             || OperationEvaluator.ConversionFingerprint(model.GetConversion(plan.Inspection, token)) != OperationEvaluator.ConversionFingerprint(after.GetConversion((ExpressionSyntax)saved, token))) return null;
-        var remaining = parsed.DescendantNodes().OfType<InvocationExpressionSyntax>().Count(node => SpanPlan.Create(node, after, SpanCatalog.For(after.Compilation), token) is not null);
-        var originalCount = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Count(node => SpanPlan.Create(node, model, plan.Catalog, token) is not null);
+        var remaining = parsed.DescendantNodes().OfType<InvocationExpressionSyntax>().Count(node => SpanPlan.Create(node, after, SpanCatalog.For(after.Compilation), token, document.Project.AnalyzerOptions) is not null);
+        var originalCount = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Count(node => SpanPlan.Create(node, model, plan.Catalog, token, document.Project.AnalyzerOptions) is not null);
         if (remaining >= originalCount) return null;
         var afterDiagnostics = await Diagnostics(after.Compilation, document.Project.AnalyzerOptions, token).ConfigureAwait(false);
         var counts = before.GroupBy(Key).ToDictionary(group => group.Key, group => group.Count());
         if (afterDiagnostics.GroupBy(Key).Any(group => !counts.TryGetValue(group.Key, out var count) || group.Count() > count)) return null;
+        foreach (var diagnostic in before.Where(item => item.Location.SourceTree != model.SyntaxTree))
+            if (!afterDiagnostics.Any(item => item.Location.SourceTree == diagnostic.Location.SourceTree
+                && item.Location.SourceSpan == diagnostic.Location.SourceSpan && Key(item) == Key(diagnostic))) return null;
         foreach (var node in formatted.GetAnnotatedNodes(PreviousDiagnostic))
             foreach (var annotation in node.GetAnnotations(PreviousDiagnostic))
             {
@@ -94,7 +98,7 @@ internal static class SpanFixes
     private static SyntaxNode Rewrite(SpanPlan plan, SyntaxNode root, SemanticModel model)
     {
         var names = new EvaluationNames(plan.Space, model);
-        var name = names.Fresh(plan.Constant is null ? "InspectTextLength" : "InspectTextEquals");
+        var name = plan.MemberHelperName ?? names.Fresh(plan.Constant is null ? "InspectTextLength" : "InspectTextEquals");
         var source = names.Fresh("sourceText");
         var length = names.Fresh("textLength");
         var span = names.Fresh("textSpan");
@@ -179,7 +183,25 @@ internal static class SpanFixes
                 + ":" + NamedArgumentIdentity.Conversion(argument.InConversion) + ":" + NamedArgumentIdentity.Conversion(argument.OutConversion)
                 + ":" + NamedArgumentIdentity.Type(argument.Value.Type) + ":" + argument.Value.ConstantValue));
     }
-    private static string[] CompilerMessages(SemanticModel model, CancellationToken token) => model.GetDiagnostics(cancellationToken: token)
+    private static bool UneditedBindingsSurvive(Compilation before, Compilation after, SyntaxTree edited, CancellationToken token)
+    {
+        foreach (var tree in before.SyntaxTrees.Where(tree => tree != edited))
+        {
+            token.ThrowIfCancellationRequested();
+            if (!after.ContainsSyntaxTree(tree)) return false;
+            var originalModel = before.GetSemanticModel(tree);
+            var savedModel = after.GetSemanticModel(tree);
+            foreach (var node in tree.GetRoot(token).DescendantNodes())
+            {
+                token.ThrowIfCancellationRequested();
+                if (Occurrence(node, originalModel, token) && Binding(originalModel.GetOperation(node, token)) != Binding(savedModel.GetOperation(node, token))) return false;
+                if (node is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } }
+                    && !originalModel.GetConstantValue(node, token).Equals(savedModel.GetConstantValue(node, token))) return false;
+            }
+        }
+        return true;
+    }
+    private static string[] CompilerMessages(Compilation compilation, CancellationToken token) => compilation.GetDiagnostics(token)
         .Where(item => item.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning).Select(Key).OrderBy(value => value).ToArray();
     private static string Key(Diagnostic diagnostic) => diagnostic.Id + ":" + diagnostic.Severity + ":" + diagnostic.GetMessage();
     private static Task<ImmutableArray<Diagnostic>> Diagnostics(Compilation compilation, AnalyzerOptions options, CancellationToken token) =>

@@ -21,7 +21,7 @@ public sealed class SpanTextAnalyzer : DiagnosticAnalyzer
             var catalog = SpanCatalog.For(start.Compilation);
             start.RegisterSyntaxNodeAction(node =>
             {
-                if (SpanPlan.Create((InvocationExpressionSyntax)node.Node, node.SemanticModel, catalog, node.CancellationToken) is not null)
+                if (SpanPlan.Create((InvocationExpressionSyntax)node.Node, node.SemanticModel, catalog, node.CancellationToken, node.Options) is not null)
                     node.ReportDiagnostic(Diagnostic.Create(Rule, node.Node.GetLocation()));
             }, SyntaxKind.InvocationExpression);
         });

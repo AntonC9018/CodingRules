@@ -163,6 +163,45 @@ public sealed class SpanSafetyTests
     }
 
     private static string Key(Diagnostic item) => item.Id + ":" + item.GetMessage() + ":" + item.Location.SourceTree!.GetText().ToString(item.Location.SourceSpan);
+
+    [Fact]
+    public async Task InitializerFixAllReservesFreshMembersAcrossPartialsAndKeepsImportedCalls()
+    {
+        var document = SpanTestFixture.Document("using static Utility; public partial class C { static int P = \" a \".Trim().Length; public static string Run() => InspectTextLength(\" z \").ToString(); }");
+        var other = document.Project.AddDocument("Other.cs", "public static class Utility { public static int InspectTextLength(string text) => 7; } public partial class C { static int Q = \" b \".Trim().Length; }", filePath: "/Other.cs");
+        document = other.Project.GetDocument(document.Id)!;
+        Assert.Equal("7", await StatementOperationTestFixture.Run(document));
+        var provider = new SpanTextCodeFixProvider();
+        var context = new FixAllContext(document, provider, FixAllScope.Project, SpanTextCodeFixProvider.Key, provider.FixableDiagnosticIds, new Diagnostics(), CancellationToken.None);
+        var action = await provider.GetFixAllProvider().GetFixAsync(context);
+        var operation = Assert.Single((await action!.GetOperationsAsync(CancellationToken.None)).OfType<ApplyChangesOperation>());
+        var changed = await StatementOperationTestFixture.Reparse(operation.ChangedSolution.GetDocument(document.Id)!);
+        var second = changed.Project.GetDocument(other.Id)!;
+        Assert.Contains("InspectTextLength2", (await changed.GetTextAsync()).ToString());
+        Assert.Contains("InspectTextLength3", (await second.GetTextAsync()).ToString());
+        Assert.Empty(await SpanTestFixture.Diagnostics(changed));
+        Assert.Equal("7", await StatementOperationTestFixture.Run(changed));
+        var again = new FixAllContext(changed, provider, FixAllScope.Project, SpanTextCodeFixProvider.Key, provider.FixableDiagnosticIds, new Diagnostics(), CancellationToken.None);
+        var repeated = await provider.GetFixAllProvider().GetFixAsync(again);
+        var repeat = Assert.Single((await repeated!.GetOperationsAsync(CancellationToken.None)).OfType<ApplyChangesOperation>());
+        foreach (var saved in changed.Project.Documents)
+            Assert.Equal((await saved.GetTextAsync()).ToString(), (await repeat.ChangedSolution.GetDocument(saved.Id)!.GetTextAsync()).ToString());
+    }
+
+    [Fact]
+    public async Task CachedInitializerActionReplansWhenAnotherPartialAddsNameReference()
+    {
+        var document = SpanTestFixture.Document("public partial class C { static int P = \" a \".Trim().Length; }");
+        var other = document.Project.AddDocument("Other.cs", "public partial class C { public static string Run() => \"7\"; }", filePath: "/Other.cs");
+        document = other.Project.GetDocument(document.Id)!;
+        var action = Assert.Single(await SpanTestFixture.Actions(document, Assert.Single(await SpanTestFixture.Diagnostics(document))));
+        var current = other.WithText(SourceText.From("using static Utility; public static class Utility { public static int InspectTextLength(string text) => 7; } public partial class C { public static string Run() => InspectTextLength(\" z \").ToString(); }"));
+        Assert.True(document.Project.Solution.Workspace.TryApplyChanges(current.Project.Solution));
+        var operation = Assert.Single((await action.GetOperationsAsync(CancellationToken.None)).OfType<ApplyChangesOperation>());
+        var changed = await StatementOperationTestFixture.Reparse(operation.ChangedSolution.GetDocument(document.Id)!);
+        Assert.Contains("InspectTextLength2", (await changed.GetTextAsync()).ToString());
+        Assert.Equal("7", await StatementOperationTestFixture.Run(changed));
+    }
     private sealed class Diagnostics : FixAllContext.DiagnosticProvider
     {
         public override async Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(Document document, CancellationToken token)

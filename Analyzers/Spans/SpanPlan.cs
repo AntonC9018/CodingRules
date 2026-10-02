@@ -3,6 +3,7 @@ using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace CodingRules;
@@ -22,6 +23,7 @@ internal sealed class SpanPlan
     public IMethodSymbol SpanTrim { get; }
     public bool Nullable { get; }
     public bool StaticLocal { get; }
+    public string? MemberHelperName { get; private set; }
 
     private SpanPlan(InvocationExpressionSyntax trim, ExpressionSyntax inspection, ExpressionSyntax receiver, string? constant,
         bool negate, SemanticModel model, SpanCatalog catalog, IMethodSymbol spanTrim)
@@ -39,7 +41,7 @@ internal sealed class SpanPlan
         Nullable = language >= LanguageVersion.CSharp8 && (model.GetNullableContext(inspection.SpanStart) & NullableContext.AnnotationsEnabled) != 0;
     }
 
-    public static SpanPlan? Create(InvocationExpressionSyntax trim, SemanticModel model, SpanCatalog catalog, CancellationToken token)
+    public static SpanPlan? Create(InvocationExpressionSyntax trim, SemanticModel model, SpanCatalog catalog, CancellationToken token, AnalyzerOptions options)
     {
         token.ThrowIfCancellationRequested();
         if (trim.Expression is not MemberAccessExpressionSyntax access || trim.ArgumentList.Arguments.Count != 0
@@ -83,6 +85,9 @@ internal sealed class SpanPlan
             || plan.Space.DescendantNodes().Any(node => node is GotoStatementSyntax or LabeledStatementSyntax)) return null;
         if (plan.MemberType is not null && model.GetNullableContext(plan.MemberType.CloseBraceToken.SpanStart)
             != model.GetNullableContext(inspection.SpanStart)) return null;
+        if (SpanConditionSafety.IntroducesReason(plan, model, options, token)) return null;
+        if (plan.MemberType is not null) plan.MemberHelperName = SpanNames.MemberName(plan.MemberType, model,
+            plan.Constant is null ? "InspectTextLength" : "InspectTextEquals", token);
         var insertion = (SyntaxNode?)plan.Statement ?? plan.ExpressionBody ?? plan.MemberType!;
         return CallerInformation.AffectedDefaults(inspection, insertion, model) || NamedArgumentObservers.Affected(inspection, model, token) ? null : plan;
     }

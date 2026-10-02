@@ -182,8 +182,9 @@ the decision, ref returns, and non-identity return conversions) still apply.
 - After the first implementation passes its tests, identify the dependencies
   needed by a normal analyzer, add the reusable ones to the local
   `Anton.SourceGeneration.Sdk`, and consume that SDK from a local NuGet feed.
-- Do not add CI to this repository in this phase. Do not push changes to the
-  SourceGenerators repository in this phase.
+- The initial local dependency phase is complete. CI uses published
+  SourceGeneration dependencies; [release setup](releases.md) describes the
+  manually published GitHub release and exact tested package flow.
 
 ## Implementation tickets
 

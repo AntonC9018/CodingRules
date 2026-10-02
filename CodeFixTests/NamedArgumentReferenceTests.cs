@@ -18,7 +18,10 @@ public sealed class NamedArgumentReferenceTests
     public async Task RealNetstandardReferenceDefinitions(string version)
     {
         var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
-        var folder = version == "2.0" ? Path.Combine(repository, "artifacts/nuget-packages/netstandard.library/2.0.3/build/netstandard2.0/ref")
+        var defaultPackages = Path.Combine(repository, "artifacts/nuget-packages");
+        var configuredPackages = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        var packages = configuredPackages ?? defaultPackages;
+        var folder = version == "2.0" ? Path.Combine(packages, "netstandard.library/2.0.3/build/netstandard2.0/ref")
             : Path.Combine(Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "../../..")),
                 "packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1");
         Assert.True(Directory.Exists(folder), folder);

@@ -1,0 +1,15 @@
+public static class Consumer
+{
+    private static int Search(string text) => text.IndexOf('x');
+    private static int Forward(string text)
+    {
+        int sentinelResult = Search(text);
+        if (sentinelResult == -1)
+        {
+            return -1;
+        }
+
+        return sentinelResult;
+    }
+    public static bool Run(string text) => Forward(text) >= 0;
+}

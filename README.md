@@ -37,6 +37,12 @@ external registrations and semantic safety boundaries are documented in
 [named argument roles](docs/named-arguments.md). The fix preserves expression
 text, evaluation order and the selected overload.
 
+`CR0600` requires a return type that represents proven index-search absence on
+every declared non-private member; API migration is manual. `CR0601` adds an
+explicit sentinel guard when a primitive caller forwards a certified private
+or local helper. The initial evidence set, dependency exemptions and safe-fix
+boundaries are documented in [primitive sentinels](docs/sentinels.md).
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

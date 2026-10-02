@@ -30,6 +30,13 @@ overload's identity mapping explicit. The [pipeline catalogue](docs/pipelines.md
 records supported framework signatures, equivalent overload pairs and safety
 boundaries. CR02, CR03 and return diagnostics remain independently enabled.
 
+`CR0500` names every positional argument in a supplied repeated-type parameter
+group. Calls, constructors, base/this/primary base lists and attribute constructors
+are supported. Exact framework exceptions, the shipped callee annotation,
+external registrations and semantic safety boundaries are documented in
+[named argument roles](docs/named-arguments.md). The fix preserves expression
+text, evaluation order and the selected overload.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

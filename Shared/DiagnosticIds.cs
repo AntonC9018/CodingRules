@@ -18,4 +18,5 @@ public static class DiagnosticIds
     public const string ComposedProjection = "CR0400";
     public const string StageImplementation = "CR0401";
     public const string ExplicitCollectionSelectors = "CR0402";
+    public const string NamedArgumentRoles = "CR0500";
 }

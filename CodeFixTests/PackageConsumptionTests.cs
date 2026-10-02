@@ -7,6 +7,18 @@ namespace CodingRules;
 public sealed class PackageConsumptionTests
 {
     [Fact]
+    public async Task AppliesPackagedNamedArgumentFix()
+    {
+        var tester = await LocalNuGetPackageTester.CreateAsync();
+        var test = new PackageConsumptionTestBuilder(nameof(AppliesPackagedNamedArgumentFix))
+            .AddPackage("Package/CodingRules.Package.csproj")
+            .AddProjectConsumer("CodeFixTests/Consumers/NamedArguments", consumer => consumer.ExpectCodeFix(
+                DiagnosticIds.NamedArgumentRoles, "Consumer.cs", "CodeFixTests/Expected/NamedArguments.Fixed.cs.txt"))
+            .Build();
+        await tester.AssertAsync(test);
+    }
+
+    [Fact]
     public async Task AppliesPackagedStatementOperationFixes()
     {
         var tester = await LocalNuGetPackageTester.CreateAsync();

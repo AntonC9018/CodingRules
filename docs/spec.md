@@ -21,7 +21,9 @@ through `.editorconfig`.
   decision rule for maintainers; it does not identify a syntax pattern by
   itself.
 - Use named arguments when a call has multiple arguments of the same type and
-  positional order does not make their roles clear.
+  positional order does not make their roles clear. Ticket 6 mechanically
+  requires names for every supplied repeated-type group except its exact
+  framework catalogue and explicitly opted-out callees.
 - Do not introduce constructor overloads solely to accommodate dependency
   injection or tests. Update the existing constructor and callers, or use a
   builder when several optional configurations justify one.
@@ -378,3 +380,7 @@ there is no custom opt-out attribute or handwritten suppression matcher.
 [spans](https://github.com/AntonC9018/CodingRules/issues/9). The
 compatibility policy stays documented without a diagnostic because no syntax
 pattern can establish whether a change needed backward compatibility.
+
+## Named argument roles (ticket 6)
+
+CR0500 implements the accepted supplied repeated-type policy, all explicit call/constructor/attribute hosts, shipped exact-callee annotation and exact canonical declaration-ID registrations. The [named argument contract](named-arguments.md) records grouping, provenance, configuration transport/precedence, pre-warning correspondence proof, saved-source semantic/diagnostic validation and individual safety omissions. Every warning has an Add parameter names action; Fix All supports fresh document/project/solution replanning. Older families remain independent.

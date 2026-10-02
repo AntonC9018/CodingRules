@@ -1,0 +1,47 @@
+name: Publish tested NuGet release
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: nuget-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify main artifact and publish
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - name: Check out trusted release guards from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Verify release and retrieve the exact tested package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 build/prepare_release.py artifacts/publish
+      - name: NuGet login with a temporary publishing key
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish verified package to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: >-
+          dotnet nuget push "artifacts/publish/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key "$NUGET_API_KEY" --skip-duplicate

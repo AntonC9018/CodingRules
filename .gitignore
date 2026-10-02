@@ -3,3 +3,4 @@
 *.user
 TestResults/
 artifacts/
+**/__pycache__/

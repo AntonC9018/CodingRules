@@ -172,6 +172,65 @@ share one declaration space. Final-position decision returns stay governed by
 conservative skips of the first implementation (comments or directives inside
 the decision, ref returns, and non-identity return conversions) still apply.
 
+## Inline conditions (ticket 3)
+
+`CR0200` reports mixed built-in Boolean `&&`/`||`; `CR0201` reports more than
+two atomic checks; `CR0202` reports two simple checks with different proven
+subjects; `CR0203` reports recognized producing/transformation/mutation combined
+with validation; `CR0204` reports homogeneous chains of at least three resolved
+framework predicates differing in one constant argument. Two repeated
+alternatives remain allowed. Overlap selects the highest enabled reason in
+this order: mixed, operations, alternatives, length, independent subjects.
+Disabling one ID exposes the next enabled reason.
+
+The analyzer covers if conditions, bool/var local initializers, Boolean returns,
+expression-bodied methods/accessors/properties/local functions/delegate lambdas,
+assignments, Boolean method/constructor arguments, ternary tests, while/for/do
+tests, catch filters, switch when guards, and Boolean field/property initializers.
+Nested function hosts are independent. Generated code is excluded.
+
+Two actions share short-circuit evaluation and reached-leaf lowering: extract a
+linear local function first, or expand into guards/statements. A private static
+helper adapts member initializers. Filter and pattern variables may bridge to
+helpers as stable exact-type parameters, with the call remaining in the filter
+or guard. Loop helpers run at every original header/bottom test. For initializer
+locals stay in a scoped replacement block. Out-variable and nullable flow may
+require expansion alone. Unsafe individual rewrites are omitted. Fix All
+replans sites and names sequentially. Fixes honor editorconfig formatting and
+retain original call binding, conversions, grouping and evaluation order.
+
+Recognition is conservative: bounds on one scalar, a protecting null guard,
+and numeric IsFinite/IsNaN plus one bound are permitted two-check invariants.
+Arbitrary same-subject predicates and two unconstrained variables do not prove
+an independent invariant. Unknown atomic leaves count structurally but acquire
+no operation category. Compound patterns are currently one atomic check.
+The catalogue matches actual framework numeric/Guid parsing, Dictionary,
+IDictionary and IReadOnlyDictionary TryGetValue, JsonElement.TryGetProperty,
+scalar Convert, string trimming/replacement/predicates, and built-in casts or
+mutations. It does not infer user method behavior from names.
+
+Expression-tree hosts (including nested arguments inside trees), internal
+comments/directives, unresolved/dynamic/nullable/custom logical operators,
+unsafe/fixed context moves, labels/gotos, and changed scope/flow are conservative
+safety boundaries. Omitted caller-information arguments prohibit affected moves;
+explicit original caller constants remain supported. Params, ref/out/in and
+location-sensitive argument expansion is omitted when faithful timing cannot
+be established. A safe same-site helper remains available where possible.
+Nested short-circuit and typed conditional operands lower producers only on
+their reached branches; element-index producers keep the receiver and index
+evaluation order. Original parentheses survive reinsertion, and fixes are
+validated against formatted, reparsed source. Producing operations inside
+unsupported lazy shapes, such as null coalescing or conditional access, are
+individual conservative skips. Target-typed or throwing conditional operands
+and moves that would copy a mutable value-type receiver also remain skips.
+A flow-preserving whole-if expansion requires the diagnosed expression to be
+that if's condition. A nested Boolean argument depending on the outer guard's
+nullable flow is omitted when neither an independent helper nor a rewrite of
+the selected argument is safe; it cannot borrow the outer condition's plan.
+Frozen return diagnostics retain their classification and may overlap Boolean
+returns: extraction leaves an existing return warning available; direct literal
+return expansion resolves that same decision. Unrelated return warnings remain.
+
 ## Delivery decisions
 
 - Publish the source in the public `AntonC9018/CodingRules` repository.

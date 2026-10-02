@@ -8,6 +8,11 @@ is split into [GitHub issues](https://github.com/AntonC9018/CodingRules/issues).
 `CR0001` checks explicit return decisions after a top-level guard and offers
 code fixes for every form it reports. `CR0003` through `CR0006` check the same
 decision forms in returns nested deeper than the function body's top level.
+`CR0200` through `CR0204` check mixed Boolean operators, more than two checks,
+independent subjects, combined operations, and three or more repeated alternatives.
+They offer local-function extraction first and statement expansion when safe.
+Member initializers use a private static helper; filters and switch guards keep
+their helper invocation at the original guard site.
 Diagnostics are warnings by default. A consumer can change severity through
 `.editorconfig`:
 

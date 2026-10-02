@@ -135,7 +135,7 @@ internal static class ReturnDecisionRewrites
     {
         var provider = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider;
         var configOptions = provider.GetOptions(root.SyntaxTree);
-        var hasSetting = configOptions.TryGetValue("end_of_line", out var setting);
+        var hasSetting = configOptions.TryGetValue(key: "end_of_line", value: out var setting);
         if (hasSetting)
         {
             // An explicit setting can equal the workspace's platform default.

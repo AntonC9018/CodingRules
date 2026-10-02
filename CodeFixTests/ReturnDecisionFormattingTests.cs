@@ -102,8 +102,8 @@ public sealed class ReturnDecisionFormattingTests
             "    {", existingEndOfLine,
             "        lock (new object())", existingEndOfLine);
         var suffix = string.Concat(
-            "    }", existingEndOfLine,
-            "}", existingEndOfLine);
+            str0: "    }", str1: existingEndOfLine,
+            str2: "}", str3: existingEndOfLine);
         var originalBlock = string.Concat(
             "        {", existingEndOfLine,
             "            return {|CR0006:flag == true|};", existingEndOfLine,
@@ -117,8 +117,8 @@ public sealed class ReturnDecisionFormattingTests
             generatedEndOfLine,
             "            return false;", generatedEndOfLine,
             "        }", generatedEndOfLine);
-        var testCode = string.Concat(prefix, originalBlock, suffix);
-        var fixedCode = string.Concat(prefix, fixedBlock, suffix);
+        var testCode = string.Concat(str0: prefix, str1: originalBlock, str2: suffix);
+        var fixedCode = string.Concat(str0: prefix, str1: fixedBlock, str2: suffix);
         var test = new CSharpCodeFixTest<
             NestedReturnDecisionAnalyzer,
             NestedReturnDecisionCodeFixProvider,

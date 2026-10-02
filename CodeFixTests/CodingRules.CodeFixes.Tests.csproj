@@ -5,5 +5,7 @@
     <PackageReference Include="NETStandard.Library" Version="2.0.3" PrivateAssets="all" GeneratePathProperty="true" />
     <None Include="$(PkgNETStandard_Library)/build/netstandard2.0/ref/netstandard.dll"
           Link="References/netstandard.dll" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(NetCoreRoot)packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1/netstandard.dll"
+          Link="References/netstandard2.1.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

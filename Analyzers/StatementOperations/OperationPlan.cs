@@ -108,6 +108,11 @@ internal sealed class OperationPlan
         return plan.CanExtract || plan.CanExpand ? plan : null;
     }
 
+    // CR04 uses the existing evaluator for independently reached aggregate
+    // components. This factory does not change CR03 ownership or feasibility.
+    internal static OperationPlan? ProjectionComponent(ExpressionSyntax owner, SemanticModel model, CancellationToken token) =>
+        SafeSyntax(owner, model, token) && CanLower(owner, model) ? new OperationPlan(owner, model) : null;
+
     private static bool RequiresConstant(ExpressionSyntax owner) => owner.Ancestors()
         .TakeWhile(node => node is not AnonymousFunctionExpressionSyntax and not BaseMethodDeclarationSyntax
             and not LocalFunctionStatementSyntax and not AccessorDeclarationSyntax)
@@ -246,7 +251,7 @@ internal sealed class OperationPlan
         var formattable = model.Compilation.GetTypeByMetadataName("System.FormattableString");
         if (expression.AncestorsAndSelf().OfType<CastExpressionSyntax>().Any(cast =>
                 SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(cast).Type, formattable))) return false;
-        if (expression.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().Any(call => HasCallerDefaults(call, model))) return false;
+        if (expression.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().Any(call => CallerInformation.HasDefaults(call, model))) return false;
         if (expression.DescendantTrivia().Any(trivia => trivia.Kind() is SyntaxKind.SingleLineCommentTrivia or SyntaxKind.MultiLineCommentTrivia or SyntaxKind.DisabledTextTrivia)) return false;
         foreach (var value in OperationFacts.EvaluationNodes(expression).OfType<ExpressionSyntax>())
         {
@@ -255,19 +260,13 @@ internal sealed class OperationPlan
             var type = model.GetTypeInfo(value).Type;
             if (type is { TypeKind: TypeKind.Dynamic or TypeKind.Pointer or TypeKind.FunctionPointer or TypeKind.Error }
                 || type?.IsRefLikeType == true) return false;
-            if (value is InvocationExpressionSyntax invocation && HasCallerDefaults(invocation, model)) return false;
+            if (value is InvocationExpressionSyntax invocation && CallerInformation.HasDefaults(invocation, model)) return false;
             if (value is InterpolatedStringExpressionSyntax && (SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(value).ConvertedType, formattable)
                 || value.Ancestors().OfType<CastExpressionSyntax>().Any(cast => SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(cast).Type, formattable)))) return false;
         }
 
         return !model.GetDiagnostics(expression.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
-
-    private static bool HasCallerDefaults(InvocationExpressionSyntax call, SemanticModel model) =>
-        model.GetOperation(call) is IInvocationOperation operation && operation.Arguments.Any(argument => argument.IsImplicit
-            && argument.Parameter?.GetAttributes().Any(attribute => attribute.AttributeClass?.ContainingNamespace.ToDisplayString() == "System.Runtime.CompilerServices"
-                && attribute.AttributeClass.Name is "CallerArgumentExpressionAttribute" or "CallerMemberNameAttribute"
-                    or "CallerLineNumberAttribute" or "CallerFilePathAttribute") == true);
 
     private static bool HasNullableDependency(ExpressionSyntax expression, SemanticModel model) =>
         OperationFacts.EvaluationNodes(expression).OfType<IdentifierNameSyntax>().Any(identifier =>

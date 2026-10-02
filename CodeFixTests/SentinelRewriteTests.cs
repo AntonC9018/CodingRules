@@ -16,6 +16,62 @@ namespace CodingRules;
 public sealed class SentinelRewriteTests
 {
     [Theory]
+    [InlineData("ref int alias = ref value; alias = -2;")]
+    [InlineData("ref int alias = ref value; ref int second = ref alias; second = -2;")]
+    [InlineData("int other = 0; ref int alias = ref other; alias = ref value; alias = -2;")]
+    public async Task RefAliasMutationCannotCertifyOrRewriteOriginalLocal(string mutation)
+    {
+        var document = SentinelTestFixture.Document($$"""
+            public class C {
+                private static int Absent(string text) { var index = text.IndexOf('x'); if (index >= 0) throw new System.Exception(); return -1; }
+                private static int Forward() { var value = Absent(""); {{mutation}} return value; }
+                public static string Run() => Forward().ToString();
+            }
+            """);
+        var saved = await StatementOperationTestFixture.Reparse(document);
+        Assert.Equal("-2", await StatementOperationTestFixture.Run(saved));
+        Assert.Empty(await SentinelTestFixture.Diagnostics(saved));
+    }
+
+    [Theory]
+    [InlineData("ref readonly int alias = ref value; return value;")]
+    [InlineData("ref int alias = ref value; return alias;")]
+    [InlineData("return Read(ref value);")]
+    public async Task RefExposureAndRefLocalProvenanceRemainUnknown(string statements)
+    {
+        var document = SentinelTestFixture.Document("class C { private static ref int Read(ref int value) => ref value; private static int Search() => \"abc\".IndexOf('x'); public static int Forward() { var value = Search(); " + statements + " } }");
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await SentinelTestFixture.Diagnostics(document));
+    }
+
+    [Theory]
+    [InlineData("{ return Absent(Argument()); }", "", "argument;search;-1")]
+    [InlineData("=> Absent(Argument());", "", "argument;search;-1")]
+    [InlineData("{ return ((int)(Absent(Argument()))); }", "", "argument;search;-1")]
+    [InlineData("{ return Absent(Argument()); }", "x", "argument;search;throw")]
+    [InlineData("=> Absent(Argument());", "x", "argument;search;throw")]
+    [InlineData("{ return Absent(Argument()); }", "null", "argument;search;throw")]
+    public async Task SentinelOnlyInvocationIsStagedAndPreservesExceptions(string body, string input, string expected)
+    {
+        var argument = input == "null" ? "null!" : "\"" + input + "\"";
+        var document = SentinelTestFixture.Document($$"""
+            public class C {
+                static string log = "";
+                static string Argument() { log += "argument;"; return {{argument}}; }
+                private static int Absent(string text) { log += "search;"; var index = text.IndexOf('x'); if (index >= 0) throw new System.Exception(); return -1; }
+                private static int Forward() {{body}}
+                public static string Run() { log = ""; try { var value = Forward(); return log + value; } catch { return log + "throw"; } }
+            }
+            """);
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(document));
+        var diagnostic = Assert.Single(await SentinelTestFixture.Diagnostics(document));
+        var changed = await SentinelTestFixture.Fix(document, diagnostic);
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(changed));
+        Assert.Contains("int sentinelResult =", (await changed.GetTextAsync()).ToString());
+        Assert.Empty(await SentinelTestFixture.Diagnostics(changed));
+    }
+
+    [Theory]
     [InlineData("", -1, false)]
     [InlineData("x", 0, false)]
     [InlineData("abx", 2, false)]

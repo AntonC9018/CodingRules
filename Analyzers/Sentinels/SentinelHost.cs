@@ -54,7 +54,9 @@ internal sealed class SentinelHost
     {
         if (Symbol.MethodKind == MethodKind.AnonymousFunction)
         {
-            var argument = Declaration.Ancestors().OfType<ArgumentSyntax>().FirstOrDefault();
+            SyntaxNode context = Declaration;
+            while (context.Parent is ParenthesizedExpressionSyntax parentheses) context = parentheses;
+            var argument = context.Parent as ArgumentSyntax;
             if (argument is null) return false;
             if (model.GetOperation(argument, token) is not IArgumentOperation bound || bound.Parent is not IInvocationOperation call) return true;
             if (!External(call.TargetMethod)) return false;

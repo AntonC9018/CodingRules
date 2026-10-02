@@ -21,8 +21,10 @@ return index;
 ```
 
 The canonical action evaluates the helper once at the original return site and
-adds this guard. An existing stable local is reused; a return already known to
-be the sentinel becomes `return -1;`. Arrow bodies become block bodies. Fix All
+adds this guard. An existing stable local is reused; a stable local already known
+to be the sentinel becomes `return -1;`. Invocations are evaluated even when their
+only normal result is -1, preserving side effects and exceptions. Arrow bodies
+become block bodies. Fix All
 supports document, project and solution scopes and replans after each change.
 When CR0600 owns a host, CR0601 is hidden; setting CR0600 severity to `none`
 exposes feasible forwarding sites. Ordinary pragma/SuppressMessage suppression
@@ -42,8 +44,10 @@ Flow distinguishes success from sentinel: a wrapper that throws on absence and
 returns only success needs neither diagnostic. Identity aliases and built-in
 comparisons to -1/0 (including constants, reversed operands and negation) support
 explicit guards. A comparison that logs and falls through does not check the
-returned sentinel. Fields, captured locals, ref/out escapes, transformed results
-and ambiguous reaching definitions do not establish provenance.
+returned sentinel. Fields, captured locals, ref/out escapes, transformed results,
+ref-local aliases (including readonly aliases) and ambiguous reaching definitions
+do not establish provenance. Exposing a local through a ref expression invalidates
+its certificate, even when the alias is declared or reassigned separately.
 
 Arbitrary -1 literals, ordinary negative data, counts/zero/default, bool/out Try
 functions, nullable types, enums, empty strings, BinarySearch, Array.IndexOf,
@@ -57,6 +61,8 @@ does not. Project references are external to the current compilation even when
 another editable project exists in the solution. Generated contracts are also
 imposed. A directly bound external callback with a fixed int delegate return is
 exempt; an application-selected generic result or a local Func<int> is not.
+Nested callables use their own conversion context; they cannot inherit an outer
+callback's exemption.
 Private method-group escape does not change declared ownership.
 
 Generated code is excluded. Local functions and lambdas have independent facts.
@@ -66,5 +72,7 @@ base initializers and indexers. Explicit original constants remain supported.
 The fix verifies formatted, reparsed source, compiler messages, all original call
 bindings, argument conversions and implicit constants. It changes no signature.
 Compilation-scoped immutable summaries use independent recursion walks with
-32-callee depth and 4000-node body limits; exhausted/cyclic facts stay unknown,
-and cancellation is never cached.
+32-callee depth and 4000 syntax nodes across each whole walk. Completed callees
+are reused within that walk with their required depth; cyclic or exhausted
+computations and their ancestors are not cached. Exhausted/cyclic facts stay
+unknown, and cancellation is never cached.

@@ -36,32 +36,63 @@ internal sealed class SentinelResult
 }
 
 // This cache lives only in one compilation-start closure. Each uncached walk
-// has its own recursion set and deterministic limits (32 callees / 4000 nodes).
+// has its own recursion set, completed-callee cache and deterministic limits
+// (32 callees / 4000 syntax nodes across the entire walk).
 // Concurrent walks compute independently; cancellation is never cached.
 internal sealed class SentinelSummaries
 {
     private readonly Compilation compilation;
     private readonly ConcurrentDictionary<IMethodSymbol, SentinelResult> summaries = new(SymbolEqualityComparer.Default);
+    private sealed class Completed
+    {
+        public Completed(SentinelResult result, int height) { Result = result; Height = height; }
+        public SentinelResult Result { get; }
+        public int Height { get; }
+    }
+    private sealed class WalkContext
+    {
+        public readonly HashSet<IMethodSymbol> Visiting = new(SymbolEqualityComparer.Default);
+        public readonly Dictionary<IMethodSymbol, Completed> Completed = new(SymbolEqualityComparer.Default);
+        public int Work;
+        public int Truncations;
+    }
     public SentinelSummaries(Compilation compilation) { this.compilation = compilation; }
     public SentinelResult Get(SentinelHost host, SemanticModel model, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         var key = Normalize(host.Symbol);
         if (summaries.TryGetValue(key, out var result)) return result;
-        result = Walk(host, model, new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default), 0, token);
+        var walk = new WalkContext();
+        result = Walk(host, model, walk, 0, token).Result;
         token.ThrowIfCancellationRequested();
-        return summaries.GetOrAdd(key, result);
+        return walk.Truncations == 0 ? summaries.GetOrAdd(key, result) : result;
     }
-    private SentinelResult Walk(SentinelHost host, SemanticModel model, HashSet<IMethodSymbol> visiting, int depth, CancellationToken token)
+    private Completed Walk(SentinelHost host, SemanticModel model, WalkContext walk, int depth, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var symbol = Normalize(host.Symbol);
-        if (depth >= 32 || !visiting.Add(symbol)) return SentinelResult.Unknown;
+        if (depth >= 32 || walk.Visiting.Contains(symbol))
+        { walk.Truncations++; return new Completed(SentinelResult.Unknown, 1); }
+        if (walk.Completed.TryGetValue(symbol, out var cached))
+        {
+            if (depth + cached.Height <= 32) return cached;
+            walk.Truncations++; return new Completed(SentinelResult.Unknown, 1);
+        }
+        var truncations = walk.Truncations;
+        var height = 1;
+        walk.Visiting.Add(symbol);
         try
         {
-            if (host.Body.DescendantNodes().Take(4001).Count() > 4000) return SentinelResult.Unknown;
-            if (host.Imposed(model, token) || SentinelHost.External(symbol)) return SentinelResult.Unknown;
-            if (SentinelSearch.Loop(host, model, token)) return new SentinelResult(SearchOutcomes.Both, ImmutableArray<SentinelReturn>.Empty);
-            return new SentinelFlow(host, model, token, method =>
+            foreach (var node in host.Body.DescendantNodesAndSelf())
+            {
+                token.ThrowIfCancellationRequested();
+                if (++walk.Work > 4000)
+                { walk.Truncations++; return new Completed(SentinelResult.Unknown, 1); }
+            }
+            SentinelResult result;
+            if (host.Imposed(model, token) || SentinelHost.External(symbol)) result = SentinelResult.Unknown;
+            else if (SentinelSearch.Loop(host, model, token)) result = new SentinelResult(SearchOutcomes.Both, ImmutableArray<SentinelReturn>.Empty);
+            else result = new SentinelFlow(host, model, token, method =>
             {
                 method = Normalize(method);
                 if (method.IsVirtual || method.IsAbstract || method.IsOverride
@@ -71,10 +102,18 @@ internal sealed class SentinelSummaries
                 var syntax = method.DeclaringSyntaxReferences[0].GetSyntax(token);
                 var calleeModel = compilation.GetSemanticModel(syntax.SyntaxTree);
                 var callee = SentinelHost.Create(syntax, calleeModel, token);
-                return callee is null ? SearchOutcomes.Unknown : Walk(callee, calleeModel, visiting, depth + 1, token).Outcomes;
+                if (callee is null) return SearchOutcomes.Unknown;
+                var child = Walk(callee, calleeModel, walk, depth + 1, token);
+                height = Math.Max(height, child.Height + 1);
+                return child.Result.Outcomes;
             }).Analyze();
+            var completed = new Completed(walk.Truncations == truncations ? result : SentinelResult.Unknown, height);
+            // Cycle/depth/work failures contaminate their ancestors. They cannot
+            // become reusable facts in another path or another top-level walk.
+            if (walk.Truncations == truncations) walk.Completed.Add(symbol, completed);
+            return completed;
         }
-        finally { visiting.Remove(symbol); }
+        finally { walk.Visiting.Remove(symbol); }
     }
     private static IMethodSymbol Normalize(IMethodSymbol symbol) => (symbol.PartialImplementationPart ?? symbol.ReducedFrom ?? symbol).OriginalDefinition;
 }
@@ -103,7 +142,9 @@ internal sealed class SentinelFlow
             if (++work > 4000) return SentinelResult.Unknown;
             token.ThrowIfCancellationRequested();
             if (node is ArgumentSyntax { RefKindKeyword.RawKind: not 0 } argument
-                && SentinelSearch.Variable(model.GetOperation(argument.Expression, token)) is { } escaped) unstable.Add(escaped);
+                && SentinelSearch.Variable(SentinelSearch.Operation(argument.Expression, model, token)) is { } escaped) unstable.Add(escaped);
+            if (node is RefExpressionSyntax reference
+                && SentinelSearch.Variable(SentinelSearch.Operation(reference.Expression, model, token)) is { } aliased) unstable.Add(aliased);
             if (node is IdentifierNameSyntax identifier && node.Ancestors().TakeWhile(parent => parent != host.Body).Any(SentinelHost.Nested)
                 && model.GetSymbolInfo(identifier, token).Symbol is ILocalSymbol captured) unstable.Add(captured);
         }
@@ -170,7 +211,8 @@ internal sealed class SentinelFlow
     {
         var operation = SentinelSearch.Operation(expression, model, token);
         if (operation?.Type?.SpecialType != SpecialType.System_Int32) return null;
-        if (operation is ILocalReferenceOperation local) return state.TryGetValue(local.Local, out var saved) ? saved : null;
+        if (operation is ILocalReferenceOperation local) return local.Local.RefKind == RefKind.None
+            && state.TryGetValue(local.Local, out var saved) ? saved : null;
         if (operation is not IInvocationOperation { IsVirtual: false } call) return null;
         var type = model.GetTypeInfo(expression, token);
         if (!SymbolEqualityComparer.Default.Equals(type.Type, type.ConvertedType)) return null;
@@ -220,7 +262,7 @@ internal sealed class SentinelFlow
     }
     private void Set(State state, ISymbol? symbol, SearchValue? value)
     {
-        if (symbol is not ILocalSymbol) return;
+        if (symbol is not ILocalSymbol { RefKind: RefKind.None }) return;
         if (value is null || unstable.Contains(symbol)) state.Remove(symbol); else state[symbol] = value;
     }
     private static void Refine(State state, SearchValue value, SearchOutcomes outcomes)

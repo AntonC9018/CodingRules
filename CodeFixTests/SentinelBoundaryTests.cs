@@ -60,6 +60,101 @@ public sealed class SentinelBoundaryTests
         foreach (var diagnostic in diagnostics) Assert.Single(await SentinelTestFixture.Actions(document, diagnostic));
     }
 
+    [Fact]
+    public async Task NestedInitializersAndCallbacksUseTheirOwnContext()
+    {
+        var document = await Metadata("""
+            class C {
+                private static int Search() => "abc".IndexOf('x');
+                static void Accept(System.Func<int> callback) { }
+                static void Call() {
+                    External.Fixed((() => {
+                        System.Func<int> local = () => Search();
+                        System.Func<int> cast = (System.Func<int>)(() => Search());
+                        Accept(() => Search());
+                        External.Fixed(() => Search());
+                        External.Generic(() => Search());
+                        return Search();
+                    }));
+                    System.Func<int> control = () => Search();
+                }
+            }
+            """);
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostics = await SentinelTestFixture.Diagnostics(document);
+        Assert.Equal(5, diagnostics.Length);
+        foreach (var diagnostic in diagnostics) Assert.Single(await SentinelTestFixture.Actions(document, diagnostic));
+    }
+
+    [Fact]
+    public async Task SharedHelperGraphHasBoundedWorkAndKeepsEveryForwardingSite()
+    {
+        var source = new System.Text.StringBuilder("class C { private static int F0(string text, bool branch) => text.IndexOf('x'); ");
+        for (var index = 1; index < 20; index++)
+            source.Append($"private static int F{index}(string text, bool branch) {{ if (branch) return F{index - 1}(text, branch); return F{index - 1}(text, branch); }} ");
+        source.Append('}');
+        var document = SentinelTestFixture.Document(source.ToString());
+        var model = (await document.GetSemanticModelAsync())!;
+        var root = (await document.GetSyntaxRootAsync())!;
+        // Inspect the existing work budget, rather than asserting elapsed time
+        // or adding an analyzer counter solely for this regression.
+        var assembly = typeof(PrimitiveSentinelAnalyzer).Assembly;
+        var hostType = assembly.GetType("CodingRules.SentinelHost")!;
+        var summariesType = assembly.GetType("CodingRules.SentinelSummaries")!;
+        var contextType = summariesType.GetNestedType("WalkContext", System.Reflection.BindingFlags.NonPublic)!;
+        var context = System.Activator.CreateInstance(contextType, true)!;
+        var method = root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>().Last();
+        var host = hostType.GetMethod("Create")!.Invoke(null, new object[] { method, model, CancellationToken.None });
+        var summaries = System.Activator.CreateInstance(summariesType, new object[] { model.Compilation })!;
+        summariesType.GetMethod("Walk", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .Invoke(summaries, new[] { host, model, context, 0, (object)CancellationToken.None });
+        var work = (int)contextType.GetField("Work")!.GetValue(context)!;
+        Assert.InRange(work, 1, root.DescendantNodesAndSelf().Count());
+        Assert.Equal(0, contextType.GetField("Truncations")!.GetValue(context));
+        Assert.Equal(20, ((System.Collections.IDictionary)contextType.GetField("Completed")!.GetValue(context)!).Count);
+        Assert.Equal(38, (await SentinelTestFixture.Diagnostics(document)).Length);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DepthAndCycleUnknownsDoNotDependOnRootOrder(bool reverse)
+    {
+        var members = new System.Collections.Generic.List<string> { "private static int F0(string text) => text.IndexOf('x');" };
+        for (var index = 1; index <= 33; index++) members.Add($"private static int F{index}(string text) => F{index - 1}(text);");
+        members.Add("private static int CachedFirst(string text, bool branch) { if (branch) return F0(text); return F33(text); }");
+        members.Add("private static int CycleA(string text) => CycleB(text); private static int CycleB(string text) => CycleA(text);");
+        members.Add("public static int Shallow(string text) => F0(text);");
+        if (reverse) members.Reverse();
+        var document = SentinelTestFixture.Document("class C { " + string.Join(" ", members) + " }");
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostics = await SentinelTestFixture.Diagnostics(document);
+        Assert.Equal(32, diagnostics.Length);
+        Assert.Single(diagnostics.Where(item => item.Id == "CR0600"));
+        var root = (await document.GetSyntaxRootAsync())!;
+        foreach (var method in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>()
+            .Where(method => method.Identifier.ValueText is "F32" or "F33" or "CachedFirst" or "CycleA" or "CycleB"))
+            Assert.DoesNotContain(diagnostics, item => method.Span.Contains(item.Location.SourceSpan));
+    }
+
+    [Fact]
+    public async Task NodeLimitAppliesAcrossCalleeBodies()
+    {
+        var source = new System.Text.StringBuilder("class C { private static int F0(string text) => text.IndexOf('x'); ");
+        for (var index = 1; index <= 10; index++)
+        {
+            source.Append($"private static int F{index}(string text) {{ ");
+            for (var local = 0; local < 100; local++) source.Append($"int local{local} = {local}; System.Console.WriteLine(local{local}); ");
+            source.Append($"return F{index - 1}(text); }} ");
+        }
+        source.Append("public static int Deep(string text) => F10(text); }");
+        var document = SentinelTestFixture.Document(source.ToString());
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostics = await SentinelTestFixture.Diagnostics(document);
+        Assert.NotEmpty(diagnostics);
+        Assert.DoesNotContain(diagnostics, item => item.Id == "CR0600");
+    }
+
     [Theory]
     [InlineData("public int Search(string[] values, string target) { for (var i = 0; i < values.Length; i++) if (values[i] == target) return i; return -1; }", true)]
     [InlineData("public int Search(string target) { string[] values = new[] { target }; for (var i = 0; i < values.Length; i++) if (values[i] == target) return i; return -1; }", true)]

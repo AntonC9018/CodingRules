@@ -22,12 +22,12 @@ internal static class SentinelFixes
         var root = await document.GetSyntaxRootAsync(token).ConfigureAwait(false);
         if (root is null) return null;
         var literal = PrefixUnaryExpression(SyntaxKind.UnaryMinusExpression, LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1)));
+        var local = SentinelSearch.Operation(expression, model, token) is ILocalReferenceOperation { Local.RefKind: RefKind.None };
         SyntaxNode changed;
-        if (site.Value!.Outcomes == SearchOutcomes.Sentinel && expression.Parent is ReturnStatementSyntax)
+        if (local && site.Value!.Outcomes == SearchOutcomes.Sentinel && expression.Parent is ReturnStatementSyntax)
             changed = root.ReplaceNode(expression, literal.WithTriviaFrom(expression));
         else
         {
-            var local = SentinelSearch.Operation(expression, model, token) is ILocalReferenceOperation;
             var name = new EvaluationNames(host.Declaration.FirstAncestorOrSelf<TypeDeclarationSyntax>() ?? host.Declaration, model).Fresh("sentinelResult");
             var value = local ? expression.WithoutTrivia() : IdentifierName(name);
             var statements = new System.Collections.Generic.List<StatementSyntax>();

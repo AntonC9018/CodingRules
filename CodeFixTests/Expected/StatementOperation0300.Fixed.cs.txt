@@ -1,0 +1,11 @@
+public static class Consumer
+{
+    private static int Use(int value) => value;
+    public static int Compute(int value)
+    {
+        int operationValue = value++;
+        int operationValue2 = operationValue;
+        int operationValue3 = Use(operationValue2);
+        return operationValue3;
+    }
+}

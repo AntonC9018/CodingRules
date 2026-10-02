@@ -231,6 +231,79 @@ Frozen return diagnostics retain their classification and may overlap Boolean
 returns: extraction leaves an existing return warning available; direct literal
 return expansion resolves that same decision. Unrelated return warnings remain.
 
+## Statement operations (ticket 4)
+
+`CR0300` reports operations nested in resolved method, delegate or ordinary
+constructor arguments. Count explicitly supplied source arguments: an inner
+call/construction with at least one supplied entry is an operation, while
+`Use(GetValue())` is allowed. Omitted optional/caller arguments, an implicit
+reduced-extension receiver and an empty implicit params collection do not count.
+Explicit named, static extension and params entries do count. Parameterless
+Trim/ToString remain allowed here; inline-condition diagnostics stay independent.
+Direct fields, property/index selections and built-in tests remain inline,
+without a purity assumption. At most one supported built-in numeric calculation
+is allowed, including original constant-folded syntax. Supported nonidentity
+casts, ordinary string interpolation and consumed embedded mutation also qualify.
+
+`CR0301` reports an embedded ternary argument or larger consumed value. Entire
+named initializers and assignment right sides are compliant; lone direct
+returns/arrows and switch expressions retain the frozen return policy.
+`CR0302` reports more than one supported calculation in a standalone named value,
+or a producer consumed by another calculation/conversion/formatting stage.
+Delivery through an assignment, declaration or return is not a second operation.
+One CR03 owner selects the highest enabled feasible reason in the order
+CR0301, CR0300, CR0302. Distinct arguments remain distinct roots; safe inner roots
+remain available when an outer rewrite is unsafe. Return and condition families
+are analyzed independently.
+
+Local-function extraction comes first; statement expansion follows when safe.
+The helper contains named linear stages and its zero-argument invocation remains
+at the original evaluation site. There is no hidden helper exemption after
+saving the source. Typed branch-local assignments retain short-circuit and
+ternary laziness. Expansion snapshots the receiver, earlier arguments and their
+conversions, assignment location and later arguments in source order. Helpers
+adapt loop headers, foreach collections, filters and switch guards without
+changing reevaluation or continue timing. Stable unavailable filter/pattern/for
+variables can bridge the whole site through exact typed parameters. Field and
+auto-property initializers use a private static helper at their original site.
+Constructor creation includes readonly structs and target-typed new. The pinned
+BOM offsets, CsvField construction, third collection-expression Path element and
+Math.Max score multiplication are acceptance cases.
+
+Every reported site has a compiler-layer feasible strategy. The fixer verifies
+formatted saved source, compiler diagnostics, original call occurrences,
+parameter mapping and staged conversions, and selected/generated-root progress.
+Fix All replans current roots and fresh names sequentially and is idempotent.
+Analyzer feasibility never replaces a compilation per root.
+
+Constant-required expressions (const declarations, case labels and constant or
+relational pattern operands) cannot be staged and are excluded. Ordinary runtime
+arithmetic still counts its original operators even when constant-folded.
+Expression trees, attributes/base/this constructor initializers, invalid/dynamic
+binding, ref-like/pointer/unsafe values, internal comments/directives and labels
+or gotos are conservative boundaries. Individual actions are omitted for
+mutable receiver copies, ref locations, escaping out-variable scope, narrowed
+nullable dependencies, changed caller-information constants, unsupported lazy or
+custom/lifted operations, and handler/FormattableString formatting. Expanded
+params calls can stay unchanged in same-site helpers; staging a params call is
+omitted where allocation timing cannot be proved. Explicit caller constants are
+supported. Async operations and multi-hole interpolation containing producers
+remain individual safety skips. No accepted host category is excluded wholesale.
+
+Linear Enumerable/Queryable/ImmutableArray pipelines and string.Join over them remain
+allowed. Conceptual grouping beyond these mechanical facts remains judgment:
+property/index lookups, fluent business APIs, several assignments representing
+one state transition, argument count, naming quality and user declarative APIs
+are not diagnosed by line length, call counts or guessed method names.
+
+For a genuine mathematical formula, use standard method/member
+`System.Diagnostics.CodeAnalysis.SuppressMessage("Readability", "CR0302",
+Justification = "Keep the formula intact for comparison with its derivation.")`
+or a scoped `#pragma warning disable CR0302` / `#pragma warning restore CR0302`
+around the intended function. Neighboring functions and other rule IDs remain
+enabled. Real analyzer-driver tests verify both suppressions and restored scope;
+there is no custom opt-out attribute or handwritten suppression matcher.
+
 ## Delivery decisions
 
 - Publish the source in the public `AntonC9018/CodingRules` repository.

@@ -7,6 +7,22 @@ namespace CodingRules;
 public sealed class PackageConsumptionTests
 {
     [Fact]
+    public async Task AppliesPackagedStatementOperationFixes()
+    {
+        var tester = await LocalNuGetPackageTester.CreateAsync();
+        var test = new PackageConsumptionTestBuilder(nameof(AppliesPackagedStatementOperationFixes))
+            .AddPackage("Package/CodingRules.Package.csproj")
+            .AddProjectConsumer("CodeFixTests/Consumers/StatementOperation0300", consumer => consumer.ExpectCodeFix(
+                DiagnosticIds.NestedArgumentOperation, "Consumer.cs", "CodeFixTests/Expected/StatementOperation0300.Fixed.cs.txt"))
+            .AddProjectConsumer("CodeFixTests/Consumers/StatementOperation0301", consumer => consumer.ExpectCodeFix(
+                DiagnosticIds.UnnamedConditionalValue, "Consumer.cs", "CodeFixTests/Expected/StatementOperation0301.Fixed.cs.txt"))
+            .AddProjectConsumer("CodeFixTests/Consumers/StatementOperation0302", consumer => consumer.ExpectCodeFix(
+                DiagnosticIds.CombinedStatementOperations, "Consumer.cs", "CodeFixTests/Expected/StatementOperation0302.Fixed.cs.txt"))
+            .Build();
+        await tester.AssertAsync(test);
+    }
+
+    [Fact]
     public async Task AppliesPackagedInlineConditionFix()
     {
         var tester = await LocalNuGetPackageTester.CreateAsync();

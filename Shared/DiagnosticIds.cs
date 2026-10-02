@@ -12,4 +12,7 @@ public static class DiagnosticIds
     public const string IndependentConditionChecks = "CR0202";
     public const string CombinedConditionOperations = "CR0203";
     public const string RepeatedConditionAlternatives = "CR0204";
+    public const string NestedArgumentOperation = "CR0300";
+    public const string UnnamedConditionalValue = "CR0301";
+    public const string CombinedStatementOperations = "CR0302";
 }

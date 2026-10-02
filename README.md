@@ -13,6 +13,29 @@ independent subjects, combined operations, and three or more repeated alternativ
 They offer local-function extraction first and statement expansion when safe.
 Member initializers use a private static helper; filters and switch guards keep
 their helper invocation at the original guard site.
+`CR0300` names nested argument operations, `CR0301` names embedded conditional
+values, and `CR0302` separates arithmetic or other mechanically proven combined
+values. Calls and constructors with no explicitly supplied arguments remain
+allowed: `Use(GetValue())` is compliant; `Save(CreateRequest(id))` needs a named
+step. Direct values and one supported calculation remain inline. Linear LINQ
+pipelines, whole named conditional values and lone conditional returns retain
+their existing policy. Both safe actions preserve evaluation order and branch
+timing; extraction is offered first, then statement expansion.
+
+For a mathematical formula whose shape is useful to retain, use normal scoped
+suppression with a justification. This leaves neighboring methods enabled:
+
+```csharp
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Readability", "CR0302", Justification = "Keep the formula intact for comparison with its derivation.")]
+static double Formula(double a, double b, double c) => a + b + c;
+
+static double Neighbor(double a, double b, double c) => a + b + c; // CR0302
+```
+
+Alternatively, place `#pragma warning disable CR0302` immediately before the
+intended function and `#pragma warning restore CR0302` immediately after it.
+Use the exact rule ID to keep return and condition rules enabled.
 Diagnostics are warnings by default. A consumer can change severity through
 `.editorconfig`:
 

@@ -1,0 +1,24 @@
+public static class Consumer
+{
+    private static int Use(int value) => value;
+    public static int Compute(bool flag)
+    {
+        int CalculateValue()
+        {
+            int operationValue;
+            if (flag)
+            {
+                operationValue = 1;
+            }
+            else
+            {
+                operationValue = 2;
+            }
+
+            int operationValue2 = operationValue;
+            return operationValue2;
+        }
+
+        return Use(CalculateValue());
+    }
+}

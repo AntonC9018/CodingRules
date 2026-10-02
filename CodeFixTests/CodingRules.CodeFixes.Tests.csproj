@@ -2,5 +2,8 @@
   <ItemGroup>
     <Compile Remove="Consumers/**/*.cs" />
     <PackageReference Include="Anton.SourceGeneration.PackageTesting" Version="1.0.0" />
+    <PackageReference Include="NETStandard.Library" Version="2.0.3" PrivateAssets="all" GeneratePathProperty="true" />
+    <None Include="$(PkgNETStandard_Library)/build/netstandard2.0/ref/netstandard.dll"
+          Link="References/netstandard.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -83,6 +83,20 @@ through `.editorconfig`.
   spans when the string need not be owned and the lifetime permits it. Create
   a string when ownership is needed.
 
+## Primitive sentinel implementation (ticket 8)
+
+The accepted first version proves exactly `int -1` absence from resolved
+String/List<T> IndexOf/LastIndexOf, bounded stable SZ-array searches and
+private/local identity-forwarding chains. `CR0600` reports one declared
+non-private member's return type when a normal sentinel outcome remains
+possible; API redesign is manual. `CR0601` reports a locally fixable unchecked
+private/local helper result and adds an explicit guard at its original return.
+Success-only paths, including throwing on absence, remain allowed. CR0600 owns
+an exposed host while enabled; severity-none exposes feasible CR0601 sites.
+Actual external interface/override/fixed callback contracts are exempt. All
+earlier diagnostic contracts remain independent. [Sentinel documentation](sentinels.md)
+records the full evidence, visibility, flow, safety and compilation boundaries.
+
 ## Reference cases to verify
 
 These examples come from the linked FindJobHelper branch and serve as

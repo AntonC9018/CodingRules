@@ -19,6 +19,8 @@ CR0400 | Readability | Warning | Name structurally composed delegate projection 
 CR0401 | Readability | Warning | Extract whole delegate stages with several result-feeding temporaries or nested decisions
 CR0402 | Readability | Warning | Make materializer key and element selectors explicit
 CR0500 | Readability | Warning | Name arguments with ambiguous same-type roles
+CR0600 | Readability | Warning | Represent proven index-search absence in the return type
+CR0601 | Readability | Warning | Check a private helper's proven index-search sentinel before forwarding
 
 ### Removed Rules
 

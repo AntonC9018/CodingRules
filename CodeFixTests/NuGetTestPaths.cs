@@ -13,7 +13,8 @@ internal static class NuGetTestPaths
             return configuredPackages;
         }
 
-        var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
+        var repositoryPath = Path.Combine(AppContext.BaseDirectory, "../../../..");
+        var repository = Path.GetFullPath(repositoryPath);
         return Path.Combine(repository, "artifacts/nuget-packages");
     }
 }

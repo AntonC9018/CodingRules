@@ -43,6 +43,12 @@ explicit sentinel guard when a primitive caller forwards a certified private
 or local helper. The initial evidence set, dependency exemptions and safe-fix
 boundaries are documented in [primitive sentinels](docs/sentinels.md).
 
+`CR0700` replaces a parameterless framework string trim immediately inspected
+for Length or equality with a non-null string constant. Its synchronous scalar
+helper avoids the temporary trimmed string while preserving null exceptions,
+ordinal UTF-16 comparison and receiver evaluation. The [span assessment](docs/spans.md)
+records the finite catalogue and manual ownership, API and lifetime boundaries.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

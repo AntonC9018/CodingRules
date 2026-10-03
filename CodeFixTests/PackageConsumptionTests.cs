@@ -7,6 +7,17 @@ namespace CodingRules;
 public sealed class PackageConsumptionTests
 {
     [Fact]
+    public async Task AppliesPackagedSpanInspectionFix()
+    {
+        var tester = await LocalNuGetPackageTester.CreateAsync();
+        var test = new PackageConsumptionTestBuilder(nameof(AppliesPackagedSpanInspectionFix))
+            .AddPackage("Package/CodingRules.Package.csproj")
+            .AddProjectConsumer("CodeFixTests/Consumers/Spans", consumer => consumer.ExpectCodeFix(
+                DiagnosticIds.TransientTextInspection, "Consumer.cs", "CodeFixTests/Expected/Spans.Fixed.cs.txt"))
+            .Build();
+        await tester.AssertAsync(test);
+    }
+    [Fact]
     public async Task AppliesPackagedSentinelFix()
     {
         var tester = await LocalNuGetPackageTester.CreateAsync();

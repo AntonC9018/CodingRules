@@ -202,7 +202,7 @@ internal sealed class ConditionFacts
     private static bool HasProducingOperation(ExpressionSyntax leaf, SemanticModel model) =>
         EvaluationNodes(leaf).Any(node => IsProducer(node, model));
 
-    private static bool HasValidation(ExpressionSyntax leaf, SemanticModel model) =>
+    internal static bool HasValidation(ExpressionSyntax leaf, SemanticModel model) =>
         leaf is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression
             or SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression
             or SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression
@@ -319,7 +319,7 @@ internal sealed class ConditionFacts
         return IsBound(comparison.Left, model) ? -direction : direction;
     }
 
-    private static bool IsNullGuard(ExpressionSyntax expression) =>
+    internal static bool IsNullGuard(ExpressionSyntax expression) =>
         expression is IsPatternExpressionSyntax pattern && pattern.Pattern.ToString() is "null" or "not null"
         || expression is BinaryExpressionSyntax binary && (binary.Left.IsKind(SyntaxKind.NullLiteralExpression)
             || binary.Right.IsKind(SyntaxKind.NullLiteralExpression));

@@ -21,4 +21,5 @@ public static class DiagnosticIds
     public const string NamedArgumentRoles = "CR0500";
     public const string PrimitiveSentinelReturn = "CR0600";
     public const string UncheckedHelperSentinel = "CR0601";
+    public const string TransientTextInspection = "CR0700";
 }

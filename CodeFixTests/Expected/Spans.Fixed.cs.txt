@@ -1,0 +1,15 @@
+public static class Consumer
+{
+    public static int Run(string text)
+    {
+        static int InspectTextLength(string sourceText)
+        {
+            var textLength = sourceText.Length;
+            var textSpan = global::System.MemoryExtensions.AsSpan(text: sourceText, start: 0, length: textLength);
+            var trimmedText = global::System.MemoryExtensions.Trim(span: textSpan);
+            return trimmedText.Length;
+        }
+
+        return InspectTextLength(text);
+    }
+}

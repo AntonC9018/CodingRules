@@ -7,6 +7,16 @@ examples, the coverage-based completion criterion, and pending policy changes,
 including separating message data from rendering. Those changes do not imply
 that the currently published package already implements them.
 
+## Selected formatting implementation (ScheduleLib slice 02)
+
+The consumer package enables upstream RCS0042 for compact bodyless accessors
+and RCS1016 for multiline expressions converted to blocks. Simple single-line
+arrows and blocks remain accepted. CR0800 moves only already-wrapped trailing
+`&&`/`||` to the continuation's beginning, skipping comments/directives that
+would move. Other upstream rules and broader binary-operator policies remain
+disabled. [Packaged formatting](formatting.md) defines the precise boundaries,
+formatter and CLI configuration, license provenance and verification workflow.
+
 ## Source and scope
 
 The source policy is the coding standards section of

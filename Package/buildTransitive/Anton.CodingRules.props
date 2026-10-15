@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup>
+    <!-- Explicitly include the file for both compiler and design-time hosts.
+         Some hosts disable filesystem discovery of GlobalAnalyzerConfigFiles. -->
+    <EditorConfigFiles Include="$(MSBuildThisFileDirectory)../config/CodingRules.globalconfig" />
+  </ItemGroup>
+</Project>

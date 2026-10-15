@@ -1,0 +1,6 @@
+# Merge this section into the consumer's .editorconfig before running dotnet format.
+# SDK 10.0.112's CLI filter does not honor global diagnostic severities here.
+[*.cs]
+dotnet_diagnostic.RCS0042.severity = warning
+dotnet_diagnostic.RCS1016.severity = warning
+csharp_preserve_single_line_blocks = true

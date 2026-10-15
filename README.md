@@ -49,6 +49,12 @@ helper avoids the temporary trimmed string while preserving null exceptions,
 ordinal UTF-16 comparison and receiver evaluation. The [span assessment](docs/spans.md)
 records the finite catalogue and manual ownership, API and lifetime boundaries.
 
+The same package now supplies Roslynator `RCS0042` for compact auto-accessors,
+`RCS1016` for multiline-expression block bodies, and `CR0800` for leading
+wrapped `&&`/`||`. Other upstream diagnostics remain disabled. See
+[packaged formatting](docs/formatting.md) for the required CLI `.editorconfig`
+snippet, formatter interaction, fixer commands, licenses and consumer checks.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

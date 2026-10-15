@@ -124,12 +124,19 @@ reuse, and any genuinely missing behavior. The
 [formatting reuse research](formatting-reuse-research.md) records the tested
 upstream candidates, gaps, package composition, and version-specific licenses.
 
+Slice 02 now implements A2/A3/A12 through the consumer package. The
+[formatting implementation](formatting.md) records the chosen Roslynator 5.0.1
+binary delivery, selective configuration, Boolean-only CR0800 gap, tested
+Roslyn 4.10/SDK 10.0.112 hosts, and required CLI configuration. A1 remains
+slice 03. This implementation does not establish coverage for other A items.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable
   distribution approach, including a configured metapackage. If code is copied,
-  make that reuse clear and preserve its license and attribution. No upstream
-  code or binaries have been incorporated yet.
+  make that reuse clear and preserve its license and attribution. Slice 02
+  incorporates unmodified Apache-2.0 Roslynator binaries with license, NOTICE
+  and provenance; no upstream source has been copied or modified.
 - **Q7 — Open; needs real examples.** The maintainer regards the illustrative
   `Report($"Saved {path}")` and `File.WriteAllText(path, $"{heading}\n{body}")`
   calls as quick debugging shortcuts rather than a maintainable design; the

@@ -2,6 +2,13 @@
   <ItemGroup>
     <Compile Remove="Consumers/**/*.cs" />
     <PackageReference Include="Anton.SourceGeneration.PackageTesting" Version="1.0.0" />
+    <PackageReference Include="Roslynator.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />
+    <PackageReference Include="Roslynator.Formatting.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />
+    <!-- Use the exact same host assets as the packed consumer, without running
+         upstream analyzers against the test project's own source. -->
+    <Reference Include="$(PkgRoslynator_Analyzers)/analyzers/dotnet/roslyn4.7/cs/*.dll" />
+    <Reference Include="$(PkgRoslynator_Formatting_Analyzers)/analyzers/dotnet/roslyn4.7/cs/*.dll" />
+    <None Include="../Package/config/CodingRules.globalconfig" Link="CodingRules.globalconfig" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="NETStandard.Library" Version="2.0.3" PrivateAssets="all" GeneratePathProperty="true" />
     <None Include="$(PkgNETStandard_Library)/build/netstandard2.0/ref/netstandard.dll"
           Link="References/netstandard.dll" CopyToOutputDirectory="PreserveNewest" />

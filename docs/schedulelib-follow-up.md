@@ -1,0 +1,331 @@
+# ScheduleLib analyzer follow-up
+
+The acceptance backlog is [ScheduleLib #229](https://github.com/AntonC9018/ScheduleLib/issues/229),
+based on the [reviewed implementation at 12e601e](https://github.com/AntonC9018/ScheduleLib/tree/12e601e7b62511bdecc44e280407fee12147b230).
+This document records the maintainer's 2026-10-15 clarifications. It describes
+pending work, not coverage already provided by the published package.
+
+## Discussion record
+
+The high-level interview has reached the implementation handoff. Update this
+document when subsequent answers settle remaining policy; leave unresolved
+generalizations under manual review rather than reopening the whole interview. Keep settled meanings in the root [glossary](../CONTEXT.md), record
+architectural trade-offs in concise ADRs, and leave unanswered questions marked
+open. Research recommendations remain proposals until chosen; update an earlier
+decision explicitly if a later answer changes it. Do not recreate the interview
+from scratch at a handoff. The [implementation ticket index](tickets/schedulelib-follow-up/README.md)
+links the approved, published slices and their blocking edges. ScheduleLib
+implementation branches and PRs target `feat/registry-history-analysis`, as
+specified in its four tickets.
+
+The accepted architectural decisions are
+[confident findings independent of fix availability](adr/0001-separate-findings-from-fix-availability.md)
+and [structured messages rendered at reporting boundaries](adr/0002-render-structured-messages-at-reporting-boundaries.md).
+Custom errors should also
+[preserve structured error context](adr/0003-preserve-structured-error-context.md).
+The serializer should [configure its operation through a builder](adr/0004-configure-serialization-through-a-builder.md).
+
+## Scope and completion
+
+CodingRules owns reusable diagnostics and fixes. SourceGenerators supplies the
+project SDK and reusable infrastructure. ScheduleLib is an acceptance target;
+its structural refactors remain separate in
+[ScheduleLib #230](https://github.com/AntonC9018/ScheduleLib/issues/230).
+Keep one consumer entry-point package, `Anton.CodingRules`, supplying the chosen
+analyzers, fixes, and configuration. A metapackage with dependencies, bundled
+assemblies, or adapted upstream source are all acceptable: choose the simplest
+reliable implementation rather than requiring one physical archive. Survey
+existing implementations before writing formatting rules. MIT and Apache-2.0
+reuse are acceptable; inspect the actual version's license, retain required
+notices, and clearly identify any copied code and its provenance.
+
+Interpret the review comments and choose implementation details without asking
+the maintainer about routine engineering decisions. Ask when the intended code
+style or behavior is uncertain, using concrete examples and counterexamples.
+
+A referenced requirement is complete when tests demonstrate coverage of its
+cited cases and the accepted cases that must remain unreported. A configuration
+key, a clean formatter run, or a successful build alone does not prove that
+coverage. State the implemented generalization and its remaining boundaries.
+Publishing and downstream adoption are separate from this coverage criterion.
+
+Confident diagnostics may report even when a safe automatic refactoring is not
+available. Multiple alternative fixes are allowed, such as local-function
+extraction and statement expansion. Every offered fix must preserve behavior;
+uncertainty about a fix must not be confused with uncertainty about the rule.
+The original CR0001 contract still requires a safe fix for every reported case.
+Existing families' documented safe-fix-only detection remains their current
+implementation, not an automatic restriction on all new rules.
+
+## A6: separate message data from rendering
+
+The maintainer refined A6 beyond extracting a completed string into a local.
+For a compound human message, the intended design is a named record struct
+containing the message data, passed to a generic reporting boundary which
+renders it where needed. This keeps the call site focused on data and makes
+localization possible at the rendering boundary.
+
+The reviewed `Report` takes `string human`; the existing interpolations therefore
+produce strings before reporting. The preference is not fully satisfied merely
+by naming that string. Two representative original shapes are:
+
+```csharp
+Report(..., $"Delete event {identity.Id}: {identity.Summary}");
+
+Report(..., $"Create event [{index}]: {ev.Summary}; {ev.Start?.DateTimeDateTimeOffset}–{ev.End?.DateTimeDateTimeOffset}; {string.Join(", ", ev.Recurrence ?? [])}");
+```
+
+These are schematic call excerpts; retain the exact complete original calls
+and declarations in acceptance fixtures. The direct constructed exception
+passed to `StreamingFailure` is a separate, non-message A6 example.
+
+`ISpanFormattable` is a candidate reporting constraint, not a settled universal
+requirement or a license to introduce a message type mechanically. Its formatting
+contract does not itself define resource lookup, message identity, or translation.
+Choose the smallest contract that supports the reporting and localization needs.
+
+An automatic rewrite must account for:
+
+- The actual selected parameter and overload: string, deferred
+  `FormattableString`, or a custom interpolated-string handler.
+- Handler constructor gating and append-method short circuiting. Moving data
+  construction or hole computation outside a disabled handler can make formerly
+  skipped work run.
+- The order of hole evaluation and formatting, including property reads,
+  mutations, exceptions, culture, format strings, and alignment.
+- The handler's actual `AppendFormatted` overloads and generic constraints.
+  A handler supporting the original hole types need not accept a new message
+  type or treat it as the same sequence of holes.
+- Stable versus deferred message data: capturing a mutable object or collection
+  does not snapshot the values that an earlier interpolation would have observed.
+- Loss of structured values, escaping, or provider-specific handling when
+  several original holes become one formatted object.
+- The distinction between accepting `ISpanFormattable` and actually invoking
+  `TryFormat`. A custom handler may instead use `ToString` and allocate.
+
+Keep handler-aware interpolation at its original site unless the rewrite proves
+the relevant behavior is preserved. Leave architectural changes without an
+automatic fix when that proof requires a human choice.
+
+## Coverage work to establish
+
+Use the individual A1–A16 items in #229 as the source of acceptance fixtures.
+Do not mark a rule covered merely because an existing diagnostic appears related.
+Record both current detection and available fixes for each original example,
+with negative fixtures for the explicitly accepted chained service call, direct
+initializers, and simple factory values. Initializer false positives remain
+tracked in [CodingRules #19](https://github.com/AntonC9018/CodingRules/issues/19).
+
+For A1–A3 and A12, first establish what existing formatters/analyzers can enforce
+and fix with their supported configuration. In particular, a formatter applying
+whitespace need not apply expression-body-to-block code-style fixes. The research
+report distinguishes configuration, package composition, licensed source
+reuse, and any genuinely missing behavior. The
+[formatting reuse research](formatting-reuse-research.md) records the tested
+upstream candidates, gaps, package composition, and version-specific licenses.
+
+## Open design questions
+
+- **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable
+  distribution approach, including a configured metapackage. If code is copied,
+  make that reuse clear and preserve its license and attribution. No upstream
+  code or binaries have been incorporated yet.
+- **Q7 — Open; needs real examples.** The maintainer regards the illustrative
+  `Report($"Saved {path}")` and `File.WriteAllText(path, $"{heading}\n{body}")`
+  calls as quick debugging shortcuts rather than a maintainable design; the
+  file-writing example needs an abstraction too. This does not yet define a
+  general diagnostic or establish which abstraction to generate. Collect actual
+  cases from maintainer-authored and agent-authored code, with provenance and
+  candidate solutions, before asking for the policy decision. Distinguish actual
+  current analyzer output from a hypothetical future finding.
+- **Literal/builder boundaries.** Multiline string literals are explicitly
+  allowed. The existing ListStringBuilder interpolation in the lexer is now an
+  accepted case (Q10). Do not infer an exemption for all string construction,
+  all handlers, or complex computation nested inside holes.
+
+No universal rule requiring message records for short messages or arbitrary
+string-taking APIs has been accepted. The next interview round should compare
+real examples rather than repeat abstract scope questions.
+
+The [real string-formatting cases](string-formatting-examples-research.md)
+record source provenance, reduced-harness CR03 observations, and alternatives.
+The following answers refine the policy:
+
+- **Q8 — Resolved.** Name the complete file pattern as a const when the document
+  extension is constant. When the extension varies, use a named local function
+  for the construction. A message record is not required for this pattern.
+- **Q9 — Structured context preferred; lazy Message recommendation.**
+  Prefer custom exceptions where possible and keep associated context as
+  accessible structured data, not solely in prose. The maintainer questions
+  eagerly formatting that context into base(message), especially if handling
+  never inspects the message, and asks whether overriding Message is the usual
+  pattern. Research confirms that base(message) is the usual documented custom
+  exception pattern, while overriding Message to render stored context is also
+  used by framework exceptions. Prefer typed read-only context and consider an
+  overridden Message for deferred rendering; keep the general diagnostic/fix
+  boundary open. Do not treat the previous base-interpolation example as an
+  approved final design merely because current CR03 skips it.
+  The [exception research](structured-exception-research.md) documents the
+  framework precedents and distinguishes structured context from its automatic
+  inclusion in any particular logging provider's output.
+- **Q10 — Resolved.** The existing lexer call
+  `list.Append($"{type} - {t.Value.Span}")` is acceptable. Preserve this real
+  ListStringBuilder/custom-handler case; it does not settle every builder or
+  handler expression.
+
+The specific reporting interface, analyzer composition mechanics, and ordinary
+engineering choices are delegated implementation work. Investigate concrete
+handler and evaluation cases before offering a fix; ask the maintainer only
+where those cases expose uncertain intended behavior.
+
+## Data shapes, parameter groups, and reuse: Q11–Q14
+
+These answers supersede the earlier recommendations for A4, A5, A13, and A14.
+They are policy decisions and research boundaries, not claims of implemented
+diagnostic coverage.
+
+- **Q11 — More tuple examples required.** The calendar plan example needs a
+  named record struct. The suggested general exemption for short-lived local
+  tuples was not accepted. Mine more real examples before deciding which tuple
+  uses may remain; neither a universal tuple ban nor a local-tuple exemption
+  had been established at this point. Q15–Q16 below resolve the collected
+  examples, including an exception for local-function results. Distinguish tuple
+  data from deconstruction syntax.
+- **Q12 — Four or more parameters.** More than three parameters is excessive;
+  count context parameters, including CancellationToken. The earlier proposed
+  five-parameter trigger is rejected. This initial broad scope is refined by
+  Q17–Q18 below: static functions may keep separate arguments; interface,
+  virtual/abstract, delegate, and abstract-class constructor contracts require
+  grouping above three. Ordinary constructors were originally excluded;
+  abstract-class constructors are now explicitly included. Do not invent an
+  arbitrary context bag just to reduce the count.
+- **Q13 — Generalize proven unchanged branches.** Flag the null-preserving
+  assignment and other branches that provably retain the current value, such
+  as `current = condition ? current : next`. If the affected operation appears
+  in an expression-bodied property/accessor, the refactoring must introduce
+  a block body with the explicit conditional update and any required return.
+  A property/accessor host is distinct from an assignment to an effectful
+  property/indexer target; do not remove setter effects without proof.
+- **Q14 — Duplication candidates require semantic review.** Begin with the
+  repeated formatting shape previously proposed (same method and matching
+  formatting operation/format/provider, possibly different receivers). A
+  matching expression may represent a different domain concept and should not
+  then be factored into a common helper. The analyzer cannot settle that
+  distinction. Agent guidance imported by consuming repositories must tell
+  agents to examine the semantic roles before applying a duplication rewrite.
+  Preserve separate implementations when their meaning or reasons to change
+  differ; do not treat structural similarity as mandatory abstraction reuse.
+
+## Provenance and the next examples
+
+The maintainer clarified that most code from June 2026 onward is AI-generated
+and not thoroughly reviewed. Prefer pre-June examples when investigating the
+maintainer's own style; use introduction history and Generated-by trailers,
+not merely the current author's account or the last formatting edit. Even
+older source is evidence to discuss, not automatic approval of every pattern.
+The restarted scans are complete. Reviewed source and introduction history are
+recorded in [tuple examples](tuple-examples-research.md) and
+[parameter examples](parameter-examples-research.md). Pre-June examples include
+a mapping table, private parser result, local iterator result, four-parameter
+serializer, and ISpanFormattable implementation. Recent CLI examples have explicit
+Generated-by provenance. The maintainer subsequently identified the shown
+lesson-import/plumbing code as AI-generated by Astra (Q20); owner attribution
+in its commit history must not be treated as human authorship.
+
+## Tuple and parameter refinements: Q15–Q18
+
+- **Q15 — Resolved: named mapping value.** Replace the course-name mapping
+  table's `(string From, string To)` elements with a named record struct.
+- **Q16 — Resolved: local-function result exception.** The nonempty-cell local
+  iterator may retain its tuple result. The private qualification parser and
+  ordinary generic filtered-item method should return named record structs.
+  Private methods do not inherit the local-function exception. The calendar plan
+  collection still needs a record struct; its use by a local function does not
+  make the collection a local-function result. Purely local swaps were not found
+  in this scan and remain undecided. Deconstruction syntax is not itself banned.
+- **Q17 — Revised: builders and contracts.** The proposed schedule-plus-hash
+  record was rejected as an unhelpful grouping. For the serializer, prefer a
+  reusable builder with Input, Output (stream/path alternatives), optional Hash
+  (default empty), and ExecuteAsync(cancellationToken). The exact API is delegated;
+  the maintainer's state-plus-static-callback sketch is illustrative. A builder
+  must address missing required configuration rather than merely moving the
+  failure away from the call site. Research existing required-call analyzers
+  before implementing another one.
+
+  The parameter rule now distinguishes static helpers from contracts imposed on
+  callers/implementers. Static functions may retain separate arguments. Locally
+  owned interfaces, virtual/abstract methods, constructors of abstract classes,
+  and delegate types must group arguments when there are more than three,
+  including context. An imposed external signature remains exempt (Q18).
+
+  Overloaded APIs require a builder when the operation has more than one
+  parameter and at least one parameter has alternative overload forms (Q19).
+  One-parameter overloads remain allowed. Repeated
+  argument plumbing requires a builder or context object and should be reviewed
+  through agent guidance: counting parameters alone cannot establish that
+  architectural need. Do not assume the new static exception exempts repeated
+  plumbing or the Q19 overload rule. Q20 settles the shown import instance
+  methods as a shared-record case; the broader category of ordinary nonvirtual
+  instance methods has not been classified from parameter count alone.
+- **Q18 — Resolved: external signature exemption.** The four-parameter
+  ISpanFormattable.TryFormat implementation is allowed because its signature is
+  imposed by an external contract. The maintainer still regards that original
+  interface design as poor: external compatibility is the reason for the
+  exemption, not approval of this shape in new locally owned interfaces.
+
+## Overload scope and usage context: Q19–Q20
+
+- **Q19 — Resolved: more than one parameter plus overload alternatives.** Use a
+  builder when an operation has more than one parameter and at least one of
+  those parameters has alternative overload forms. The earlier recommendation
+  to restrict this to signatures exceeding three parameters was not accepted.
+  A one-parameter Parse(string)/Parse(ReadOnlySpan<char>) pair is allowed. This
+  overload rule is independent of the more-than-three grouping requirement for
+  the specified contract kinds; static functions are not exempt from it.
+- **Q20 — Resolved for the shown import flow: one shared record struct.**
+  The lesson, day, time slot, groups, and alternative should travel together in
+  one record struct through the importer, delegate, cohort handler, and
+  AddOrMergeLesson. Group all the arguments of that shared payload, not an
+  arbitrary subset. Preserve the per-cohort changes to groups/alternative and
+  the import context's existing merge policy. The maintainer identifies this
+  code as AI-generated by Astra; it is not a precedent for their preferred
+  hand-written style. The [parameter report](parameter-examples-research.md#addormergelesson-usage-for-q20)
+  records Word/PDF import, elective cohort routing, and test usage. The broader
+  rule for ordinary instance methods remains separate from this concrete
+  repeated-plumbing decision. The [Luna Excel scan](excel-import-input-research.md)
+  confirms the existing AddLessonParams readonly ref struct and one-argument
+  IScheduleAddLessonHandler.AddLesson interface as a precedent. The maintainer's
+  final clarification is that PDF/Word should have their own record struct,
+  shared across their delegate, handler, and method; Excel keeps its existing
+  aggregate. The repeated forwarding usage establishes this sharing boundary.
+  The previous interpretation requiring a unified model across Excel and
+  PDF/Word is superseded. No reconciliation of Excel's date/ref/span contract
+  with the PDF/Word payload is required by this decision. The existing Excel
+  declaration dates to April 2026; that history does not itself establish human
+  authorship.
+
+The [Luna builder research](builder-protocol-analyzers-research.md) is complete.
+It found published MIT-licensed staged-builder generators, but did not verify a
+general C# analyzer that proves a set of required method calls in the proposed
+statement callback. MustUseReturnValue checks discarded results, not setter
+completion. Staged generators require a different returned-chain API; their
+advertised guarantees have not been checked in a compilation probe. A small,
+explicitly opted-in reusable callback protocol rule is a possible implementation
+path if that callback shape is retained. Runtime configuration validation remains
+necessary. The maintainer rejected the staged-generator alternatives as the
+intended solution. Record the [RequiredStep analyzer idea](required-builder-steps-proposal.md)
+for later: annotate core methods and infer coverage transitively through
+overloads/higher-level methods, including helpers covering multiple steps.
+Probably discover requirements only on the builder itself at first, with
+convenience overloads/helpers in extensions. No analyzer implementation or
+annotation integration is requested now; agents must check completeness manually.
+No package or generator was selected; the survey is not proof that no suitable
+analyzer exists anywhere.
+
+## Consumer agent guidance
+
+[Agent coding rules](agent-coding-rules.md) records the semantic review required
+for duplication candidates. This repository imports that guidance through its
+AGENTS.md. Shipping it with the consumer entry-point package and documenting
+how consuming agents read/import it are requirements for the package work;
+no automatic consumer-repository import has been implemented yet.

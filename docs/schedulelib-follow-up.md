@@ -288,8 +288,14 @@ in its commit history must not be treated as human authorship.
   hand-written style. The [parameter report](parameter-examples-research.md#addormergelesson-usage-for-q20)
   records Word/PDF import, elective cohort routing, and test usage. The broader
   rule for ordinary instance methods remains separate from this concrete
-  repeated-plumbing decision. Luna is checking the Excel import for an existing
-  analogous type or pattern before proposing a new payload type.
+  repeated-plumbing decision. The [Luna Excel scan](excel-import-input-research.md)
+  confirms the existing AddLessonParams readonly ref struct and one-argument
+  IScheduleAddLessonHandler.AddLesson interface as a direct precedent. It is not
+  reusable unchanged: Excel carries context, a by-reference lesson, span groups,
+  and a Day containing a calendar date, but no Alternative. Follow its aggregate
+  pattern while preserving distinct weekly-import semantics and the accepted
+  record-struct direction. Its declaration dates to April 2026; that history
+  does not itself establish human authorship.
 
 The [Luna builder research](builder-protocol-analyzers-research.md) is complete.
 It found published MIT-licensed staged-builder generators, but did not verify a

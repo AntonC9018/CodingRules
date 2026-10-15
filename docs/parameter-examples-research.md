@@ -160,6 +160,8 @@ no new test run was performed for this documentation update.
 **Q20 decision:** use one shared record struct containing all five values,
 including the delegate and cohort adapter. Preserve the import context's merge
 policy and the per-cohort changes to groups/alternative. The maintainer recalls
-an analogous Excel-import pattern; Luna is investigating reuse before proposing
-another type. This concrete decision does not establish a blanket rule for
+an analogous Excel-import pattern; the [Luna scan](excel-import-input-research.md)
+confirmed AddLessonParams, a readonly ref struct, as a direct precedent. Its
+calendar date, ref/span fields, included context, and lack of Alternative make
+it unsuitable for unchanged reuse as this operation's record struct. This concrete decision does not establish a blanket rule for
 all nonvirtual instance methods.

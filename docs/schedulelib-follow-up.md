@@ -172,3 +172,34 @@ The specific reporting interface, analyzer composition mechanics, and ordinary
 engineering choices are delegated implementation work. Investigate concrete
 handler and evaluation cases before offering a fix; ask the maintainer only
 where those cases expose uncertain intended behavior.
+
+## Next interview round: data shapes, parameter groups, and reuse
+
+Q11–Q14 are open questions, not accepted rules. They concern the unspecified
+boundaries in A4, A5, A13, and A14 respectively; their cited concrete examples
+come from #229. The recommendations below await the maintainer's answer.
+
+- **Q11 — Tuple boundaries.** The calendar plan stores tuple-shaped actions in
+  a collection and passes them through ReportPlanned and callbacks. Should named
+  record structs be required for collection data and application-owned method
+  contracts, while short-lived local grouping/deconstruction and signatures
+  imposed by dependencies may still use tuples? Recommendation: yes; retain
+  simple local tuple uses rather than banning tuple syntax universally.
+- **Q12 — Parameter-count trigger.** The cited methods have five and ten
+  parameters; constructors were explicitly excluded. Should the default warning
+  begin at five parameters on an ordinary method? Recommendation: five or more,
+  with constructors and externally imposed signatures exempt. Count ordinary
+  context parameters such as CancellationToken; do not mechanically invent a
+  request record when a grouping requires human judgment.
+- **Q13 — Assignments with an unchanged branch.** The cited null-preserving
+  ternary obscures a simple conditional update. Should the rule generalize to
+  assignments whose branch provably preserves the existing local value, such
+  as `current = condition ? current : next`? Recommendation: yes for proven
+  local-value cases, not a general claim that property/indexer writes have no
+  effects. Safe rewrites must preserve evaluation and assignment behavior.
+- **Q14 — Repeated formatting.** Should the two nullable timestamp formatting
+  expressions in the same method prompt a named formatting helper, without
+  also flagging ordinary repeated member reads? Recommendation: begin with
+  matching formatting operations in one method (same overload/format/provider,
+  potentially different receivers), preserving the original timing at both
+  call sites; do not introduce a broad clone detector without more examples.

@@ -160,6 +160,9 @@ The following answers refine the policy:
   overridden Message for deferred rendering; keep the general diagnostic/fix
   boundary open. Do not treat the previous base-interpolation example as an
   approved final design merely because current CR03 skips it.
+  The [exception research](structured-exception-research.md) documents the
+  framework precedents and distinguishes structured context from its automatic
+  inclusion in any particular logging provider's output.
 - **Q10 — Resolved.** The existing lexer call
   `list.Append($"{type} - {t.Value.Span}")` is acceptable. Preserve this real
   ListStringBuilder/custom-handler case; it does not settle every builder or

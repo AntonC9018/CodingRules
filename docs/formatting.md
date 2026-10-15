@@ -110,3 +110,16 @@ and exercise trivia skips, default configuration, consumer overrides,
 formatter conflict/recovery, CRLF/tabs and short-circuit runtime effects.
 Packaging tests and this consumer gate establish CLI discovery; they do not
 claim GUI-host interaction or coverage of every upstream host shape.
+
+Validation on 2026-10-15: all **900** solution tests passed (41 analyzer and
+859 code-fix tests, including the 15 new formatting tests) with:
+
+```sh
+dotnet test CodingRules.slnx -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903
+```
+
+The normal command without that existing, command-scoped exception still fails
+restore on the shared testing graph's Pkcs 9.0.6 NU1902/NU1903 advisories. The
+dependency-repair slice owns that baseline issue; this change adds no permanent
+audit exception. Normal package build/pack and the isolated consumer gate pass
+without an audit exception. The 12 Python release guard tests also pass.

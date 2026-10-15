@@ -1,0 +1,75 @@
+public class Consumer
+{
+    public int Value
+    {
+        get;
+        init;
+    }
+
+    public bool And(int value)
+    {
+        return value >= 0 &&
+            value <= 10;
+    }
+
+    public bool Or(int value)
+    {
+        return value == 0 ||
+            value == 10;
+    }
+
+    public int Method() => System.Math.Abs(
+        -1);
+
+    public void VoidMethod() => System.Console.WriteLine(
+        1);
+
+    public int Property => System.Math.Abs(
+        -2);
+
+    public int Accessor
+    {
+        get => System.Math.Abs(
+            -3);
+        set => System.Console.WriteLine(
+            value);
+    }
+
+    public int LocalFunction()
+    {
+        int Local() => System.Math.Abs(
+            /* preserve argument */ -4);
+        return Local();
+    }
+
+    public int Simple() => 3;
+    public int SimpleProperty => 3;
+    public int SimpleAccessor { get => 3; }
+    public int SimpleBlock() { return 3; }
+
+    public int Arithmetic(int a, int b)
+    {
+        return a +
+            b;
+    }
+
+    public bool Comment(bool a, bool b)
+    {
+        return a && // keep operator attachment
+            b;
+    }
+
+    public int CommentedAutoProperty
+    {
+        get; // keep accessor attachment
+        init;
+    }
+
+    public int Directive => System.Math.Abs(
+#if DEBUG
+        -1
+#else
+        -2
+#endif
+    );
+}

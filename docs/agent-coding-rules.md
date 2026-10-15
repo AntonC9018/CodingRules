@@ -36,6 +36,13 @@ and lifetime before choosing the abstraction; do not hide unrelated dependencies
 in a generic argument bag solely to satisfy a parameter count. A static helper's
 parameter-count exception does not remove this architectural review.
 
+For the lesson-import flow reviewed in Q20, use one shared record struct carrying
+all the lesson/day/time/groups/alternative arguments across the importer,
+delegate, cohort handler, and merge operation. Preserve the merge policy and
+per-cohort changes to groups/alternative. Check existing Excel-import types and
+patterns before inventing another payload; partial arbitrary groupings do not
+satisfy this concrete decision.
+
 For the serializer configuration discussed in the
 [ScheduleLib follow-up](schedulelib-follow-up.md#tuple-and-parameter-refinements-q15q18),
 use a reusable builder supporting alternate output sources and an optional hash,

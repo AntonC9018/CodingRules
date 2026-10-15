@@ -7,12 +7,15 @@ pending work, not coverage already provided by the published package.
 
 ## Discussion record
 
-Continue the design interview by updating this document after each substantive
-answer. Keep settled meanings in the root [glossary](../CONTEXT.md), record
+The high-level interview has reached the implementation handoff. Update this
+document when subsequent answers settle remaining policy; leave unresolved
+generalizations under manual review rather than reopening the whole interview. Keep settled meanings in the root [glossary](../CONTEXT.md), record
 architectural trade-offs in concise ADRs, and leave unanswered questions marked
 open. Research recommendations remain proposals until chosen; update an earlier
 decision explicitly if a later answer changes it. Do not recreate the interview
-from scratch at a handoff.
+from scratch at a handoff. The [implementation ticket drafts](tickets/schedulelib-follow-up/README.md)
+record the proposed slices and blocking edges; publication awaits the skill's
+breakdown approval step.
 
 The accepted architectural decisions are
 [confident findings independent of fix availability](adr/0001-separate-findings-from-fix-availability.md)

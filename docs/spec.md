@@ -61,6 +61,17 @@ through `.editorconfig`.
 - Shape final collections explicitly, including named key and value
   selectors when relevant.
 
+### Duplication and semantic distinction
+
+- Review matching computations as candidates for reuse. Matching syntax does
+  not establish that the computations represent the same domain concept.
+- Factor a genuinely shared operation into a named helper; keep semantically
+  distinct operations separate when their meaning or reasons to change differ.
+- Agents must make that judgment before acting on a duplication diagnostic.
+  The [agent guidance](agent-coding-rules.md) records the review expected in
+  this repository and in the intended consumer integration. Automatic detection
+  of the ScheduleLib formatting examples remains pending implementation.
+
 ### Return decisions
 
 - After a conditional early return, later decisions among return outcomes

@@ -40,3 +40,13 @@ _Avoid_: Message construction
 Typed values associated with a failure and available to its handler
 independently of the human-readable error message.
 _Avoid_: Message text, parsed message fields
+
+**Duplication candidate**:
+Repeated computation with matching structure whose suitability for a shared
+abstraction still requires review of its domain meaning.
+_Avoid_: Proven redundancy
+
+**Semantic distinction**:
+A difference in domain meaning or reasons to change that warrants keeping
+computations separate despite their currently matching implementation.
+_Avoid_: Incidental syntax difference

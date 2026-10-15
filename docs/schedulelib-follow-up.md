@@ -173,33 +173,54 @@ engineering choices are delegated implementation work. Investigate concrete
 handler and evaluation cases before offering a fix; ask the maintainer only
 where those cases expose uncertain intended behavior.
 
-## Next interview round: data shapes, parameter groups, and reuse
+## Data shapes, parameter groups, and reuse: Q11–Q14
 
-Q11–Q14 are open questions, not accepted rules. They concern the unspecified
-boundaries in A4, A5, A13, and A14 respectively; their cited concrete examples
-come from #229. The recommendations below await the maintainer's answer.
+These answers supersede the earlier recommendations for A4, A5, A13, and A14.
+They are policy decisions and research boundaries, not claims of implemented
+diagnostic coverage.
 
-- **Q11 — Tuple boundaries.** The calendar plan stores tuple-shaped actions in
-  a collection and passes them through ReportPlanned and callbacks. Should named
-  record structs be required for collection data and application-owned method
-  contracts, while short-lived local grouping/deconstruction and signatures
-  imposed by dependencies may still use tuples? Recommendation: yes; retain
-  simple local tuple uses rather than banning tuple syntax universally.
-- **Q12 — Parameter-count trigger.** The cited methods have five and ten
-  parameters; constructors were explicitly excluded. Should the default warning
-  begin at five parameters on an ordinary method? Recommendation: five or more,
-  with constructors and externally imposed signatures exempt. Count ordinary
-  context parameters such as CancellationToken; do not mechanically invent a
-  request record when a grouping requires human judgment.
-- **Q13 — Assignments with an unchanged branch.** The cited null-preserving
-  ternary obscures a simple conditional update. Should the rule generalize to
-  assignments whose branch provably preserves the existing local value, such
-  as `current = condition ? current : next`? Recommendation: yes for proven
-  local-value cases, not a general claim that property/indexer writes have no
-  effects. Safe rewrites must preserve evaluation and assignment behavior.
-- **Q14 — Repeated formatting.** Should the two nullable timestamp formatting
-  expressions in the same method prompt a named formatting helper, without
-  also flagging ordinary repeated member reads? Recommendation: begin with
-  matching formatting operations in one method (same overload/format/provider,
-  potentially different receivers), preserving the original timing at both
-  call sites; do not introduce a broad clone detector without more examples.
+- **Q11 — More tuple examples required.** The calendar plan example needs a
+  named record struct. The suggested general exemption for short-lived local
+  tuples was not accepted. Mine more real examples before deciding which tuple
+  uses may remain; neither a universal tuple ban nor a local-tuple exemption
+  has been established. Distinguish tuple data from deconstruction syntax.
+- **Q12 — Four or more parameters.** More than three parameters is excessive;
+  count context parameters, including CancellationToken. The earlier proposed
+  five-parameter trigger is rejected. Constructors remain excluded by the
+  original reviewed scope. Collect real signatures and call sites before
+  settling other exclusions and grouping choices, including imposed external
+  signatures. Do not invent an arbitrary context bag just to reduce the count.
+- **Q13 — Generalize proven unchanged branches.** Flag the null-preserving
+  assignment and other branches that provably retain the current value, such
+  as `current = condition ? current : next`. If the affected operation appears
+  in an expression-bodied property/accessor, the refactoring must introduce
+  a block body with the explicit conditional update and any required return.
+  A property/accessor host is distinct from an assignment to an effectful
+  property/indexer target; do not remove setter effects without proof.
+- **Q14 — Duplication candidates require semantic review.** Begin with the
+  repeated formatting shape previously proposed (same method and matching
+  formatting operation/format/provider, possibly different receivers). A
+  matching expression may represent a different domain concept and should not
+  then be factored into a common helper. The analyzer cannot settle that
+  distinction. Agent guidance imported by consuming repositories must tell
+  agents to examine the semantic roles before applying a duplication rewrite.
+  Preserve separate implementations when their meaning or reasons to change
+  differ; do not treat structural similarity as mandatory abstraction reuse.
+
+## Provenance and the next examples
+
+The maintainer clarified that most code from June 2026 onward is AI-generated
+and not thoroughly reviewed. Prefer pre-June examples when investigating the
+maintainer's own style; use introduction history and Generated-by trailers,
+not merely the current author's account or the last formatting edit. Even
+older source is evidence to discuss, not automatic approval of every pattern.
+Tuple and parameter-list example scans are running separately; review their
+findings before posing the next questions on those boundaries.
+
+## Consumer agent guidance
+
+[Agent coding rules](agent-coding-rules.md) records the semantic review required
+for duplication candidates. This repository imports that guidance through its
+AGENTS.md. Shipping it with the consumer entry-point package and documenting
+how consuming agents read/import it are requirements for the package work;
+no automatic consumer-repository import has been implemented yet.

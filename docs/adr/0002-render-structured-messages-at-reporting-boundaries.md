@@ -12,3 +12,10 @@ Automatic fixes must preserve evaluation and formatting behavior, including
 handler gating, culture, overload selection, and observations of mutable data.
 The exact scope beyond the cited reporting examples remains open in the
 [follow-up questions](../schedulelib-follow-up.md#open-design-questions).
+
+The subsequent discussion also identified a need for abstractions around
+file-content construction, not only reporting. The maintainer has not chosen
+a general interpolation policy: compare real maintainer-authored and
+agent-authored cases with possible refactorings before defining that rule.
+Multiline string literals are allowed; StringBuilder use is only a tentative
+exception, not a settled blanket exemption.

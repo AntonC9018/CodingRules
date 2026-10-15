@@ -6,6 +6,11 @@ between code that needs changing and code deliberately accepted as written.
 
 ## Language
 
+**CodingRules package**:
+The consumer entry point supplying the intended coding rules, refactoring
+actions, and configuration, regardless of how upstream components are delivered.
+_Avoid_: Single physical archive
+
 **Coverage case**:
 A concrete code example with an expected finding or an expected absence of
 findings, used to establish a coding requirement's intended scope.

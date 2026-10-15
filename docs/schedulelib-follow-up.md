@@ -24,10 +24,13 @@ CodingRules owns reusable diagnostics and fixes. SourceGenerators supplies the
 project SDK and reusable infrastructure. ScheduleLib is an acceptance target;
 its structural refactors remain separate in
 [ScheduleLib #230](https://github.com/AntonC9018/ScheduleLib/issues/230).
-Keep one consumer package, `Anton.CodingRules`, including any adopted analyzers
-and required fixes. Survey existing implementations before writing formatting
-rules. Configuring existing tools or adapting MIT source with retained credit
-are both possible; inspect the actual version's license and package contents.
+Keep one consumer entry-point package, `Anton.CodingRules`, supplying the chosen
+analyzers, fixes, and configuration. A metapackage with dependencies, bundled
+assemblies, or adapted upstream source are all acceptable: choose the simplest
+reliable implementation rather than requiring one physical archive. Survey
+existing implementations before writing formatting rules. MIT and Apache-2.0
+reuse are acceptable; inspect the actual version's license, retain required
+notices, and clearly identify any copied code and its provenance.
 
 Interpret the review comments and choose implementation details without asking
 the maintainer about routine engineering decisions. Ask when the intended code
@@ -116,16 +119,34 @@ upstream candidates, gaps, package composition, and version-specific licenses.
 
 ## Open design questions
 
-- **Q6 — Third-party license policy.** MIT-source adaptation is allowed with
-  credit; reuse of configured external analyzers is allowed in principle.
-  Whether Apache-2.0 source adaptation and binary redistribution are also
-  acceptable is not yet settled. Roslynator's demonstrated coverage makes this
-  a useful decision; no upstream code or binaries have been incorporated.
-- **Q7 — Message-rule scope.** Structured message values are the intended
-  direction for the cited A6 reporting examples. Whether that preference also
-  applies to short messages and arbitrary string-taking APIs remains open.
-  Do not turn the reporting design preference into a universal requirement
-  to introduce a record struct for every interpolated string.
+- **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable
+  distribution approach, including a configured metapackage. If code is copied,
+  make that reuse clear and preserve its license and attribution. No upstream
+  code or binaries have been incorporated yet.
+- **Q7 — Open; needs real examples.** The maintainer regards the illustrative
+  `Report($"Saved {path}")` and `File.WriteAllText(path, $"{heading}\n{body}")`
+  calls as quick debugging shortcuts rather than a maintainable design; the
+  file-writing example needs an abstraction too. This does not yet define a
+  general diagnostic or establish which abstraction to generate. Collect actual
+  cases from maintainer-authored and agent-authored code, with provenance and
+  candidate solutions, before asking for the policy decision. Distinguish actual
+  current analyzer output from a hypothetical future finding.
+- **Literal/builder boundaries.** Multiline string literals are explicitly
+  allowed. Interpolation inside StringBuilder is probably acceptable, but this
+  remains tentative and needs concrete examples. Do not infer an exemption for
+  all string construction, all handlers, or computation nested inside holes.
+
+No universal rule requiring message records for short messages or arbitrary
+string-taking APIs has been accepted. The next interview round should compare
+real examples rather than repeat abstract scope questions.
+
+The [real string-formatting cases](string-formatting-examples-research.md)
+record source provenance, reduced-harness CR03 observations, and proposed
+solutions. The next open questions are **Q8**, whether a named file-pattern
+constant is sufficient; **Q9**, whether a typed exception constructor is an
+accepted rendering boundary; and **Q10**, whether the existing
+ListStringBuilder handler illustrates an accepted builder case. None of these
+proposals is an accepted general exemption yet.
 
 The specific reporting interface, analyzer composition mechanics, and ordinary
 engineering choices are delegated implementation work. Investigate concrete

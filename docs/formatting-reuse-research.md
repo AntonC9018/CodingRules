@@ -4,6 +4,13 @@ Research date: 2026-10-15. Recommendation: reuse existing formatters and analyze
 
 ## Scope and evidence
 
+Subsequent maintainer decision: MIT and Apache-2.0 reuse are acceptable, and
+the implementation may choose a configured metapackage, bundled assemblies,
+or source adaptation according to simplicity. Copied code must be identified
+and retain required licenses and notices. This resolves the approval questions
+in the historical recommendations below; see the
+[discussion record](schedulelib-follow-up.md#scope-and-completion).
+
 The target is [ScheduleLib #229], especially A1/A2/A3/A12, plus braces, statement layout, parentheses and trailing commas. This repository's [spec](spec.md) requires conservative diagnostics and behavior-preserving fixes; upstream rule names alone do not prove that contract.
 
 Public ScheduleLib branch `feat/registry-history-analysis` was read at **`4c26748e448fe7ccbdffc3f8f6c4b05ffddce144`**: [.editorconfig][schedule-config], [cleanup profile][schedule-profile], [wrapper][schedule-wrapper], [formatting documentation][schedule-doc], [accepted initializer examples][schedule-review]. No local ScheduleLib checkout or private configuration was inspected.

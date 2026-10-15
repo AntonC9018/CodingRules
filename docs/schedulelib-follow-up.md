@@ -13,9 +13,10 @@ generalizations under manual review rather than reopening the whole interview. K
 architectural trade-offs in concise ADRs, and leave unanswered questions marked
 open. Research recommendations remain proposals until chosen; update an earlier
 decision explicitly if a later answer changes it. Do not recreate the interview
-from scratch at a handoff. The [implementation ticket drafts](tickets/schedulelib-follow-up/README.md)
-record the proposed slices and blocking edges; publication awaits the skill's
-breakdown approval step.
+from scratch at a handoff. The [implementation ticket index](tickets/schedulelib-follow-up/README.md)
+links the approved, published slices and their blocking edges. ScheduleLib
+implementation branches and PRs target `feat/registry-history-analysis`, as
+specified in its four tickets.
 
 The accepted architectural decisions are
 [confident findings independent of fix availability](adr/0001-separate-findings-from-fix-availability.md)

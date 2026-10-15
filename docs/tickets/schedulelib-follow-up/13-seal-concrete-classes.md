@@ -2,7 +2,9 @@
 
 **Target repository:** [CodingRules](https://github.com/AntonC9018/CodingRules)
 
-**Status:** Draft for breakdown approval; not published to GitHub Issues.
+**Status:** ready-for-agent
+
+**Published issue:** https://github.com/AntonC9018/CodingRules/issues/32
 
 ## Parent
 
@@ -24,7 +26,7 @@ Non-abstract classes are reviewed for sealing, including CalendarCommands even t
 
 ## Blocked by
 
-None (can start immediately once the breakdown is approved).
+None (can start immediately).
 
 ## Decision record
 

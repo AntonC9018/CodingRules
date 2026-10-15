@@ -2,7 +2,9 @@
 
 **Target repository:** [CodingRules](https://github.com/AntonC9018/CodingRules)
 
-**Status:** Draft for breakdown approval; not published to GitHub Issues.
+**Status:** ready-for-agent
+
+**Published issue:** https://github.com/AntonC9018/CodingRules/issues/21
 
 ## Parent
 
@@ -23,7 +25,7 @@ One consumer entry-point package supplies working diagnostics, fixes, and config
 
 ## Blocked by
 
-None (can start immediately once the breakdown is approved).
+None (can start immediately).
 
 ## Decision record
 

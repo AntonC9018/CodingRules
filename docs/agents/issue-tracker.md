@@ -13,15 +13,17 @@ cases come from [ScheduleLib #229](https://github.com/AntonC9018/ScheduleLib/iss
 the [follow-up decisions](../schedulelib-follow-up.md) record its scope and
 maintainer clarifications. Check live issue state before starting work.
 
-## ScheduleLib follow-up drafts
+## ScheduleLib follow-up tickets
 
-The [implementation ticket drafts](../tickets/schedulelib-follow-up/README.md)
-turn the accepted discussion decisions into individual slices with explicit
-blocking edges. They are awaiting breakdown approval under the invoked
-to-tickets workflow; no new GitHub issues have been published yet. Reuse the
-existing initializer issue #19. The index identifies the appropriate target
-repository for SDK and downstream implementation slices.
+The [implementation ticket index](../tickets/schedulelib-follow-up/README.md)
+links the 18 approved and published slices with explicit blocking edges across
+CodingRules, SourceGenerators, and ScheduleLib. Reuse existing initializer issue
+#19. Consult the live GitHub dependency state before starting implementation.
 
-Approved implementation issues use the to-tickets default ready-for-agent
-label. Create that label on the target repository if absent. Unresolved policy
-and the deferred RequiredStep experiment do not receive that label.
+**ScheduleLib base branch and PR target: `feat/registry-history-analysis`.**
+This branch is specified in every published ScheduleLib implementation ticket.
+Create feature branches from its current tip and target their PRs back to it.
+
+Published implementation issues have the ready-for-agent label. Work only when
+their blockers are complete. Unresolved policy and the deferred RequiredStep
+experiment have no implementation tickets.

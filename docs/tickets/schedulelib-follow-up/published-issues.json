@@ -1,0 +1,269 @@
+{
+  "approved": true,
+  "schedulelibBaseBranch": "feat/registry-history-analysis",
+  "verifiedSchedulelibHead": "4c26748e448fe7ccbdffc3f8f6c4b05ffddce144",
+  "issues": [
+    {
+      "draft": 1,
+      "file": "01-repair-shared-testing-dependencies.md",
+      "repository": "AntonC9018/SourceGenerators",
+      "title": "Repair the shared SDK testing dependency graph",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872428179,
+      "number": 12,
+      "url": "https://github.com/AntonC9018/SourceGenerators/issues/12"
+    },
+    {
+      "draft": 2,
+      "file": "02-reuse-upstream-formatting.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Deliver selected upstream formatting through Anton.CodingRules",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872428573,
+      "number": 21,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/21"
+    },
+    {
+      "draft": 3,
+      "file": "03-initializer-call-wrapping.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Close initializer and sole-constructor-argument wrapping gaps",
+      "blockedByDrafts": [
+        2
+      ],
+      "existingBlockers": [],
+      "blockers": [
+        "https://github.com/AntonC9018/CodingRules/issues/21"
+      ],
+      "id": 5872429021,
+      "number": 22,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/22",
+      "nativeBlockersVerified": true
+    },
+    {
+      "draft": 4,
+      "file": "04-tuple-api-records.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Report tuple data that needs a named record struct",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872429428,
+      "number": 23,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/23"
+    },
+    {
+      "draft": 5,
+      "file": "05-contract-parameter-groups.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Require argument groups on oversized locally owned contracts",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872429756,
+      "number": 24,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/24"
+    },
+    {
+      "draft": 6,
+      "file": "06-overloaded-configuration-builders.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Diagnose multi-parameter overload families needing a builder",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872430111,
+      "number": 25,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/25"
+    },
+    {
+      "draft": 7,
+      "file": "07-computed-arguments-and-lookups.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Cover reviewed nested computations and named-step extraction",
+      "blockedByDrafts": [],
+      "existingBlockers": [
+        "https://github.com/AntonC9018/CodingRules/issues/19"
+      ],
+      "blockers": [
+        "https://github.com/AntonC9018/CodingRules/issues/19"
+      ],
+      "id": 5872430486,
+      "number": 26,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/26",
+      "nativeBlockersVerified": true
+    },
+    {
+      "draft": 8,
+      "file": "08-compound-checks-and-status-filters.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Make reviewed compound guards and status filters explicit",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872430910,
+      "number": 27,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/27"
+    },
+    {
+      "draft": 9,
+      "file": "09-target-typed-named-roles.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Prove named argument roles for target-typed return construction",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872431274,
+      "number": 28,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/28"
+    },
+    {
+      "draft": 10,
+      "file": "10-interpolation-over-concatenation.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Prefer interpolation for the reviewed string concatenations",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872431676,
+      "number": 29,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/29"
+    },
+    {
+      "draft": 11,
+      "file": "11-unchanged-assignment-branches.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Replace proven unchanged assignment branches with conditional updates",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872432050,
+      "number": 30,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/30"
+    },
+    {
+      "draft": 12,
+      "file": "12-repeated-formatting-candidates.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Report repeated formatting candidates with semantic review",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872432429,
+      "number": 31,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/31"
+    },
+    {
+      "draft": 13,
+      "file": "13-seal-concrete-classes.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Report non-abstract classes that should be sealed",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872432758,
+      "number": 32,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/32"
+    },
+    {
+      "draft": 14,
+      "file": "14-consumer-agent-guidance.md",
+      "repository": "AntonC9018/CodingRules",
+      "title": "Ship agent rules for semantic reuse, messages, and builder review",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872433134,
+      "number": 33,
+      "url": "https://github.com/AntonC9018/CodingRules/issues/33"
+    },
+    {
+      "draft": 15,
+      "file": "15-structured-calendar-reporting.md",
+      "repository": "AntonC9018/ScheduleLib",
+      "title": "Render calendar reports from typed message and action values",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872433714,
+      "number": 241,
+      "url": "https://github.com/AntonC9018/ScheduleLib/issues/241"
+    },
+    {
+      "draft": 16,
+      "file": "16-shared-import-record.md",
+      "repository": "AntonC9018/ScheduleLib",
+      "title": "Share one PDF/Word lesson-input record across delegate and method",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872434227,
+      "number": 242,
+      "url": "https://github.com/AntonC9018/ScheduleLib/issues/242"
+    },
+    {
+      "draft": 17,
+      "file": "17-serializer-builder.md",
+      "repository": "AntonC9018/ScheduleLib",
+      "title": "Configure serialization with a reusable validated builder",
+      "blockedByDrafts": [],
+      "existingBlockers": [],
+      "blockers": [],
+      "id": 5872434844,
+      "number": 243,
+      "url": "https://github.com/AntonC9018/ScheduleLib/issues/243"
+    },
+    {
+      "draft": 18,
+      "file": "18-adopt-package-formatting.md",
+      "repository": "AntonC9018/ScheduleLib",
+      "title": "Adopt the package and replace formatter workarounds with proved coverage",
+      "blockedByDrafts": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "existingBlockers": [
+        "https://github.com/AntonC9018/CodingRules/issues/19"
+      ],
+      "blockers": [
+        "https://github.com/AntonC9018/CodingRules/issues/19",
+        "https://github.com/AntonC9018/SourceGenerators/issues/12",
+        "https://github.com/AntonC9018/CodingRules/issues/21",
+        "https://github.com/AntonC9018/CodingRules/issues/22",
+        "https://github.com/AntonC9018/CodingRules/issues/23",
+        "https://github.com/AntonC9018/CodingRules/issues/24",
+        "https://github.com/AntonC9018/CodingRules/issues/25",
+        "https://github.com/AntonC9018/CodingRules/issues/26",
+        "https://github.com/AntonC9018/CodingRules/issues/27",
+        "https://github.com/AntonC9018/CodingRules/issues/28",
+        "https://github.com/AntonC9018/CodingRules/issues/29",
+        "https://github.com/AntonC9018/CodingRules/issues/30",
+        "https://github.com/AntonC9018/CodingRules/issues/31",
+        "https://github.com/AntonC9018/CodingRules/issues/32",
+        "https://github.com/AntonC9018/CodingRules/issues/33"
+      ],
+      "id": 5872435384,
+      "number": 244,
+      "url": "https://github.com/AntonC9018/ScheduleLib/issues/244",
+      "nativeBlockersVerified": true
+    }
+  ],
+  "issuesPublished": true,
+  "nativeDependenciesVerified": true
+}

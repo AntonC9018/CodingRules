@@ -2,7 +2,17 @@
 
 **Target repository:** [ScheduleLib](https://github.com/AntonC9018/ScheduleLib)
 
-**Status:** Draft for breakdown approval; not published to GitHub Issues.
+**Status:** ready-for-agent
+
+**Published issue:** https://github.com/AntonC9018/ScheduleLib/issues/243
+
+## Implementation branch
+
+**Base branch and PR target:** `feat/registry-history-analysis` in AntonC9018/ScheduleLib.
+Create an implementation branch from its current tip and target the PR back to
+that branch. Preserve any existing checkout changes. The verified review
+snapshot is `4c26748e448fe7ccbdffc3f8f6c4b05ffddce144`; use the current branch tip
+when work starts rather than assuming the repository default branch is correct.
 
 ## What to build
 
@@ -18,7 +28,7 @@ Serialization can configure input, stream/path output, and optional hash through
 
 ## Blocked by
 
-None (can start immediately once the breakdown is approved).
+None (can start immediately).
 
 ## Decision record
 

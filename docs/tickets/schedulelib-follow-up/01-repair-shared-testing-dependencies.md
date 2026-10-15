@@ -2,7 +2,9 @@
 
 **Target repository:** [SourceGenerators](https://github.com/AntonC9018/SourceGenerators)
 
-**Status:** Draft for breakdown approval; not published to GitHub Issues.
+**Status:** ready-for-agent
+
+**Published issue:** https://github.com/AntonC9018/SourceGenerators/issues/12
 
 ## What to build
 
@@ -17,7 +19,7 @@ A fresh SDK-based CodingRules test consumer restores, builds, and runs its tests
 
 ## Blocked by
 
-None (can start immediately once the breakdown is approved).
+None (can start immediately).
 
 ## Decision record
 

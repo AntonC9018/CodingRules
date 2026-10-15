@@ -2,7 +2,9 @@
 
 **Target repository:** [CodingRules](https://github.com/AntonC9018/CodingRules)
 
-**Status:** Draft for breakdown approval; not published to GitHub Issues.
+**Status:** ready-for-agent
+
+**Published issue:** https://github.com/AntonC9018/CodingRules/issues/26
 
 ## Parent
 
@@ -25,7 +27,7 @@ The non-message A6, A7, and A8 computations are found through existing or extend
 
 ## Blocked by
 
-- [Existing CodingRules #19](https://github.com/AntonC9018/CodingRules/issues/19): ordinary initializer values remain accepted.
+- https://github.com/AntonC9018/CodingRules/issues/19
 
 ## Decision record
 

@@ -2,7 +2,9 @@
 
 **Target repository:** [CodingRules](https://github.com/AntonC9018/CodingRules)
 
-**Status:** Draft for breakdown approval; not published to GitHub Issues.
+**Status:** ready-for-agent
+
+**Published issue:** https://github.com/AntonC9018/CodingRules/issues/22
 
 ## Parent
 
@@ -21,7 +23,7 @@ A consumer can apply/check the exact reviewed A1 layout through the package-supp
 
 ## Blocked by
 
-- Draft 02: Deliver selected upstream formatting through Anton.CodingRules.
+- https://github.com/AntonC9018/CodingRules/issues/21
 
 ## Decision record
 

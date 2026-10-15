@@ -5,6 +5,19 @@ based on the [reviewed implementation at 12e601e](https://github.com/AntonC9018/
 This document records the maintainer's 2026-10-15 clarifications. It describes
 pending work, not coverage already provided by the published package.
 
+## Discussion record
+
+Continue the design interview by updating this document after each substantive
+answer. Keep settled meanings in the root [glossary](../CONTEXT.md), record
+architectural trade-offs in concise ADRs, and leave unanswered questions marked
+open. Research recommendations remain proposals until chosen; update an earlier
+decision explicitly if a later answer changes it. Do not recreate the interview
+from scratch at a handoff.
+
+The accepted architectural decisions are
+[confident findings independent of fix availability](adr/0001-separate-findings-from-fix-availability.md)
+and [structured messages rendered at reporting boundaries](adr/0002-render-structured-messages-at-reporting-boundaries.md).
+
 ## Scope and completion
 
 CodingRules owns reusable diagnostics and fixes. SourceGenerators supplies the
@@ -100,3 +113,21 @@ report distinguishes configuration, package composition, licensed source
 reuse, and any genuinely missing behavior. The
 [formatting reuse research](formatting-reuse-research.md) records the tested
 upstream candidates, gaps, package composition, and version-specific licenses.
+
+## Open design questions
+
+- **Q6 — Third-party license policy.** MIT-source adaptation is allowed with
+  credit; reuse of configured external analyzers is allowed in principle.
+  Whether Apache-2.0 source adaptation and binary redistribution are also
+  acceptable is not yet settled. Roslynator's demonstrated coverage makes this
+  a useful decision; no upstream code or binaries have been incorporated.
+- **Q7 — Message-rule scope.** Structured message values are the intended
+  direction for the cited A6 reporting examples. Whether that preference also
+  applies to short messages and arbitrary string-taking APIs remains open.
+  Do not turn the reporting design preference into a universal requirement
+  to introduce a record struct for every interpolated string.
+
+The specific reporting interface, analyzer composition mechanics, and ordinary
+engineering choices are delegated implementation work. Investigate concrete
+handler and evaluation cases before offering a fix; ask the maintainer only
+where those cases expose uncertain intended behavior.

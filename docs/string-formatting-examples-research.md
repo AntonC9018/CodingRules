@@ -31,7 +31,8 @@ private const string CurriculumDocumentSearchPattern =
 
 Pass that constant as `searchPattern`. The containing `ListFiles` method already
 provides a domain abstraction; another message record is not automatically needed.
-**Q8:** Is naming this constant sufficient, or should this direct argument remain allowed?
+**Q8 resolved:** use the named const when the extension is constant; use a
+named local function when the extension is variable.
 
 ## E2: a typed exception already owning its rendering
 
@@ -49,8 +50,10 @@ public UnexpectedTeacherNameException(Name expected, Name found)
 
 The reduced base-constructor probe reports no CR03 diagnostic. Constructor
 initializers are an existing safety omission, so this silence does not itself
-prove that the style policy accepts the code. A candidate policy is to recognize
-this constructor as the final rendering boundary of a typed error.
+prove that the style policy accepts the code. The maintainer prefers accessible
+structured context and questions this eager base-message formatting; deferred
+Message rendering is under investigation. This constructor is not yet an
+accepted exception to the string policy.
 
 ## E3: an agent-generated inline framework exception
 
@@ -73,8 +76,9 @@ The new exception would derive from IOException and own message formatting,
 like E2. This is a proposed manual API design, not an existing class or a proved
 behavior-preserving automatic fix: changing the concrete exception type may
 matter to callers. Merely extracting the string is a smaller alternative.
-**Q9:** Is formatting inside a typed exception constructor acceptable, with
-call sites passing data rather than constructing prose?
+**Q9 partly resolved:** prefer a custom exception with accessible associated
+context. Whether and how to defer Message formatting needs an evidence-based
+recommendation; eager base-message interpolation has not been approved.
 
 ## E4: an existing builder and custom handler
 
@@ -97,7 +101,7 @@ this actual helper source reports no CR03 diagnostic. Keep this as a possible
 accepted case rather than inventing another wrapper around an existing renderer.
 Chaining separate Append calls would not be a drop-in rewrite: these methods
 return void, and the helper manages separators between appended items.
-**Q10:** Is this a suitable example of the tentative builder exception?
+**Q10 resolved:** this exact builder/handler use is accepted by the maintainer.
 
 ## E5: repeated export prose in agent-edited code
 

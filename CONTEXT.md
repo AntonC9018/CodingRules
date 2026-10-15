@@ -35,3 +35,8 @@ _Avoid_: Rendered message, message string
 The place where an application accepts message data and chooses when and how
 to render human-facing text.
 _Avoid_: Message construction
+
+**Error context**:
+Typed values associated with a failure and available to its handler
+independently of the human-readable error message.
+_Avoid_: Message text, parsed message fields

@@ -17,6 +17,8 @@ from scratch at a handoff.
 The accepted architectural decisions are
 [confident findings independent of fix availability](adr/0001-separate-findings-from-fix-availability.md)
 and [structured messages rendered at reporting boundaries](adr/0002-render-structured-messages-at-reporting-boundaries.md).
+Custom errors should also
+[preserve structured error context](adr/0003-preserve-structured-error-context.md).
 
 ## Scope and completion
 
@@ -132,21 +134,36 @@ upstream candidates, gaps, package composition, and version-specific licenses.
   candidate solutions, before asking for the policy decision. Distinguish actual
   current analyzer output from a hypothetical future finding.
 - **Literal/builder boundaries.** Multiline string literals are explicitly
-  allowed. Interpolation inside StringBuilder is probably acceptable, but this
-  remains tentative and needs concrete examples. Do not infer an exemption for
-  all string construction, all handlers, or computation nested inside holes.
+  allowed. The existing ListStringBuilder interpolation in the lexer is now an
+  accepted case (Q10). Do not infer an exemption for all string construction,
+  all handlers, or complex computation nested inside holes.
 
 No universal rule requiring message records for short messages or arbitrary
 string-taking APIs has been accepted. The next interview round should compare
 real examples rather than repeat abstract scope questions.
 
 The [real string-formatting cases](string-formatting-examples-research.md)
-record source provenance, reduced-harness CR03 observations, and proposed
-solutions. The next open questions are **Q8**, whether a named file-pattern
-constant is sufficient; **Q9**, whether a typed exception constructor is an
-accepted rendering boundary; and **Q10**, whether the existing
-ListStringBuilder handler illustrates an accepted builder case. None of these
-proposals is an accepted general exemption yet.
+record source provenance, reduced-harness CR03 observations, and alternatives.
+The following answers refine the policy:
+
+- **Q8 — Resolved.** Name the complete file pattern as a const when the document
+  extension is constant. When the extension varies, use a named local function
+  for the construction. A message record is not required for this pattern.
+- **Q9 — Structured context preferred; lazy Message recommendation.**
+  Prefer custom exceptions where possible and keep associated context as
+  accessible structured data, not solely in prose. The maintainer questions
+  eagerly formatting that context into base(message), especially if handling
+  never inspects the message, and asks whether overriding Message is the usual
+  pattern. Research confirms that base(message) is the usual documented custom
+  exception pattern, while overriding Message to render stored context is also
+  used by framework exceptions. Prefer typed read-only context and consider an
+  overridden Message for deferred rendering; keep the general diagnostic/fix
+  boundary open. Do not treat the previous base-interpolation example as an
+  approved final design merely because current CR03 skips it.
+- **Q10 — Resolved.** The existing lexer call
+  `list.Append($"{type} - {t.Value.Span}")` is acceptable. Preserve this real
+  ListStringBuilder/custom-handler case; it does not settle every builder or
+  handler expression.
 
 The specific reporting interface, analyzer composition mechanics, and ordinary
 engineering choices are delegated implementation work. Investigate concrete

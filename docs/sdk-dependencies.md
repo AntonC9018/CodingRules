@@ -34,6 +34,35 @@ cached SDK and helper packages after rebuilding the feed. The package
 consumption test restores `Anton.CodingRules` in a fresh consumer, reports
 `CR0001`, applies its code fix, and then builds without warnings.
 
+## Validation on 2026-10-15
+
+Create the optional `artifacts/local-feed` directory before restoring a fresh
+checkout, as shown in the README. NuGet treats a configured but missing local
+source as a restore error even when the needed SDK packages are published.
+
+The original test dependency graph currently resolves
+`System.Security.Cryptography.Pkcs` 9.0.6 through
+`Microsoft.CodeAnalysis.Analyzer.Testing` 1.1.4 and `NuGet.Packaging` 7.0.3.
+Both the SDK's testing references and `Anton.SourceGeneration.RoslynTesting`
+1.0.0 bring in that graph. Inspect it with:
+
+```sh
+dotnet nuget why CodeFixTests/CodingRules.CodeFixes.Tests.csproj System.Security.Cryptography.Pkcs --framework net10.0
+```
+
+A default restore fails with NU1902/NU1903 under warnings-as-errors. The existing
+baseline was checked without changing repository policy using a command-scoped
+exception that kept the advisory warnings visible:
+
+```sh
+dotnet test CodingRules.slnx -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903
+```
+
+All 885 tests passed: 41 analyzer and 844 code-fix tests, including packaged
+consumer checks. This is test-coverage evidence, not a successful default
+restore. Dependency repair belongs in the shared testing graph rather than
+adding a permanent audit exception to each consumer.
+
 Analyzer and code fix unit tests now create source with
 `TestCode.Create(...)`. `InterpolateDiagnostic` takes the analyzer's
 `DiagnosticDescriptor` and marks the expected span. The SDK imports the marker

@@ -2,6 +2,11 @@
 
 Status: accepted for implementation.
 
+The [ScheduleLib follow-up](schedulelib-follow-up.md) records additional reviewed
+examples, the coverage-based completion criterion, and pending policy changes,
+including separating message data from rendering. Those changes do not imply
+that the currently published package already implements them.
+
 ## Source and scope
 
 The source policy is the coding standards section of

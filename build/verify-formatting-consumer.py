@@ -27,9 +27,22 @@ def run(arguments, cwd, environment):
     return result.stdout
 
 
+def select_package(path):
+    if not path.is_dir():
+        return path
+    packages = sorted(package for package in path.glob("Anton.CodingRules.*.nupkg")
+                      if package.is_file() and not package.name.endswith(".symbols.nupkg"))
+    if len(packages) != 1:
+        names = ", ".join(package.name for package in packages) or "none"
+        raise ValueError(f"Expected exactly one non-symbol Anton.CodingRules nupkg in {path}; "
+                         f"found {len(packages)}: {names}")
+    return packages[0]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("package", nargs="?", type=Path, help="Verify an existing nupkg instead of packing")
+    parser.add_argument("package", nargs="?", type=Path,
+                        help="Verify an existing nupkg or package directory instead of packing")
     arguments = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="codingrules-formatting-consumer-") as temporary:
         work = Path(temporary)
@@ -40,9 +53,15 @@ def main():
         if arguments.package is None:
             run(["dotnet", "pack", "Package/CodingRules.Package.csproj", "-c", "Release",
                  "--output", str(feed)], ROOT, environment)
-        else:
-            shutil.copyfile(arguments.package, feed / arguments.package.name)
-        package = next(feed.glob("Anton.CodingRules.*.nupkg"))
+        source = feed if arguments.package is None else arguments.package
+        try:
+            package = select_package(source)
+        except ValueError as error:
+            parser.error(str(error))
+        if arguments.package is not None:
+            destination = feed / package.name
+            shutil.copyfile(package, destination)
+            package = destination
         with ZipFile(package) as archive:
             names = set(archive.namelist())
             metadata = ET.fromstring(archive.read("Anton.CodingRules.nuspec"))

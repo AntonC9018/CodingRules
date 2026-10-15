@@ -47,9 +47,11 @@ public sealed class LeadingBooleanOperatorAnalyzer : DiagnosticAnalyzer
         var afterText = text.ToString(after);
         // Move only whitespace. Comments and directives keep their exact attachment.
         if (!beforeText.All(char.IsWhiteSpace) || !afterText.All(char.IsWhiteSpace)) return false;
-        if (beforeText.IndexOfAny(['\r', '\n']) >= 0 || afterText.IndexOfAny(['\r', '\n']) < 0) return false;
+        var lineBreak = afterText.IndexOfAny(['\r', '\n']);
+        if (beforeText.IndexOfAny(['\r', '\n']) >= 0 || lineBreak < 0) return false;
         var span = TextSpan.FromBounds(before.Start, after.End);
-        change = new TextChange(span, afterText + binary.OperatorToken.Text + " ");
+        var continuation = afterText.AsSpan(lineBreak).ToString();
+        change = new TextChange(span, continuation + binary.OperatorToken.Text + " ");
         return true;
     }
 }

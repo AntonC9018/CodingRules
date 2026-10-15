@@ -108,6 +108,23 @@ public sealed class FormattingReuseTests
     }
 
     [Theory]
+    [InlineData("&&", "\n", "    ")]
+    [InlineData("||", "\n", "    ")]
+    [InlineData("&&", "\r\n", "\t")]
+    [InlineData("||", "\r\n", "\t")]
+    public async Task BooleanFixRemovesWhitespaceBeforeLineBreak(string op, string lineBreak, string indentation)
+    {
+        var source = $"class C {{ bool M(bool a, bool b) {{ return a \t{op} \t{lineBreak}{indentation}b; }} }}";
+        var document = Document(source);
+        var diagnostic = Assert.Single(await Diagnostics(document));
+        Assert.Equal("CR0800", diagnostic.Id);
+        var changed = await Fix(document, diagnostic);
+        var expected = $"class C {{ bool M(bool a, bool b) {{ return a{lineBreak}{indentation}{op} b; }} }}";
+        Assert.Equal(expected, (await changed.GetTextAsync()).ToString());
+        Assert.Empty(await Diagnostics(changed));
+    }
+
+    [Theory]
     [InlineData("a && b")]
     [InlineData("a\n    && b")]
     [InlineData("a && // keep comment\n    b")]

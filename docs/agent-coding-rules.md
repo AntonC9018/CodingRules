@@ -39,12 +39,14 @@ parameter-count exception does not remove this architectural review.
 For the lesson-import flow reviewed in Q20, use one shared record struct carrying
 all the lesson/day/time/groups/alternative arguments across the importer,
 delegate, cohort handler, and merge operation. Preserve the merge policy and
-per-cohort changes to groups/alternative. Check existing Excel-import types and
-patterns before inventing another payload; partial arbitrary groupings do not
-satisfy this concrete decision. The [Excel scan](excel-import-input-research.md)
-found AddLessonParams as a precedent, but its date-bearing ref/span contract and
-lack of Alternative mean it is not interchangeable with the weekly-import
-payload. Reuse shared meaning, not merely overlapping field names.
+per-cohort changes to groups/alternative. Adapt the existing Excel AddLessonParams
+into the shared lesson-import abstraction across Excel and PDF/Word, following
+the record-struct preference. Reconcile date/weekly semantics, Alternative,
+context placement, and ref/span ownership during implementation. The
+[Excel scan](excel-import-input-research.md) records the existing representation;
+its differences are work to resolve in the shared model, not a reason to invent
+a parallel format-specific payload. Partial arbitrary groupings do not satisfy
+this concrete decision.
 
 For the serializer configuration discussed in the
 [ScheduleLib follow-up](schedulelib-follow-up.md#tuple-and-parameter-refinements-q15q18),

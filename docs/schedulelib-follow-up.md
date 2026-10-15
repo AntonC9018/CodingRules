@@ -290,12 +290,15 @@ in its commit history must not be treated as human authorship.
   rule for ordinary instance methods remains separate from this concrete
   repeated-plumbing decision. The [Luna Excel scan](excel-import-input-research.md)
   confirms the existing AddLessonParams readonly ref struct and one-argument
-  IScheduleAddLessonHandler.AddLesson interface as a direct precedent. It is not
-  reusable unchanged: Excel carries context, a by-reference lesson, span groups,
-  and a Day containing a calendar date, but no Alternative. Follow its aggregate
-  pattern while preserving distinct weekly-import semantics and the accepted
-  record-struct direction. Its declaration dates to April 2026; that history
-  does not itself establish human authorship.
+  IScheduleAddLessonHandler.AddLesson interface. The maintainer clarified that
+  this abstraction must be adapted and shared across Excel and PDF/Word, not
+  merely copied as a pattern for a separate payload. Evolve/generalize the
+  existing input model, following the record-struct direction, to reconcile
+  Excel's date/context/ref/span representation with the weekly path and
+  Alternative. Preserve format-specific behavior while sharing the input model;
+  exact representation and caller migration are implementation work. The earlier
+  separate-payload recommendation is superseded. The existing declaration dates
+  to April 2026; that history does not itself establish human authorship.
 
 The [Luna builder research](builder-protocol-analyzers-research.md) is complete.
 It found published MIT-licensed staged-builder generators, but did not verify a

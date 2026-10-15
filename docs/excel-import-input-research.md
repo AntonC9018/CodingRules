@@ -6,7 +6,7 @@ This checks the public ScheduleLib source at pinned commit [`4c26748e448fe7ccbdf
 
 The schedule Excel importer already uses a named aggregate for the lesson handler input: `AddLessonParams`, a `readonly ref struct` containing `ScheduleImportContext`, a by-reference `ParsedLesson`, a `ReadOnlySpan<GroupId>`, `TimeSlot`, and `Day`. `ExcelScheduleParser` builds this aggregate at the handler call site, and both Excel handler implementations consume it. This is direct precedent for packaging one import operation’s arguments into a named type.
 
-It is not reusable as-is for the `ScheduleImportContext.AddOrMergeLesson` payload described in the request. The concepts partly overlap, but the shape and meaning differ:
+The maintainer clarified that this type should be adapted into a shared lesson-import model used across Excel and PDF/Word, rather than kept as a precedent for a separate payload. The current representations differ in ways the shared design must reconcile:
 
 | Field | Excel `AddLessonParams` | Shared `AddOrMergeLesson` call |
 |---|---|---|
@@ -17,7 +17,7 @@ It is not reusable as-is for the `ScheduleImportContext.AddOrMergeLesson` payloa
 | Alternative | absent | optional `Alternative` |
 | Import context | `ScheduleImportContext` | receiver (`this`) |
 
-The Excel handler uses the date in `FrScheduleAddLessonHandler` to create a one-time lesson; regular Excel import uses the `DayOfWeek` from `Day`. The shared add-or-merge method creates a regular lesson and applies `Alternative`. So sharing the Excel parameter type would conflate different payload contracts, omit a needed field, and make lifetime/storage constraints less obvious (`ref struct` and span vs interface list).
+The Excel handler uses the date in `FrScheduleAddLessonHandler` to create a one-time lesson; regular Excel import uses the `DayOfWeek` from `Day`. The shared add-or-merge method creates a regular lesson and applies `Alternative`. The shared model must support both date-based and weekly lesson handling, carry Alternative where needed, and deliberately reconcile the current ref/span and collection representations. These are implementation requirements for adapting the shared type, not reasons to create parallel format-specific payloads.
 
 The exact declaration and handler signature are:
 
@@ -51,7 +51,7 @@ var err = config.AddLessonHandler.AddLesson(new(
 
 These are source excerpts; this existing type is a ref struct, not a record struct.
 
-Recommendation: treat `AddLessonParams` as a strong precedent for a named input aggregate, while defining a separate payload that mirrors the shared add-or-merge operation’s semantics (including its `Alternative` and group collection contract). Keep `ScheduleImportContext` as receiver unless the intended design explicitly makes the context part of the operation value. Review each caller’s values before extraction; matching field names alone do not establish shared meaning.
+Accepted direction: evolve/generalize AddLessonParams into one shared lesson-import abstraction, following the record-struct preference, and update Excel, PDF/Word, the import delegate, cohort handler, and merge operation to use it. The earlier recommendation for a separate add-or-merge payload is superseded. Choose the exact fields, context placement, and ownership/lifetime representation during implementation while preserving date/weekly and merge/cohort behavior; unchanged reuse was never required.
 
 ## Source details
 

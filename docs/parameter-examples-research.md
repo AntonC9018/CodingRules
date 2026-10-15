@@ -161,7 +161,9 @@ no new test run was performed for this documentation update.
 including the delegate and cohort adapter. Preserve the import context's merge
 policy and the per-cohort changes to groups/alternative. The maintainer recalls
 an analogous Excel-import pattern; the [Luna scan](excel-import-input-research.md)
-confirmed AddLessonParams, a readonly ref struct, as a direct precedent. Its
-calendar date, ref/span fields, included context, and lack of Alternative make
-it unsuitable for unchanged reuse as this operation's record struct. This concrete decision does not establish a blanket rule for
-all nonvirtual instance methods.
+confirmed AddLessonParams, a readonly ref struct. The maintainer clarified that
+it should be adapted into the shared import model across Excel and PDF/Word,
+not used only as a precedent for a separate payload. Reconcile its calendar
+date, ref/span fields, context placement, and missing Alternative during that
+refactor while following the record-struct preference. This concrete decision
+does not establish a blanket rule for all nonvirtual instance methods.

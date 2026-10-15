@@ -214,8 +214,33 @@ and not thoroughly reviewed. Prefer pre-June examples when investigating the
 maintainer's own style; use introduction history and Generated-by trailers,
 not merely the current author's account or the last formatting edit. Even
 older source is evidence to discuss, not automatic approval of every pattern.
-Tuple and parameter-list example scans are running separately; review their
-findings before posing the next questions on those boundaries.
+The restarted scans are complete. Reviewed source and introduction history are
+recorded in [tuple examples](tuple-examples-research.md) and
+[parameter examples](parameter-examples-research.md). Pre-June examples include
+a mapping table, private parser result, local iterator result, four-parameter
+serializer, and ISpanFormattable implementation. Recent CLI examples have explicit
+Generated-by provenance; the September import helper remains of uncertain authorship.
+
+The next frontier remains open:
+
+- **Q15 — Mapping tables.** Should the two-string course-name mapping use a
+  named record struct even in a compact constant-like data table? Recommend yes:
+  the values form a stable domain mapping. The actual table is not a compile-time
+  constant.
+- **Q16 — Private/local returned pairs.** Should the private qualification parser,
+  local nonempty-cell iterator, and generic filtered-item results use named record
+  structs? Recommend yes for these meaningful returned relationships; small scope
+  alone should not exempt them. Purely local swaps were not found in this scan and
+  are not decided by these examples.
+- **Q17 — Serializer grouping.** The four-parameter serializer exceeds the agreed
+  limit, including cancellation. Proposed input: schedule plus hash in a named
+  serialization value, with destination and cancellation explicit. Is this
+  grouping meaningful, or does the example need a different abstraction? The
+  hash is input/configuration cache-validity metadata, not a hash of the serialized
+  schedule bytes. Existing models should be checked before adding another type.
+- **Q18 — Imposed external contracts.** Exempt signatures required by external
+  interfaces/overrides, such as the four-parameter ISpanFormattable.TryFormat?
+  Recommend yes. Locally owned contracts are not automatically exempt.
 
 ## Consumer agent guidance
 

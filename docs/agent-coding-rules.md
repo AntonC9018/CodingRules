@@ -27,3 +27,21 @@ Apply this review to each candidate before a batch refactor. Infer the domain
 meaning from the code and its documented model; ask the maintainer only when
 that meaning remains uncertain. An analyzer's inability to prove a semantic
 distinction does not make the distinction unimportant.
+
+## Review repeated argument plumbing
+
+When the same related values are carried repeatedly through several calls or
+layers, use a builder or a cohesive context object. Establish their shared role
+and lifetime before choosing the abstraction; do not hide unrelated dependencies
+in a generic argument bag solely to satisfy a parameter count. A static helper's
+parameter-count exception does not remove this architectural review.
+
+For the serializer configuration discussed in the
+[ScheduleLib follow-up](schedulelib-follow-up.md#tuple-and-parameter-refinements-q15q18),
+use a reusable builder supporting alternate output sources and an optional hash,
+with cancellation supplied at execution. Review which configuration is required,
+which has defaults, and what happens when required configuration is omitted.
+Existing analyzer support is under investigation; do not claim that a builder
+API by itself proves required methods were called. The general overload rule's
+scope remains open in the follow-up, so do not turn every overload set into a
+builder without checking that decision.

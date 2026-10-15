@@ -1,7 +1,8 @@
 # Tuple examples for a design interview
 
 These are public ScheduleLib examples at `4c26748e448fe7ccbdffc3f8f6c4b05ffddce144`,
-for discussion, not policy. Older owner-attributed cases predate June 2026 but lack provenance trailers.
+with subsequent decisions recorded in the [follow-up](schedulelib-follow-up.md#tuple-and-parameter-refinements-q15q18).
+Older owner-attributed cases predate June 2026 but lack provenance trailers.
 
 ## E1: domain mapping data stored as a collection
 [Config.cs, lines 24–30](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleDefaults/Config.cs#L24-L30).
@@ -19,7 +20,7 @@ public static ReadOnlySpan<(string From, string To)> CourseNameUnificationConfig
 
 This feeds course-name unification and represents a stable source/normalized-name mapping.
 A possible new alternative is `readonly record struct CourseNameMapping(string From, string To)`;
-it gives the pair a domain name, though the current tuple is compact data.
+it gives the pair a domain name. **Q15 decision:** use the named record struct.
 
 ## E2: a parser method returns two related results
 [PathParser.cs, lines 158–170](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/Features/MoodleInterop/PathParser.cs#L158-L170), consumed by [lines 124–132](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/Features/MoodleInterop/PathParser.cs#L124-L132).
@@ -37,6 +38,7 @@ private static (int? cycle, QualificationType? qualificationType)
 The caller deconstructs both values, discards `cycle`, and validates the qualification.
 One possible new API shape is `readonly record struct QualificationSegment(int? Cycle, QualificationType? Type)`;
 that names partial parse state while adding a type for a private helper result.
+**Q16 decision:** replace this private-method tuple result; private scope is not an exemption.
 
 ## E3: a local iterator groups source text with its cell
 
@@ -58,7 +60,8 @@ IEnumerable<(string Text, CellInfo Cell)> NonEmptyCells()
 Callers use both members to build student columns and process names. A possible
 new `record struct NonEmptyCell(string Text, CellInfo Cell)` names this relationship;
 the result crosses a local-function boundary. Whether the small scope justifies
-retaining the tuple is a policy question, not an established exemption.
+retaining the tuple was initially a policy question. **Q16 decision:** allow this
+local-function tuple result; this exception does not extend to ordinary private methods.
 
 ## E4: the user-identified calendar plan tuple
 
@@ -102,10 +105,12 @@ public IEnumerable<(T Item, FilteredSchedule Schedule)> Filter(Schedule schedule
 Each result pairs an input item with its filtered schedule. A possible new
 `record struct FilteredItem<T>(T Item, FilteredSchedule Schedule)` provides a
 named return shape. A nearby comment questions this abstraction, so the tuple
-does not show that the abstraction is settled.
+does not show that the abstraction is settled. **Q16 decision:** use a named
+record struct for this ordinary-method result.
 
 ## Coverage limits
 
 Found collection data, method returns (including a local iterator), and a multi-stage plan;
 no compelling purely local tuple value, swap, or LINQ temporary grouping. Older examples lack positive
-human-authorship evidence. No policy follows; `CalendarPlanStep` is settled.
+human-authorship evidence. Accepted decisions are annotated above; purely local
+tuple values and swaps are not settled by this scan.

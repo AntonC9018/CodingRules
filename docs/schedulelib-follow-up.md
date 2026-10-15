@@ -19,6 +19,7 @@ The accepted architectural decisions are
 and [structured messages rendered at reporting boundaries](adr/0002-render-structured-messages-at-reporting-boundaries.md).
 Custom errors should also
 [preserve structured error context](adr/0003-preserve-structured-error-context.md).
+The serializer should [configure its operation through a builder](adr/0004-configure-serialization-through-a-builder.md).
 
 ## Scope and completion
 
@@ -183,13 +184,17 @@ diagnostic coverage.
   named record struct. The suggested general exemption for short-lived local
   tuples was not accepted. Mine more real examples before deciding which tuple
   uses may remain; neither a universal tuple ban nor a local-tuple exemption
-  has been established. Distinguish tuple data from deconstruction syntax.
+  had been established at this point. Q15–Q16 below resolve the collected
+  examples, including an exception for local-function results. Distinguish tuple
+  data from deconstruction syntax.
 - **Q12 — Four or more parameters.** More than three parameters is excessive;
   count context parameters, including CancellationToken. The earlier proposed
-  five-parameter trigger is rejected. Constructors remain excluded by the
-  original reviewed scope. Collect real signatures and call sites before
-  settling other exclusions and grouping choices, including imposed external
-  signatures. Do not invent an arbitrary context bag just to reduce the count.
+  five-parameter trigger is rejected. This initial broad scope is refined by
+  Q17–Q18 below: static functions may keep separate arguments; interface,
+  virtual/abstract, delegate, and abstract-class constructor contracts require
+  grouping above three. Ordinary constructors were originally excluded;
+  abstract-class constructors are now explicitly included. Do not invent an
+  arbitrary context bag just to reduce the count.
 - **Q13 — Generalize proven unchanged branches.** Flag the null-preserving
   assignment and other branches that provably retain the current value, such
   as `current = condition ? current : next`. If the affected operation appears
@@ -221,26 +226,68 @@ a mapping table, private parser result, local iterator result, four-parameter
 serializer, and ISpanFormattable implementation. Recent CLI examples have explicit
 Generated-by provenance; the September import helper remains of uncertain authorship.
 
-The next frontier remains open:
+## Tuple and parameter refinements: Q15–Q18
 
-- **Q15 — Mapping tables.** Should the two-string course-name mapping use a
-  named record struct even in a compact constant-like data table? Recommend yes:
-  the values form a stable domain mapping. The actual table is not a compile-time
-  constant.
-- **Q16 — Private/local returned pairs.** Should the private qualification parser,
-  local nonempty-cell iterator, and generic filtered-item results use named record
-  structs? Recommend yes for these meaningful returned relationships; small scope
-  alone should not exempt them. Purely local swaps were not found in this scan and
-  are not decided by these examples.
-- **Q17 — Serializer grouping.** The four-parameter serializer exceeds the agreed
-  limit, including cancellation. Proposed input: schedule plus hash in a named
-  serialization value, with destination and cancellation explicit. Is this
-  grouping meaningful, or does the example need a different abstraction? The
-  hash is input/configuration cache-validity metadata, not a hash of the serialized
-  schedule bytes. Existing models should be checked before adding another type.
-- **Q18 — Imposed external contracts.** Exempt signatures required by external
-  interfaces/overrides, such as the four-parameter ISpanFormattable.TryFormat?
-  Recommend yes. Locally owned contracts are not automatically exempt.
+- **Q15 — Resolved: named mapping value.** Replace the course-name mapping
+  table's `(string From, string To)` elements with a named record struct.
+- **Q16 — Resolved: local-function result exception.** The nonempty-cell local
+  iterator may retain its tuple result. The private qualification parser and
+  ordinary generic filtered-item method should return named record structs.
+  Private methods do not inherit the local-function exception. The calendar plan
+  collection still needs a record struct; its use by a local function does not
+  make the collection a local-function result. Purely local swaps were not found
+  in this scan and remain undecided. Deconstruction syntax is not itself banned.
+- **Q17 — Revised: builders and contracts.** The proposed schedule-plus-hash
+  record was rejected as an unhelpful grouping. For the serializer, prefer a
+  reusable builder with Input, Output (stream/path alternatives), optional Hash
+  (default empty), and ExecuteAsync(cancellationToken). The exact API is delegated;
+  the maintainer's state-plus-static-callback sketch is illustrative. A builder
+  must address missing required configuration rather than merely moving the
+  failure away from the call site. Research existing required-call analyzers
+  before implementing another one.
+
+  The parameter rule now distinguishes static helpers from contracts imposed on
+  callers/implementers. Static functions may retain separate arguments. Locally
+  owned interfaces, virtual/abstract methods, constructors of abstract classes,
+  and delegate types must group arguments when there are more than three,
+  including context. An imposed external signature remains exempt (Q18).
+
+  Overloaded APIs require a builder; whether this applies to all overload sets
+  or only those in the many-parameter policy is still to clarify. Repeated
+  argument plumbing requires a builder or context object and should be reviewed
+  through agent guidance: counting parameters alone cannot establish that
+  architectural need. Do not assume the new static exception exempts repeated
+  plumbing or the eventual overload rule. Ordinary nonvirtual instance methods
+  have not yet been classified explicitly under the revised scope.
+- **Q18 — Resolved: external signature exemption.** The four-parameter
+  ISpanFormattable.TryFormat implementation is allowed because its signature is
+  imposed by an external contract. The maintainer still regards that original
+  interface design as poor: external compatibility is the reason for the
+  exemption, not approval of this shape in new locally owned interfaces.
+
+## Next frontier
+
+- **Q19 — Overload rule scope.** Does requiring a builder apply only when an
+  overload family has more than three parameters, or also to small ordinary
+  overloads? Recommend applying it to configurable operations with many
+  parameters/alternate configuration shapes, including the serializer, rather
+  than every two-overload helper. This recommendation is not accepted yet.
+- **Q20 — Ordinary instance methods.** Should a nonvirtual instance method with
+  more than three parameters, such as the five-parameter AddOrMergeLesson in the
+  parameter report, require grouping or share the single static function exception? Recommend retaining grouping for these instance methods;
+  the explicit exception currently names static functions. Await the maintainer's
+  decision rather than infer it from the older broad threshold.
+
+The [Luna builder research](builder-protocol-analyzers-research.md) is complete.
+It found published MIT-licensed staged-builder generators, but did not verify a
+general C# analyzer that proves a set of required method calls in the proposed
+statement callback. MustUseReturnValue checks discarded results, not setter
+completion. Staged generators require a different returned-chain API; their
+advertised guarantees have not been checked in a compilation probe. A small,
+explicitly opted-in reusable callback protocol rule is a possible implementation
+path if that callback shape is retained. Runtime configuration validation remains
+necessary. No package, generator, or required-call analyzer has been selected or
+implemented; the survey is not proof that no suitable analyzer exists anywhere.
 
 ## Consumer agent guidance
 

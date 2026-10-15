@@ -11,6 +11,6 @@ design decisions and open questions. Update these records as the discussion
 settles decisions; concise architectural records live in `docs/adr/`.
 
 Follow [docs/agent-coding-rules.md](docs/agent-coding-rules.md) when acting on
-duplication findings or reviewing repeated argument plumbing. Review shared
-meaning before extracting a common helper or context; similar expressions may
-represent intentionally separate domain concepts.
+duplication findings, reviewing repeated argument plumbing, or configuring
+builders. Review shared meaning before extracting a common helper or context;
+similar expressions may represent intentionally separate domain concepts.

@@ -11,8 +11,13 @@ abstraction. The builder should accommodate alternate output forms and defaults,
 rather than proliferating positional overloads. Repeated argument plumbing
 elsewhere warrants a builder or cohesive context, with semantic review by agents.
 
-Required input/output configuration must be checked. Investigate existing
-analyzers and compiler-enforced builder designs before adding another analyzer;
-do not claim an unchecked fluent API proves required calls occurred. No checking
-mechanism has been selected yet. The scope of the general overload rule remains
-open in the [discussion record](../schedulelib-follow-up.md#next-frontier).
+Required input/output configuration must be checked manually by agents for now,
+with appropriate runtime validation. Staged-generator alternatives do not match
+the maintainer's intended API. The [RequiredStep analyzer experiment](../required-builder-steps-proposal.md)
+is recorded for later, including inferred coverage through overloads and
+higher-level helpers; no implementation is requested now.
+
+The general builder rule applies when an operation has more than one parameter
+and at least one parameter has alternative overload forms (Q19), including static
+operations. Single-parameter overloads remain allowed. Ordinary instance-method
+parameter grouping remains open in the [discussion record](../schedulelib-follow-up.md#overload-scope-and-usage-context-q19q20).

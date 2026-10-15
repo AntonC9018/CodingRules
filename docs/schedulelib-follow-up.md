@@ -252,12 +252,13 @@ Generated-by provenance; the September import helper remains of uncertain author
   and delegate types must group arguments when there are more than three,
   including context. An imposed external signature remains exempt (Q18).
 
-  Overloaded APIs require a builder; whether this applies to all overload sets
-  or only those in the many-parameter policy is still to clarify. Repeated
+  Overloaded APIs require a builder when the operation has more than one
+  parameter and at least one parameter has alternative overload forms (Q19).
+  One-parameter overloads remain allowed. Repeated
   argument plumbing requires a builder or context object and should be reviewed
   through agent guidance: counting parameters alone cannot establish that
   architectural need. Do not assume the new static exception exempts repeated
-  plumbing or the eventual overload rule. Ordinary nonvirtual instance methods
+  plumbing or the Q19 overload rule. Ordinary nonvirtual instance methods
   have not yet been classified explicitly under the revised scope.
 - **Q18 — Resolved: external signature exemption.** The four-parameter
   ISpanFormattable.TryFormat implementation is allowed because its signature is
@@ -265,18 +266,23 @@ Generated-by provenance; the September import helper remains of uncertain author
   interface design as poor: external compatibility is the reason for the
   exemption, not approval of this shape in new locally owned interfaces.
 
-## Next frontier
+## Overload scope and usage context: Q19–Q20
 
-- **Q19 — Overload rule scope.** Does requiring a builder apply only when an
-  overload family has more than three parameters, or also to small ordinary
-  overloads? Recommend applying it to configurable operations with many
-  parameters/alternate configuration shapes, including the serializer, rather
-  than every two-overload helper. This recommendation is not accepted yet.
-- **Q20 — Ordinary instance methods.** Should a nonvirtual instance method with
-  more than three parameters, such as the five-parameter AddOrMergeLesson in the
-  parameter report, require grouping or share the single static function exception? Recommend retaining grouping for these instance methods;
-  the explicit exception currently names static functions. Await the maintainer's
-  decision rather than infer it from the older broad threshold.
+- **Q19 — Resolved: more than one parameter plus overload alternatives.** Use a
+  builder when an operation has more than one parameter and at least one of
+  those parameters has alternative overload forms. The earlier recommendation
+  to restrict this to signatures exceeding three parameters was not accepted.
+  A one-parameter Parse(string)/Parse(ReadOnlySpan<char>) pair is allowed. This
+  overload rule is independent of the more-than-three grouping requirement for
+  the specified contract kinds; static functions are not exempt from it.
+- **Q20 — Open: show usage before deciding.** The maintainer cannot classify
+  ordinary nonvirtual instance methods from a signature alone. Show the actual
+  AddOrMergeLesson call sites and surrounding data flow; do not infer a general
+  grouping requirement or exemption yet. The updated
+  [parameter report](parameter-examples-research.md#addormergelesson-usage-for-q20)
+  includes Word/PDF import, elective cohort routing, and test usage. These also
+  expose repeated plumbing and an application-owned delegate as separate
+  concerns from the undecided ordinary-instance-method rule.
 
 The [Luna builder research](builder-protocol-analyzers-research.md) is complete.
 It found published MIT-licensed staged-builder generators, but did not verify a
@@ -286,8 +292,15 @@ completion. Staged generators require a different returned-chain API; their
 advertised guarantees have not been checked in a compilation probe. A small,
 explicitly opted-in reusable callback protocol rule is a possible implementation
 path if that callback shape is retained. Runtime configuration validation remains
-necessary. No package, generator, or required-call analyzer has been selected or
-implemented; the survey is not proof that no suitable analyzer exists anywhere.
+necessary. The maintainer rejected the staged-generator alternatives as the
+intended solution. Record the [RequiredStep analyzer idea](required-builder-steps-proposal.md)
+for later: annotate core methods and infer coverage transitively through
+overloads/higher-level methods, including helpers covering multiple steps.
+Probably discover requirements only on the builder itself at first, with
+convenience overloads/helpers in extensions. No analyzer implementation or
+annotation integration is requested now; agents must check completeness manually.
+No package or generator was selected; the survey is not proof that no suitable
+analyzer exists anywhere.
 
 ## Consumer agent guidance
 

@@ -8,7 +8,7 @@ Scope: public `AntonC9018/ScheduleLib` at [`feat/registry-history-analysis` / `4
 
 2. **Four parameters including cancellation, with separate schedule payload and output mechanics.** `ScheduleSerializer.Serialize(Schedule schedule, Stream outputFile, string hash, CancellationToken cancellationToken)` ([definition](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleLib/ScheduleLib.Core/Model/ImmutableModels/Serializer.cs#L14-L24)). Representative call: `await ScheduleSerializer.Serialize(schedule, json, "", cancellationToken)` ([call](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/Features/FmiScheduleImport/FmiPdfImport.cs#L81-L81)). These express the schedule, destination, serialization identity/hash, and async cancellation. The signature and body trace to owner-attributed commit `5bc1ea53` (2025-10-05), before the June 2026 boundary. It motivated the Q17 builder discussion; the later static-function exception means count alone no longer establishes a violation here. The user chose a builder for this serializer and its alternate output configuration.
 
-3. **Five-parameter domain helper.** `ScheduleImportContext.AddOrMergeLesson(in ParsedLesson lesson, DayOfWeek day, TimeSlot timeSlot, IReadOnlyList<GroupId> groups, Alternative alternative = default)` ([definition](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleLib/ScheduleLib.Core/Parsing/ScheduleImportContext.cs#L303-L310)). Representative calls use the common four-value shape or pass an explicit alternative ([parser call](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleLib/ScheduleLib.Core/Parsing/WordScheduleParser.cs#L463-L470), [alternative call](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/Features/Integration/Tasks/Initialization/ElectiveCohorts.cs#L81-L86)). The lesson, day/time, group set, and optional partition are distinct import facts. The signature has no `CancellationToken`. Blame traces these declaration lines to owner-attributed commit `517c1d83` (2026-09-26, no Generated-by trailer). This falls within the maintainer's mostly AI-generated period; do not treat it as an established older convention.
+3. **Five-parameter domain helper.** `ScheduleImportContext.AddOrMergeLesson(in ParsedLesson lesson, DayOfWeek day, TimeSlot timeSlot, IReadOnlyList<GroupId> groups, Alternative alternative = default)` ([definition](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleLib/ScheduleLib.Core/Parsing/ScheduleImportContext.cs#L303-L310)). Representative calls use the common four-value shape or pass an explicit alternative ([Word adapter call](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleLib/ScheduleLib.Core/Parsing/WordScheduleParser.cs#L525-L541), [alternative call](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/Features/Integration/Tasks/Initialization/ElectiveCohorts.cs#L81-L86)). The lesson, day/time, group set, and optional partition are distinct import facts. The signature has no `CancellationToken`. Blame traces these declaration lines to owner-attributed commit `517c1d83` (2026-09-26, no Generated-by trailer). This falls within the maintainer's mostly AI-generated period; do not treat it as an established older convention.
 
 4. **Five parameters in a current CLI result adapter.** `CliConfigExecution.Finish<T>(CliCommandContext context, int exit, string[] errors, T data, string verb)` ([definition](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/MainCli/CliConfigExecution.cs#L45-L51)). Call: `CliConfigExecution.Finish(context, CliExit.Success, [], inspect(resolved), verb)` ([call](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/MainCli/Commands.Config.cs#L127-L133)). Context, outcome, errors, payload, and verb are meaningful separately, although they form one cohesive completion. File history attributes the scoped config work to a 2026-10-08 commit with `Generated-by: GPT-6.1 Sol`; this is recent generated work, not evidence of an older convention.
 
@@ -71,5 +71,92 @@ The builder's exact API and required-configuration checks remain implementation
 and research work. Static functions may otherwise retain separate arguments;
 more than three parameters require grouping in locally owned interfaces,
 virtual/abstract methods, abstract-class constructors, and delegate types.
-Overload scope and ordinary nonvirtual instance methods remain open. Repeated
-argument plumbing requires a builder or context, with semantic review by agents.
+Q19 requires a builder for operations with more than one parameter and an
+alternative overload form for at least one parameter. Ordinary nonvirtual
+instance-method grouping remains open pending usage review. Repeated argument
+plumbing requires a builder or context, with semantic review by agents.
+
+## AddOrMergeLesson usage for Q20
+
+All excerpts are from the pinned `4c26748` source above. This September-era
+code is evidence to review, not an accepted style precedent. Snippets below
+omit unrelated parsing/setup; the linked methods retain the complete context.
+
+### Word adapter gathers coordinates from parser state
+
+[WordScheduleParser.cs, lines 525–541](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleLib/ScheduleLib.Core/Parsing/WordScheduleParser.cs#L525-L541)
+contains a private static extension adapter with the same name. It accepts
+parser state, lesson, column index, and column span, gathers the groups covered
+by the cell, and then calls the instance method:
+
+```csharp
+c.AddOrMergeLesson(lesson, state.CurrentDay!.Value,
+    state.Time!.Value.TimeSlot, groups);
+```
+
+The earlier report linked the call to this adapter instead of its forwarding
+call to the actual five-parameter instance method; the observed-shapes link is
+now corrected. The adapter and instance method are distinct resolved methods.
+
+### PDF import forwards the same values through an optional delegate
+
+[PdfScheduleImporter.cs, lines 10–10 and 60–80](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/Features/ParsePdf/PdfScheduleImporter.cs#L60-L80)
+defines ImportedLessonHandler with five parameters (declaration at line 10):
+
+```csharp
+public delegate void ImportedLessonHandler(ParsedLesson lesson, DayOfWeek day,
+    TimeSlot slot, IReadOnlyList<GroupId> groups, string? alternative);
+```
+
+Within the import loop it resolves day/time, parses lesson text, resolves group
+IDs (possibly narrowing a group by PartitionHint), and dispatches:
+
+```csharp
+if (addLesson is null)
+    context.AddOrMergeLesson(lesson, day, time, groups, new(cell.Alternative));
+else
+    addLesson(lesson, day, time, groups, cell.Alternative);
+```
+
+Only layout is expanded here; the expressions and control flow are unchanged.
+The locally owned delegate is already within the accepted contract-grouping
+scope. That fact does not settle the ordinary instance-method category.
+
+### Cohort handler adjusts groups and alternatives before forwarding
+
+[ElectiveCohorts.cs, lines 71–104](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/Features/Integration/Tasks/Initialization/ElectiveCohorts.cs#L71-L104)
+accepts the same values in its Add method. It forwards non-target courses with
+the default alternative, uses an explicitly supplied cohort when present, or
+iterates groups and their configured alternatives. Representative actual calls:
+
+```csharp
+_context.AddOrMergeLesson(lesson, day, slot, groups);
+_context.AddOrMergeLesson(lesson, day, slot, groups, new(cohort));
+// Inside the group/alternative loops:
+_context.AddOrMergeLesson(lesson, day, slot, [group], alternative);
+// Otherwise, for the group without configured alternatives:
+_context.AddOrMergeLesson(lesson, day, slot, [group], BaseAlternative);
+```
+
+These calls occur in separate branches; they are not four sequential calls for
+every lesson. Lesson/day/time are forwarded unchanged while groups and
+alternative vary according to cohort policy.
+
+### The callee already builds and merges
+
+[ScheduleImportContext.cs, lines 303–387](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleLib/ScheduleLib.Core/Parsing/ScheduleImportContext.cs#L303-L387)
+creates a detached regular-lesson builder. It uses the lesson's explicit start
+time when present, otherwise the supplied time slot; sets day, parity,
+alternative, common lesson properties, and groups; then merges matching lessons
+or attaches a new one. A lesson's explicit group name may override the supplied
+groups. Moving this policy out to callers is not implied by grouping arguments.
+
+[ScheduleCellParserTests.cs, lines 14–41](https://github.com/AntonC9018/ScheduleLib/blob/4c26748e448fe7ccbdffc3f8f6c4b05ffddce144/src/ScheduleLib/Tests/Parser/ScheduleCellParserTests.cs#L14-L41)
+checks that repeated cells merge groups while retaining the time override, and
+that different cohort alternatives do not merge. These are source assertions;
+no new test run was performed for this documentation update.
+
+Discussion recommendation: treat the repeated import payload as a candidate
+for a shared input/context or existing builder/model, including the delegate
+and cohort adapter. Preserve the import context's merge policy. This is a
+proposal for Q20, not a settled blanket rule for all nonvirtual instance methods.

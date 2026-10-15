@@ -1,6 +1,12 @@
 # C# builder protocol enforcement research
 
-Research snapshot: 2026-10-15. The question is whether existing C# tooling can prove that `Input` and `Output` are called before a serializer's `ExecuteAsync`, where the proposed API is:
+Research snapshot: 2026-10-15. Subsequent decision: the maintainer wants the
+[annotation-based RequiredStep experiment](required-builder-steps-proposal.md),
+not the staged-generator alternatives below. The experiment is deferred; agents
+check required configuration manually for now. The recommendations in this
+survey are historical proposals, not authorization to implement a protocol rule.
+
+The question is whether existing C# tooling can prove that `Input` and `Output` are called before a serializer's `ExecuteAsync`, where the proposed API is:
 
 ```csharp
 ScheduleSerializer.New(state, static (s, b) =>

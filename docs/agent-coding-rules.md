@@ -41,7 +41,26 @@ For the serializer configuration discussed in the
 use a reusable builder supporting alternate output sources and an optional hash,
 with cancellation supplied at execution. Review which configuration is required,
 which has defaults, and what happens when required configuration is omitted.
-Existing analyzer support is under investigation; do not claim that a builder
-API by itself proves required methods were called. The general overload rule's
-scope remains open in the follow-up, so do not turn every overload set into a
-builder without checking that decision.
+Use a builder when an operation has more than one parameter and at least one
+parameter has alternative overload forms. One-parameter overloads remain allowed.
+This rule also applies to static operations; it is independent of the separate
+parameter-count requirement for extensible contracts.
+
+## Check builder completeness manually
+
+The [RequiredStep analyzer idea](required-builder-steps-proposal.md) is deferred.
+Do not add an analyzer or annotations as part of recording that idea. Until it
+is implemented, agents must trace the builder's configuration before execution:
+
+- Identify required configuration and distinguish it from optional defaults.
+- Follow overloads and higher-level helpers: a helper can satisfy several core
+  steps, but only when those steps run on the same builder on every successful
+  path reaching execution.
+- Inspect conditional paths and the relevant helper bodies; do not assume a
+  method name or fluent API guarantees complete configuration.
+- Preserve appropriate runtime checks for incomplete or invalid configuration.
+
+For the proposed serializer builder, Input and Output must be supplied; Hash is
+optional and defaults to empty. A helper supplying Input and Output satisfies
+both requirements. Do not replace the intended mutable builder API with staged
+generators merely to obtain their different form of compile-time checking.

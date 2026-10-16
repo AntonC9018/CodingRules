@@ -80,13 +80,20 @@ After restoring the consumer, run (substitute its solution or project path):
 ```sh
 dotnet format analyzers Consumer.csproj --no-restore --diagnostics RCS0042 RCS1016 CR0800
 dotnet format whitespace Consumer.csproj --no-restore
-dotnet format analyzers Consumer.csproj --no-restore --diagnostics RCS0042 RCS1016 CR0800 --verify-no-changes
+dotnet format analyzers Consumer.csproj --no-restore --diagnostics RCS0042 RCS1016 CR0800
 dotnet format whitespace Consumer.csproj --no-restore --verify-no-changes
+dotnet build Consumer.csproj --no-restore
 ```
 
 The explicit diagnostic filter limits this command to the selected formatting
 slice. Other CR diagnostics remain independently available. The standard
 formatter supplies indentation; it does not replace these diagnostics/fixes.
+The repeated analyzer fixing command is safe and idempotent. SDK 10.0.112's
+analyzer `--verify-no-changes` mode reports the excluded manual RCS1016 cases
+and returns exit 2 even when the fixer makes no changes. Use ordinary build
+diagnostics for the suppression-aware check; the consumer gate additionally
+compares bytes across two fixing passes and asserts the CLI's exact residual
+manual diagnostic set.
 
 ## Delivery, licenses and verification
 
@@ -125,6 +132,10 @@ exactly nine ordinary-build warnings: one RCS0042, six RCS1016 and two CR0800.
 It then applies actual exported fixes through `dotnet format`, compares exact
 source with `CodeFixTests/Expected/Formatting.Fixed.cs.txt`, runs whitespace
 formatting and a second idempotent pass, and builds with warnings as errors.
+The analyzer verification command is separately expected to return exit 2
+with exactly the six arrow-comment and two custom task-like diagnostics;
+no safe case may remain in that set. Whitespace verification and the final
+compiler build must succeed normally.
 Accepted simple bodies, arithmetic placement, comments and directive bodies
 are part of the same fixture. Exact-output fixtures include block and line
 comments immediately after arrows in methods, properties and accessors. A

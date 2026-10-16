@@ -16,14 +16,18 @@ from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 DIAGNOSTICS = ["RCS0042", "RCS1016", "CR0800"]
+SOURCE_WARNING = re.compile(r"([^/\\\s]+\.cs)\((\d+),(\d+)\): warning (\w+):")
 
 
-def run(arguments, cwd, environment):
+def run(arguments, cwd, environment, expected_returncode=0):
     print("$ " + " ".join(arguments), flush=True)
     result = subprocess.run(arguments, cwd=cwd, env=environment, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
     print(result.stdout, flush=True)
-    result.check_returncode()
+    if expected_returncode == 0:
+        result.check_returncode()
+    else:
+        assert result.returncode == expected_returncode, (result.returncode, expected_returncode)
     return result.stdout
 
 
@@ -94,7 +98,7 @@ def main():
         project = "Consumer.csproj"
         run(["dotnet", "restore", project], consumer, environment)
         output = run(["dotnet", "build", project, "--no-restore"], consumer, environment)
-        reports = set(re.findall(r"([^/\\\s]+\.cs)\((\d+),(\d+)\): warning (\w+):", output))
+        reports = set(SOURCE_WARNING.findall(output))
         counts = Counter(report[3] for report in reports)
         assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2}, counts
         assert not re.search(r"warning (?:AD|CS|ROS)\d+", output), output
@@ -119,7 +123,18 @@ def main():
                                                fixed.decode().splitlines(keepends=True),
                                                fromfile="expected", tofile="actual"))
         assert fixed == expected, difference
-        run([*command, "--verify-no-changes"], consumer, environment)
+        # This CLI bypasses suppressors and reports protected manual cases even
+        # though the replacement fixer offers no action. Assert that exact set;
+        # actual idempotence is the byte comparison after the next fixing pass.
+        manual_reports = set()
+        for filename, content in (("Consumer.cs", expected.decode()),
+                                  ("TaskLike.cs", task_like_original.decode())):
+            for number, line in enumerate(content.splitlines(), start=1):
+                if "=> /* preserve" in line or "=> // preserve" in line or "async MyTask<int>" in line:
+                    manual_reports.add((filename, str(number), str(line.index("=>") + 1), "RCS1016"))
+        assert len(manual_reports) == 8
+        output = run([*command, "--verify-no-changes"], consumer, environment, expected_returncode=2)
+        assert set(SOURCE_WARNING.findall(output)) == manual_reports, output
         run(command, consumer, environment)
         run(["dotnet", "format", "whitespace", project, "--no-restore", "--verify-no-changes"],
             consumer, environment)

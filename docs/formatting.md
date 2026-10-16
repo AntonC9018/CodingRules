@@ -155,15 +155,32 @@ compilation-checked alongside the four primary member shapes.
 Packaging tests and this consumer gate establish CLI discovery; they do not
 claim GUI-host interaction or coverage of every upstream host shape.
 
-Validation on 2026-10-15: all **900** solution tests passed (41 analyzer and
-859 code-fix tests, including the 15 new formatting tests) with:
+Validation on 2026-10-16: all **930** solution tests passed (41 analyzer and
+889 code-fix tests, including **45** focused formatting cases) with:
 
 ```sh
 dotnet test CodingRules.slnx -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903
 ```
 
+The focused formatting run, all **15** Python build guard tests, standalone
+Release pack and isolated consumer gate also passed. The archive at
+`/tmp/codingrules-rcs1016-20261016/Anton.CodingRules.0.1.0.nupkg` was checked
+directly; all 15 retained upstream DLLs matched the pinned NuGet assets byte
+for byte. The gate confirmed exact output, two unchanged custom async bodies,
+all six retained arrow comments, a byte-identical second fixing pass, successful
+whitespace verification and a final compiler build with zero warnings/errors.
+Its expected analyzer-verification exit 2 contained only the eight protected
+manual cases described above.
+
+Temporarily bypassing the suppressor with the original upstream provider made
+all six arrow-comment exact-output regressions fail and reproduced CS0161 for
+the custom task-like method. The temporary negative-control changes were
+restored before the passing runs; both custom method/local-function diagnostics
+are also tested directly against the guarded provider without a suppressor.
+
 The normal command without that existing, command-scoped exception still fails
 restore on the shared testing graph's Pkcs 9.0.6 NU1902/NU1903 advisories. The
 dependency-repair slice owns that baseline issue; this change adds no permanent
 audit exception. Normal package build/pack and the isolated consumer gate pass
-without an audit exception. The 12 Python release guard tests also pass.
+without an audit exception. MSBuild requires the semicolon-separated warning IDs
+to be escaped as `%3B`; passing a literal quoted semicolon produced MSB1006.

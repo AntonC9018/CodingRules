@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
+using Microsoft.CodeAnalysis.Text;
 
 namespace CodingRules;
 
@@ -56,7 +57,8 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider
         var semicolon = declaration.GetLastToken();
         if (!semicolon.IsKind(SyntaxKind.SemicolonToken)) return document;
 
-        var statement = CreateStatement(arrow.Expression, symbol, semicolon);
+        var expression = await IndentExpressionAsync(document, arrow, cancellationToken).ConfigureAwait(false);
+        var statement = CreateStatement(expression, symbol, semicolon);
         var block = SyntaxFactory.Block(statement);
         SyntaxNode? replacement = declaration switch
         {
@@ -75,7 +77,50 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider
         };
         if (replacement is null) return document;
         var changedRoot = root.ReplaceNode(declaration, replacement.WithAdditionalAnnotations(Formatter.Annotation));
-        return document.WithSyntaxRoot(changedRoot);
+        return await Formatter.FormatAsync(document.WithSyntaxRoot(changedRoot), Formatter.Annotation,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<ExpressionSyntax> IndentExpressionAsync(Document document, ArrowExpressionClauseSyntax arrow,
+        CancellationToken cancellationToken)
+    {
+        var options = await document.GetOptionsAsync(cancellationToken).ConfigureAwait(false);
+        var language = document.Project.Language;
+        var tabSize = options.GetOption(FormattingOptions.TabSize, language);
+        var indentSize = options.GetOption(FormattingOptions.IndentationSize, language);
+        var useTabs = options.GetOption(FormattingOptions.UseTabs, language);
+        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        var levels = arrow.Parent is PropertyDeclarationSyntax or IndexerDeclarationSyntax ? 2 : 1;
+        var delta = LineIndent(arrow.Parent!.SpanStart) + levels * indentSize - LineIndent(arrow.Expression.SpanStart);
+
+        // Change only trivia before line-start tokens. Literal token text and
+        // interpolated-string contents must keep their original bytes.
+        var tokens = arrow.Expression.DescendantTokens().Where(token =>
+        {
+            if (token.Parent!.AncestorsAndSelf().OfType<InterpolatedStringExpressionSyntax>().Any()) return false;
+            var line = text.Lines.GetLineFromPosition(token.SpanStart);
+            return text.ToString(TextSpan.FromBounds(line.Start, token.SpanStart)).All(char.IsWhiteSpace);
+        });
+        return arrow.Expression.ReplaceTokens(tokens, (original, rewritten) =>
+        {
+            var width = Math.Max(0, LineIndent(original.SpanStart) + delta);
+            var indentation = useTabs ? new string('\t', width / tabSize) + new string(' ', width % tabSize)
+                : new string(' ', width);
+            var trivia = rewritten.LeadingTrivia;
+            while (trivia.Count > 0 && trivia.Last().IsKind(SyntaxKind.WhitespaceTrivia))
+                trivia = trivia.RemoveAt(trivia.Count - 1);
+            return rewritten.WithLeadingTrivia(trivia.Add(SyntaxFactory.Whitespace(indentation)));
+        });
+
+        int LineIndent(int position)
+        {
+            var line = text.Lines.GetLineFromPosition(position);
+            var prefix = text.ToString(TextSpan.FromBounds(line.Start, position)).TakeWhile(char.IsWhiteSpace);
+            var width = 0;
+            foreach (var character in prefix)
+                width = character == '\t' ? width + tabSize - width % tabSize : width + 1;
+            return width;
+        }
     }
 
     private static StatementSyntax CreateStatement(ExpressionSyntax expression, ISymbol symbol, SyntaxToken semicolon)

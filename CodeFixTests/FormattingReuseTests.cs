@@ -257,6 +257,62 @@ public sealed class FormattingReuseTests
     }
 
     [Theory]
+    [InlineData("method", 3, "    ", "\n")]
+    [InlineData("property", 4, "    ", "\n")]
+    [InlineData("accessor", 4, "    ", "\n")]
+    [InlineData("method", 3, "  ", "\n")]
+    [InlineData("property", 4, "  ", "\n")]
+    [InlineData("accessor", 4, "  ", "\n")]
+    [InlineData("method", 3, "\t", "\r\n")]
+    [InlineData("property", 4, "\t", "\r\n")]
+    [InlineData("accessor", 4, "\t", "\r\n")]
+    public async Task IndentsExpressionContinuationsInsideNewBlocks(string host, int levels, string indentation,
+        string lineBreak)
+    {
+        var member = host switch
+        {
+            "method" => "    int M() => System.Math.Abs(\n        -1);",
+            "property" => "    int P => System.Math.Abs(\n        -1);",
+            "accessor" => "    int P\n    {\n        get => System.Math.Abs(\n            -1);\n    }",
+            _ => throw new InvalidOperationException(host),
+        };
+        var source = ("class C\n{\n" + member + "\n}").Replace("    ", indentation).Replace("\n", lineBreak);
+        var style = indentation == "\t" ? "tab" : "space";
+        var size = indentation == "\t" ? 4 : indentation.Length;
+        var endOfLine = lineBreak == "\r\n" ? "crlf" : "lf";
+        var document = Document(source, $"root = true\n[*]\nindent_style = {style}\nindent_size = {size}\ntab_width = 4\nend_of_line = {endOfLine}\n");
+        var changed = await FixAll(document);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Equal(string.Concat(Enumerable.Repeat(indentation, levels)) + "-1);",
+            Assert.Single(text.Split([lineBreak], StringSplitOptions.None).Where(line => line.Trim() == "-1);")));
+        if (lineBreak == "\r\n") Assert.DoesNotContain("\n", text.Replace("\r\n", ""));
+        Assert.Equal(text, (await (await FixAll(changed)).GetTextAsync()).ToString());
+    }
+
+    [Fact]
+    public async Task IndentationPreservesRawAndInterpolatedStringValues()
+    {
+        var document = Document(""""
+            public class C
+            {
+                public static string Run() => string.Concat(
+                    """
+                    raw
+                      text
+                    """,
+                    $"""
+                    interpolated {1}
+                      content
+                    """);
+            }
+            """");
+        var expected = await StatementOperationTestFixture.Run(document);
+        var changed = await FixAll(document);
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(await StatementOperationTestFixture.Reparse(changed)));
+        Assert.Empty(await Diagnostics(changed));
+    }
+
+    [Theory]
     [InlineData("method", "/* preserve this explanation */ ")]
     [InlineData("method", "// preserve this explanation\n        ")]
     [InlineData("property", "/* preserve this explanation */ ")]

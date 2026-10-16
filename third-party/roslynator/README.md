@@ -10,6 +10,9 @@ https://github.com/dotnet/roslynator.
 APACHE-2.0.txt supplies the complete license text from apache.org.
 
 No upstream source or binaries were modified. CodingRules supplies an explicit
-diagnostic allowlist and its own Boolean-only operator rule; see
+diagnostic allowlist, its own Boolean-only operator rule and an independently
+written RCS1016 safety suppressor. The suppressor excludes arrow-token trivia
+and custom async return contracts that the unmodified 5.0.1 fixer cannot
+preserve safely. No modified upstream source is distributed; see
 `docs/formatting.md`. The upstream common and formatting packages use distinct
 assembly names for their helpers. Keep both complete dependency sets.

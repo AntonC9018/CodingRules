@@ -40,6 +40,61 @@ public sealed partial class FormattingReuseTests
     }
 
     [Fact]
+    public async Task FormatsPinnedHandlerRequestsWithoutExtractingInitializerValues()
+    {
+        // Reduced AppTasks.cs:73/127 cases at ScheduleLib 12e601e7b62511bdecc44e280407fee12147b230.
+        var document = Document("""
+            using System.Text;
+            using System.Threading;
+            using System.Threading.Tasks;
+            class OutputDirectoryFilesProvider(object directory) { }
+            class Request
+            {
+                public OutputDirectoryFilesProvider FilesProvider = null!;
+                public CancellationToken CancellationToken;
+                public string[] Groups = [];
+                public StringBuilder StringBuilder = null!;
+            }
+            class Handler
+            {
+                public Task Run(Request request) { return Task.CompletedTask; }
+            }
+            class C
+            {
+                public object OutputDirectory = new();
+                public CancellationToken CancellationToken;
+                async Task M(C c, Handler handler, StringBuilder sb)
+                {
+                    await handler.Run(
+                        new()
+                        {
+                            FilesProvider = new OutputDirectoryFilesProvider(c.OutputDirectory),
+                            CancellationToken = c.CancellationToken,
+                        });
+                    await handler.Run(new() { Groups = ["IA2401", "I2301"], StringBuilder = sb, });
+                }
+            }
+            """);
+        Assert.Equal(new[] { "CR0802", "CR0801" }, (await Diagnostics(document)).Select(item => item.Id));
+        var operations = await OperationFindings(document);
+        var changed = await Formatter.FormatAsync(await FixAll(document));
+        Assert.Contains("""
+                    await handler.Run(new()
+                    {
+                        FilesProvider = new OutputDirectoryFilesProvider(c.OutputDirectory),
+                        CancellationToken = c.CancellationToken,
+                    });
+                    await handler.Run(new()
+                    {
+                        Groups = ["IA2401", "I2301"],
+                        StringBuilder = sb,
+                    });
+            """, (await changed.GetTextAsync()).ToString());
+        Assert.Equal(operations, await OperationFindings(changed));
+        await AssertStableLayout(document, changed);
+    }
+
+    [Fact]
     public async Task JoinsPinnedExplicitDelegateConstructorWithoutChangingLambda()
     {
         var document = Document("""
@@ -61,9 +116,16 @@ public sealed partial class FormattingReuseTests
             """);
         var diagnostic = Assert.Single(await Diagnostics(document));
         Assert.Equal("CR0802", diagnostic.Id);
-        var changed = await FixAll(document);
-        Assert.Contains("updates.Add(new DelegateUpdater<T>((sp, value) =>", (await changed.GetTextAsync()).ToString());
-        await AssertStableLayout(document, await Formatter.FormatAsync(changed));
+        var changed = await Formatter.FormatAsync(await FixAll(document));
+        // Reuse Roslyn's lambda indentation after joining the constructor.
+        Assert.Contains("""
+                    updates.Add(new DelegateUpdater<T>((sp, value) =>
+                        {
+                            object? current = value;
+                            Console.WriteLine(current);
+                        }));
+            """, (await changed.GetTextAsync()).ToString());
+        await AssertStableLayout(document, changed);
     }
 
     [Fact]
@@ -240,7 +302,14 @@ public sealed partial class FormattingReuseTests
             """;
         var document = Document(source);
         var provider = new InitializerCallLayoutCodeFixProvider();
-        var context = new FixAllContext(document, provider, FixAllScope.Document, id,
+        // The CLI groups both IDs under this provider and reuses the selected
+        // action's key when fixing the other ID. Exercise that shared key.
+        var otherDiagnostic = (await Diagnostics(document)).First(diagnostic => diagnostic.Id != id);
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new CodeFixContext(document, otherDiagnostic,
+            (action, _) => actions.Add(action), CancellationToken.None));
+        var key = Assert.Single(actions).EquivalenceKey;
+        var context = new FixAllContext(document, provider, FixAllScope.Document, key,
             new[] { id }, new InitializerDiagnostics(id), CancellationToken.None);
         var action = await provider.GetFixAllProvider().GetFixAsync(context);
         Assert.NotNull(action);

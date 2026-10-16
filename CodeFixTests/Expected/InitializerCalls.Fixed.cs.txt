@@ -60,9 +60,9 @@ public sealed class InitializerCalls
         });
         var updates = new List<DelegateUpdater<int>>();
         updates.Add(new DelegateUpdater<int>((sp, value) =>
-        {
-            trace += value;
-        }));
+            {
+                trace += value;
+            }));
         updates[0].Update(new object(), 3);
         return trace;
     }

@@ -25,7 +25,7 @@ public sealed class InitializerCallLayoutCodeFixProvider : CodeFixProvider
         if (InitializerCallLayoutAnalyzer.GetChanges(node, text).IsEmpty) return;
         var diagnostic = context.Diagnostics[0];
         context.RegisterCodeFix(CodeAction.Create("Apply initializer call layout",
-            token => ApplyAsync(context.Document, node, token), diagnostic.Id), diagnostic);
+            token => ApplyAsync(context.Document, node, token), nameof(InitializerCallLayoutCodeFixProvider)), diagnostic);
     }
 
     private static async Task<Document> ApplyAsync(Document document, SyntaxNode node, CancellationToken token)

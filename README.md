@@ -56,6 +56,12 @@ adjacent sole constructor arguments. Other upstream diagnostics remain disabled.
 [packaged formatting](docs/formatting.md) for the required CLI `.editorconfig`
 snippet, formatter interaction, fixer commands, licenses and consumer checks.
 
+`CR0900` reports tuple method results, method inputs and materialized collection
+data that need a named record struct. API migration is manual. Local-function
+results and deconstruction remain allowed; scalar local tuples and swaps remain
+outside the settled scope. The [tuple data contract](docs/tuple-data.md) records
+the finite collection catalogue, Q15/Q16 coverage and isolated package gate.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

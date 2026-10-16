@@ -137,6 +137,13 @@ second pass. Focused tests cover all four pinned A1 sites and preserve existing
 operation findings; #19 remains separate. This implementation does not establish
 coverage for other A items.
 
+Slice 04 implements A4/Q15/Q16 as CR0900 manual findings for tuple method
+results, method inputs and catalogued stored collection data. The
+[tuple data contract](tuple-data.md) records the conservative generalization,
+the local-function result exception, and positive/accepted regression evidence
+in analyzer tests and the isolated package gate. No universal scalar-local tuple
+policy or automatic API migration is introduced.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable

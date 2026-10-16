@@ -126,6 +126,19 @@ equality inspection of genuine parameterless framework string trims. The
 [span assessment](spans.md) records the exact available-API catalogue, safe
 synchronous helper rewrite and manual ownership/signature/slicing boundaries.
 
+## Tuple data implementation (ScheduleLib slice 04)
+
+CR0900 implements the settled Q15/Q16 cases as a manual Readability warning:
+ordinary tuple method results, ordinary/local method tuple inputs, and stored
+tuple elements in arrays, List and ReadOnlySpan. Method results and inputs also
+include IEnumerable of tuples. The [tuple data contract](tuple-data.md) records
+the exact catalogue and regression evidence. Private ordinary methods remain
+included; local-function result declarations are excluded. A collection used by
+a local function is not thereby exempt. Deconstruction is not a violation.
+Purely local scalar tuples/swaps and other uncatalogued shapes remain outside
+the settled detection boundary. Domain naming and API/caller migration require
+manual review; CR0900 provides no automatic fix.
+
 ## Primitive sentinel implementation (ticket 8)
 
 The accepted first version proves exactly `int -1` absence from resolved

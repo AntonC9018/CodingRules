@@ -50,8 +50,9 @@ ordinal UTF-16 comparison and receiver evaluation. The [span assessment](docs/sp
 records the finite catalogue and manual ownership, API and lifetime boundaries.
 
 The same package now supplies Roslynator `RCS0042` for compact auto-accessors,
-`RCS1016` for multiline-expression block bodies, and `CR0800` for leading
-wrapped `&&`/`||`. Other upstream diagnostics remain disabled. See
+`RCS1016` for multiline-expression block bodies, `CR0800` for leading
+wrapped `&&`/`||`, and `CR0801`/`CR0802` for multiline initializer members and
+adjacent sole constructor arguments. Other upstream diagnostics remain disabled. See
 [packaged formatting](docs/formatting.md) for the required CLI `.editorconfig`
 snippet, formatter interaction, fixer commands, licenses and consumer checks.
 

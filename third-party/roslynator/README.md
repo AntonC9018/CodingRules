@@ -10,8 +10,9 @@ https://github.com/dotnet/roslynator.
 APACHE-2.0.txt supplies the complete license text from apache.org.
 
 No upstream source or binaries were modified. CodingRules supplies an explicit
-diagnostic allowlist, its own Boolean-only operator rule and an independently
-written RCS1016 safety suppressor and expression-to-block fixer, under MIT.
+diagnostic allowlist, its own Boolean-only operator and A1 layout rules, and an
+independently written RCS1016 safety suppressor and expression-to-block fixer,
+under MIT.
 `Roslynator.CSharp.Analyzers.CodeFixes.dll` is deliberately omitted: its RCS1016
 fix drops arrow-token comments and can omit required custom task-like returns,
 and the tested CLI bypasses suppressors. The CodingRules provider independently

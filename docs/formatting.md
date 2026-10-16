@@ -42,6 +42,30 @@ alone. Comments or directives in the whitespace that would move cause a skip.
 Roslynator's broader RCS0027 and RCS0055 remain disabled. No Boolean expression
 is wrapped or split merely to enforce placement.
 
+**CR0801 / A1** expands object initializers with at least two members so each
+member and the closing brace start on separate lines. It handles compact and
+partly wrapped layouts, trailing commas, nested object initializers and comments.
+Empty and single-member initializers remain accepted; collection, array,
+anonymous-object and `with` initializers are outside this rule.
+
+**CR0802 / A1** removes an existing line break between an invocation's opening
+parenthesis and its sole positional explicit or target-typed constructor
+argument. Already adjacent constructors remain accepted. Named/ref arguments,
+multiple arguments, constructor argument lists and non-constructor expressions
+are separate policy. A comment in the gap prevents joining. Both rules skip
+syntax with errors or directives and generated code. The fixes change layout,
+retain token text and leave initializer values inline. Existing operation
+findings, including initializer false positives tracked in #19, are independent.
+
+The standard formatter supplies indentation and
+`csharp_new_line_before_members_in_object_initializers=true` for expanded
+initializers. With `csharp_preserve_single_line_blocks=true`, it leaves compact
+multi-member initializers unchanged; disabling that option would conflict with
+A2. Actual formatter and Roslynator RCS0053 tests demonstrate both A1 gaps, so
+neither RCS0053 nor a broader block-expansion policy is enabled. The two CR rules
+supply only these missing behaviors; Roslyn's existing lambda indentation is
+retained when joining a delegate constructor.
+
 All configurable upstream diagnostics are explicitly allowlisted, including
 support/configuration diagnostics. Other existing CR families retain their
 defaults. Consumers can override individual IDs in `.editorconfig`. The
@@ -49,7 +73,7 @@ descriptor-inventory test must pass whenever the upstream version changes.
 
 ## Consumer workflow
 
-An ordinary `dotnet build` diagnoses all three rules from the package defaults.
+An ordinary `dotnet build` diagnoses all five rules from the package defaults.
 For the fixer workflow, merge this into the consumer's `.editorconfig`:
 
 ```ini
@@ -57,6 +81,7 @@ For the fixer workflow, merge this into the consumer's `.editorconfig`:
 dotnet_diagnostic.RCS0042.severity = warning
 dotnet_diagnostic.RCS1016.severity = warning
 csharp_preserve_single_line_blocks = true
+csharp_new_line_before_members_in_object_initializers = true
 ```
 
 The same snippet is shipped in
@@ -78,9 +103,9 @@ or multiline-declaration restriction is set by the package.
 After restoring the consumer, run (substitute its solution or project path):
 
 ```sh
-dotnet format analyzers Consumer.csproj --no-restore --diagnostics RCS0042 RCS1016 CR0800
+dotnet format analyzers Consumer.csproj --no-restore --diagnostics RCS0042 RCS1016 CR0800 CR0801 CR0802
 dotnet format whitespace Consumer.csproj --no-restore
-dotnet format analyzers Consumer.csproj --no-restore --diagnostics RCS0042 RCS1016 CR0800
+dotnet format analyzers Consumer.csproj --no-restore --diagnostics RCS0042 RCS1016 CR0800 CR0801 CR0802
 dotnet format whitespace Consumer.csproj --no-restore --verify-no-changes
 dotnet build Consumer.csproj --no-restore
 ```
@@ -95,13 +120,24 @@ diagnostics for the suppression-aware check; the consumer gate additionally
 compares bytes across two fixing passes and asserts the CLI's exact residual
 manual diagnostic set.
 
+For an A1-only check after applying the fixes, run:
+
+```sh
+dotnet format analyzers Consumer.csproj --no-restore --diagnostics CR0801 CR0802 --verify-no-changes
+dotnet format whitespace Consumer.csproj --no-restore --verify-no-changes
+```
+
+The analyzer check returns nonzero for remaining A1 violations. Comment-separated
+constructor arguments and the other conservative skips above are left alone.
+Unlike the combined RCS1016 check, A1 has no protected manual diagnostic set.
+
 ## Delivery, licenses and verification
 
 Bundling avoids relying on analyzer transitivity from a metapackage. SDK 1.1.0
 does not gather arbitrary upstream analyzer references; the package project
 explicitly restores and packs the two pinned helper dependency sets. This uses
 normal NuGet pack items and needs no change to the shared SDK. Production code in
-CodingRules implements the Boolean-placement policy gap, a conservative
+CodingRules implements the Boolean-placement and A1 layout gaps, a conservative
 RCS1016 safety suppressor and an independent expression-to-block fixer using
 public Roslyn syntax/formatter APIs, without copied upstream source. Suppressions
 CRSPR0801 (arrow-token trivia) and CRSPR0802 (custom async return contract)
@@ -128,20 +164,31 @@ python3 build/verify-formatting-consumer.py path/to/Anton.CodingRules.0.1.0.nupk
 
 It uses a fresh cache, an Anton-only local feed and a consumer referencing only
 Anton.CodingRules. Before adding the shipped CLI configuration it asserts
-exactly nine ordinary-build warnings: one RCS0042, six RCS1016 and two CR0800.
+exactly sixteen ordinary-build warnings: one RCS0042, six RCS1016, two CR0800,
+five CR0801 and two CR0802.
 It then applies actual exported fixes through `dotnet format`, compares exact
-source with `CodeFixTests/Expected/Formatting.Fixed.cs.txt`, runs whitespace
+source with `CodeFixTests/Expected/Formatting.Fixed.cs.txt` and
+`CodeFixTests/Expected/InitializerCalls.Fixed.cs.txt`, runs whitespace
 formatting and a second idempotent pass, and builds with warnings as errors.
 The analyzer verification command is separately expected to return exit 2
 with exactly the six arrow-comment and two custom task-like diagnostics;
 no safe case may remain in that set. Whitespace verification and the final
-compiler build must succeed normally.
+compiler build must succeed normally. The A1-only analyzer verification command
+must return exit 0 with no remaining diagnostics.
 Accepted simple bodies, arithmetic placement, comments and directive bodies
 are part of the same fixture. Exact-output fixtures include block and line
 comments immediately after arrows in methods, properties and accessors. A
 separate custom generic task-like fixture contains both an async method and
 local function; it must remain unchanged, compile before/after fixing and
 survive the second pass. CI checks the retained release artifact itself.
+
+The A1 consumer fixture includes already adjacent constructors, nested
+initializers, trailing commas, member and call comments, a simple factory value
+and the sole explicit delegate-constructor argument. It compiles and runs before
+and after formatting with the same evaluation trace, `123345667890123`. The
+fixture locally suppresses pre-existing CR0300/CR0302 findings to isolate layout;
+the A1 fixer neither extracts values nor adds operation requirements. Its bytes
+must remain identical on the second analyzer/formatter pass.
 
 `FormattingReuseTests` run the actual upstream analyzers and formatting provider,
 the CodingRules expression-body provider and packaged safety suppressor on
@@ -155,24 +202,45 @@ compilation-checked alongside the four primary member shapes.
 Packaging tests and this consumer gate establish CLI discovery; they do not
 claim GUI-host interaction or coverage of every upstream host shape.
 
-Validation on 2026-10-16: all **930** solution tests passed (41 analyzer and
-889 code-fix tests, including **45** focused formatting cases) with:
+`InitializerCallFormattingTests.cs` adds reduced fixtures for all four pinned
+A1 sites at ScheduleLib `12e601e7b62511bdecc44e280407fee12147b230`:
+`AppTasks.cs:53/73/127` and `CliSettings.Removals.cs:269`. These prove the
+context/task/services, files-provider request, groups collection request and
+delegate-constructor layouts. They also check accepted layouts, comments,
+nested initialization, CRLF/tabs, literal preservation, runtime order, unchanged
+operation findings, consumer severity overrides and a stable second pass.
+Exported Fix All uses one equivalence key for both IDs, including when a host
+reuses the action selected for one ID while fixing the other. A regression
+reproduces the CLI failure with separate keys; the consumer gate proves the fix.
+
+Validation on 2026-10-16: all **951** solution tests passed (41 analyzer and
+910 code-fix tests, including **66** focused formatting cases). Commands:
 
 ```sh
 dotnet test CodingRules.slnx -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903
+dotnet test CodeFixTests/CodingRules.CodeFixes.Tests.csproj -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903 --filter FullyQualifiedName~FormattingReuseTests
+python3 -m unittest discover -s build/tests -v
+dotnet pack Package/CodingRules.Package.csproj -c Release --output /tmp/codingrules-ticket03-20261016
+python3 build/verify-formatting-consumer.py /tmp/codingrules-ticket03-20261016
+git diff --check
 ```
 
 The focused formatting run, all **15** Python build guard tests, standalone
 Release pack and isolated consumer gate also passed. The archive at
-`/tmp/codingrules-rcs1016-20261016/Anton.CodingRules.0.1.0.nupkg` was checked
+`/tmp/codingrules-ticket03-20261016/Anton.CodingRules.0.1.0.nupkg` was checked
 directly; all 15 retained upstream DLLs matched the pinned NuGet assets byte
 for byte. The gate confirmed exact output, two unchanged custom async bodies,
 all six retained arrow comments, a byte-identical second fixing pass, successful
 whitespace verification and a final compiler build with zero warnings/errors.
 Its expected analyzer-verification exit 2 contained only the eight protected
-manual cases described above.
+manual cases described above; the A1-only check returned exit 0. `git diff
+--check` also passed.
 
-Temporarily bypassing the suppressor with the original upstream provider made
+The A1 cross-ID Fix All regression initially failed for both IDs because the
+batch fixer returned no action with the other diagnostic's key. The shared
+action key makes both cases pass and allows the actual CLI to fix both IDs.
+
+In slice 02, temporarily bypassing the suppressor with the original upstream provider made
 all six arrow-comment exact-output regressions fail and reproduced CS0161 for
 the custom task-like method. The temporary negative-control changes were
 restored before the passing runs; both custom method/local-function diagnostics

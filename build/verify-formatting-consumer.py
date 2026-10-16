@@ -132,6 +132,10 @@ def main():
                                                fixed.decode().splitlines(keepends=True),
                                                fromfile="expected", tofile="actual"))
         assert fixed == expected, difference
+        # Unlike the combined RCS1016 command below, the documented A1-only
+        # check must succeed without any residual manual diagnostics.
+        run(["dotnet", "format", "analyzers", project, "--no-restore", "--diagnostics",
+             "CR0801", "CR0802", "--verify-no-changes"], consumer, environment)
         # This CLI bypasses suppressors and reports protected manual cases even
         # though the replacement fixer offers no action. Assert that exact set;
         # actual idempotence is the byte comparison after the next fixing pass.

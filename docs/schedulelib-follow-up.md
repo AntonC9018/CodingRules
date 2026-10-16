@@ -129,8 +129,13 @@ Slice 02 now implements A2/A3/A12 through the consumer package. The
 binary analyzer delivery with a CodingRules RCS1016 fixer, selective
 configuration, Boolean-only CR0800 gap, conservative RCS1016 exclusions for
 arrow-token trivia and custom async return contracts, tested Roslyn
-4.10/SDK 10.0.112 hosts, and required CLI configuration. A1 remains
-slice 03. This implementation does not establish coverage for other A items.
+4.10/SDK 10.0.112 hosts, and required CLI configuration. Slice 03 adds
+CR0801/CR0802 for A1's multi-member initializer expansion and adjacent sole
+constructor arguments. The same consumer gate verifies exact output, accepted
+layouts, comments, nesting, unchanged runtime evaluation and a byte-identical
+second pass. Focused tests cover all four pinned A1 sites and preserve existing
+operation findings; #19 remains separate. This implementation does not establish
+coverage for other A items.
 
 ## Open design questions
 

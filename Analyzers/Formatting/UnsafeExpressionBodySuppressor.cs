@@ -6,16 +6,16 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace CodingRules;
 
-// Roslynator 5.0.1 discards arrow-token trivia and recognizes only framework
-// Task/ValueTask async returns. Keep those unsafe conversions out of RCS1016.
+// Roslynator 5.0.1's common fixer discards arrow-token trivia and recognizes
+// only framework Task/ValueTask async returns. Exclude those unsafe shapes.
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class UnsafeExpressionBodySuppressor : DiagnosticSuppressor
 {
     private static readonly SuppressionDescriptor ArrowTrivia = new(
-        "CRSPR0801", "RCS1016", "The bundled fixer does not preserve arrow-token comments.");
+        "CRSPR0801", "RCS1016", "Arrow-token comments require manual block conversion.");
 
     private static readonly SuppressionDescriptor AsyncContract = new(
-        "CRSPR0802", "RCS1016", "The bundled fixer does not support custom async return contracts.");
+        "CRSPR0802", "RCS1016", "Custom async return contracts require manual block conversion.");
 
     public override ImmutableArray<SuppressionDescriptor> SupportedSuppressions =>
         ImmutableArray.Create(ArrowTrivia, AsyncContract);
@@ -32,20 +32,29 @@ public sealed class UnsafeExpressionBodySuppressor : DiagnosticSuppressor
                 .AncestorsAndSelf().OfType<ArrowExpressionClauseSyntax>().FirstOrDefault();
             if (arrow is null) continue;
 
-            if (arrow.ArrowToken.LeadingTrivia.Concat(arrow.ArrowToken.TrailingTrivia)
-                .Any(trivia => !trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia)))
+            if (HasUnsafeArrowTrivia(arrow))
             {
                 context.ReportSuppression(Suppression.Create(ArrowTrivia, diagnostic));
                 continue;
             }
 
-            var model = context.GetSemanticModel(tree);
-            if (arrow.Parent is not MethodDeclarationSyntax && arrow.Parent is not LocalFunctionStatementSyntax) continue;
-            var method = model.GetDeclaredSymbol(arrow.Parent, context.CancellationToken) as IMethodSymbol;
-            if (method is null || !method.IsAsync || method.ReturnsVoid) continue;
-            if (IsSupportedAsyncReturn(method.ReturnType, context.Compilation)) continue;
-            context.ReportSuppression(Suppression.Create(AsyncContract, diagnostic));
+            if (HasUnsupportedAsyncReturn(arrow, context.GetSemanticModel(tree), context.CancellationToken))
+                context.ReportSuppression(Suppression.Create(AsyncContract, diagnostic));
         }
+    }
+
+    // Shared with the exported fixer: CLI hosts can omit diagnostic suppressors.
+    public static bool HasUnsafeArrowTrivia(ArrowExpressionClauseSyntax arrow) =>
+        arrow.ArrowToken.LeadingTrivia.Concat(arrow.ArrowToken.TrailingTrivia)
+            .Any(trivia => !trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia));
+
+    public static bool HasUnsupportedAsyncReturn(ArrowExpressionClauseSyntax arrow, SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (arrow.Parent is not MethodDeclarationSyntax && arrow.Parent is not LocalFunctionStatementSyntax) return false;
+        var method = model.GetDeclaredSymbol(arrow.Parent, cancellationToken) as IMethodSymbol;
+        if (method is null || !method.IsAsync || method.ReturnsVoid) return false;
+        return !IsSupportedAsyncReturn(method.ReturnType, model.Compilation);
     }
 
     private static bool IsSupportedAsyncReturn(ITypeSymbol type, Compilation compilation)

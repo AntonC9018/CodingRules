@@ -9,7 +9,6 @@ using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Text;
 using Roslynator.CSharp.Analysis;
-using Roslynator.CSharp.CodeFixes;
 using Roslynator.Formatting.CodeFixes.CSharp;
 using Roslynator.Formatting.CSharp;
 using Xunit;
@@ -46,7 +45,7 @@ public sealed class FormattingReuseTests
         CodeFixProvider provider = diagnostic.Id switch
         {
             "RCS0042" => new AccessorListCodeFixProvider(),
-            "RCS1016" => new UseBlockBodyOrExpressionBodyCodeFixProvider(),
+            "RCS1016" => new ExpressionBodyCodeFixProvider(),
             "CR0800" => new LeadingBooleanOperatorCodeFixProvider(),
             _ => throw new InvalidOperationException(diagnostic.Id),
         };
@@ -72,6 +71,17 @@ public sealed class FormattingReuseTests
             document = await Fix(document, diagnostics[0]);
         }
         throw new InvalidOperationException("Formatting fixes failed to converge.");
+    }
+
+    private static async Task NoExpressionBodyFix(Document document, IEnumerable<Diagnostic> diagnostics)
+    {
+        foreach (var diagnostic in diagnostics)
+        {
+            var actions = new List<CodeAction>();
+            await new ExpressionBodyCodeFixProvider().RegisterCodeFixesAsync(new CodeFixContext(document, diagnostic,
+                (action, _) => actions.Add(action), CancellationToken.None));
+            Assert.Empty(actions);
+        }
     }
 
     [Fact]
@@ -266,7 +276,9 @@ public sealed class FormattingReuseTests
         var source = $"class C {{ {member} }}";
         var document = Document(source);
         await StatementOperationTestFixture.Compiles(document);
-        Assert.Equal("RCS1016", Assert.Single(await Diagnostics(document, includeSafetySuppressor: false)).Id);
+        var upstreamDiagnostics = await Diagnostics(document, includeSafetySuppressor: false);
+        Assert.Equal("RCS1016", Assert.Single(upstreamDiagnostics).Id);
+        await NoExpressionBodyFix(document, upstreamDiagnostics);
         // The bundled fixer loses arrow trivia: these bodies must stay excluded.
         Assert.Empty(await Diagnostics(document));
         var changed = await FixAll(document);
@@ -284,6 +296,7 @@ public sealed class FormattingReuseTests
         var upstreamDiagnostics = await Diagnostics(document, includeSafetySuppressor: false);
         Assert.Equal(2, upstreamDiagnostics.Length);
         Assert.All(upstreamDiagnostics, diagnostic => Assert.Equal("RCS1016", diagnostic.Id));
+        await NoExpressionBodyFix(document, upstreamDiagnostics);
         Assert.Empty(await Diagnostics(document));
         var changed = await FixAll(document);
         Assert.Equal(source, (await changed.GetTextAsync()).ToString());
@@ -319,6 +332,52 @@ public sealed class FormattingReuseTests
         Assert.Empty(await Diagnostics(changed));
         var text = (await changed.GetTextAsync()).ToString();
         Assert.Equal(text, (await (await FixAll(changed)).GetTextAsync()).ToString());
+    }
+
+    [Fact]
+    public async Task ConvertsOtherArrowHostsRefReturnsAndThrowsWithoutChangingCompilation()
+    {
+        var document = Document("""
+            class C
+            {
+                int storage;
+                public C() => System.Console.WriteLine(
+                    1);
+                ~C() => System.Console.WriteLine(
+                    2);
+                public int this[int index] => System.Math.Abs(
+                    index);
+                public static C operator +(C left, C right) => new C(
+                    );
+                public static implicit operator int(C value) => System.Math.Abs(
+                    -1);
+                public int Value
+                {
+                    get { return storage; }
+                    init => System.Console.WriteLine(
+                        value);
+                }
+                public event System.Action Changed
+                {
+                    add => System.Console.WriteLine(
+                        value);
+                    remove => System.Console.WriteLine(
+                        value);
+                }
+                public ref int Reference() => ref (true
+                    ? ref storage : ref storage);
+                public int Throw() => throw new System.InvalidOperationException(
+                    "message");
+            }
+            """);
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostics = await Diagnostics(document);
+        Assert.Equal(10, diagnostics.Length);
+        Assert.All(diagnostics, diagnostic => Assert.Equal("RCS1016", diagnostic.Id));
+        var changed = await FixAll(document);
+        Assert.Empty((await changed.GetSyntaxRootAsync())!.DescendantNodes().OfType<ArrowExpressionClauseSyntax>());
+        await StatementOperationTestFixture.Compiles(await StatementOperationTestFixture.Reparse(changed));
+        Assert.Equal((await changed.GetTextAsync()).ToString(), (await (await FixAll(changed)).GetTextAsync()).ToString());
     }
 
     [Fact]

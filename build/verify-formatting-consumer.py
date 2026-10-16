@@ -71,8 +71,10 @@ def main():
                 assert "third-party/roslynator/" + name in names, name
             assert "buildTransitive/Anton.CodingRules.props" in names
             assert "config/CodingRules.globalconfig" in names
+            assert "analyzers/dotnet/cs/Roslynator.CSharp.Analyzers.CodeFixes.dll" not in names
+            assert "analyzers/dotnet/cs/Roslynator.Formatting.Analyzers.CodeFixes.dll" in names
             assert sum(name.startswith("analyzers/dotnet/cs/Roslynator")
-                       and name.endswith(".dll") for name in names) == 16
+                       and name.endswith(".dll") for name in names) == 15
 
         consumer = work / "consumer"
         shutil.copytree(ROOT / "CodeFixTests/Consumers/Formatting", consumer,

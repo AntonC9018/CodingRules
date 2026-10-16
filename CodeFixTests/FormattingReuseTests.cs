@@ -15,11 +15,11 @@ using Xunit;
 
 namespace CodingRules;
 
-public sealed class FormattingReuseTests
+public sealed partial class FormattingReuseTests
 {
     private static readonly ImmutableArray<DiagnosticAnalyzer> Selected = ImmutableArray.Create<DiagnosticAnalyzer>(
         new AccessorListAnalyzer(), new UseBlockBodyOrExpressionBodyAnalyzer(), new LeadingBooleanOperatorAnalyzer(),
-        new UnsafeExpressionBodySuppressor());
+        new UnsafeExpressionBodySuppressor(), new InitializerCallLayoutAnalyzer());
 
     private static Document Document(string source, string? config = null)
     {
@@ -47,6 +47,7 @@ public sealed class FormattingReuseTests
             "RCS0042" => new AccessorListCodeFixProvider(),
             "RCS1016" => new ExpressionBodyCodeFixProvider(),
             "CR0800" => new LeadingBooleanOperatorCodeFixProvider(),
+            "CR0801" or "CR0802" => new InitializerCallLayoutCodeFixProvider(),
             _ => throw new InvalidOperationException(diagnostic.Id),
         };
         Assert.NotNull(provider.GetType().GetCustomAttribute<ExportCodeFixProviderAttribute>());

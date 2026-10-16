@@ -23,4 +23,6 @@ public static class DiagnosticIds
     public const string UncheckedHelperSentinel = "CR0601";
     public const string TransientTextInspection = "CR0700";
     public const string LeadingBooleanOperator = "CR0800";
+    public const string InitializerMemberLayout = "CR0801";
+    public const string SoleConstructorArgumentLayout = "CR0802";
 }

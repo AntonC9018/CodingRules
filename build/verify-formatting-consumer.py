@@ -92,8 +92,8 @@ def main():
         project = "Consumer.csproj"
         run(["dotnet", "restore", project], consumer, environment)
         output = run(["dotnet", "build", project, "--no-restore"], consumer, environment)
-        reports = set(re.findall(r"Consumer.cs\((\d+),(\d+)\): warning (\w+):", output))
-        counts = Counter(report[2] for report in reports)
+        reports = set(re.findall(r"([^/\\\s]+\.cs)\((\d+),(\d+)\): warning (\w+):", output))
+        counts = Counter(report[3] for report in reports)
         assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2}, counts
         assert not re.search(r"warning (?:AD|CS|ROS)\d+", output), output
 
@@ -108,6 +108,9 @@ def main():
         run(command, consumer, environment)
         run(["dotnet", "format", "whitespace", project, "--no-restore"], consumer, environment)
         source_path = consumer / "Consumer.cs"
+        task_like_path = consumer / "TaskLike.cs"
+        task_like_original = (ROOT / "CodeFixTests/Consumers/Formatting/TaskLike.cs").read_bytes()
+        assert task_like_path.read_bytes() == task_like_original, "Custom async contracts must remain unchanged"
         fixed = source_path.read_bytes()
         expected = (ROOT / "CodeFixTests/Expected/Formatting.Fixed.cs.txt").read_bytes()
         difference = "".join(difflib.unified_diff(expected.decode().splitlines(keepends=True),
@@ -119,6 +122,7 @@ def main():
         run(["dotnet", "format", "whitespace", project, "--no-restore", "--verify-no-changes"],
             consumer, environment)
         assert source_path.read_bytes() == fixed
+        assert task_like_path.read_bytes() == task_like_original
         run(["dotnet", "build", project, "--no-restore", "-warnaserror"], consumer, environment)
         print("PASS: exact diagnostics, exported CLI fixes, formatter and second-pass stability; isolated package.")
 

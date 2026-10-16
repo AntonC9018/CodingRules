@@ -42,6 +42,33 @@ public class Consumer
         return Local();
     }
 
+    public int BlockCommentMethod() => /* preserve method block */ System.Math.Abs(
+        -5);
+
+    public int LineCommentMethod() => // preserve method line
+        System.Math.Abs(
+            -6);
+
+    public int BlockCommentProperty => /* preserve property block */ System.Math.Abs(
+        -7);
+
+    public int LineCommentProperty => // preserve property line
+        System.Math.Abs(
+            -8);
+
+    public int BlockCommentAccessor
+    {
+        get => /* preserve accessor block */ System.Math.Abs(
+            -9);
+    }
+
+    public int LineCommentAccessor
+    {
+        get => // preserve accessor line
+            System.Math.Abs(
+                -10);
+    }
+
     public int Simple() => 3;
     public int SimpleProperty => 3;
     public int SimpleAccessor { get => 3; }

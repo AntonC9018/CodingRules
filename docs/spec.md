@@ -7,6 +7,28 @@ examples, the coverage-based completion criterion, and pending policy changes,
 including separating message data from rendering. Those changes do not imply
 that the currently published package already implements them.
 
+## Selected formatting implementation (ScheduleLib slices 02/03)
+
+The consumer package enables upstream RCS0042 for compact bodyless accessors
+and RCS1016 for multiline expressions converted to blocks. Simple single-line
+arrows and blocks remain accepted. CR0800 moves only already-wrapped trailing
+`&&`/`||` to the continuation's beginning, skipping comments/directives that
+would move. RCS1016 conservatively excludes arrow-token comments and custom async
+return contracts because the upstream fixer is unsafe for those shapes. The
+package replaces the common upstream fixer assembly with a CodingRules RCS1016
+provider that independently declines these shapes, including in CLI hosts that
+bypass diagnostic suppressors.
+Other upstream rules and broader binary-operator policies remain disabled.
+Slice 03 adds CR0801 for object initializers with at least two members on
+separate lines and CR0802 for a sole positional constructor argument adjacent
+to an invocation's opening parenthesis. Empty/single-member initializers and
+already adjacent constructors remain accepted. Comment-separated argument
+gaps, directives, invalid syntax and other argument policies are conservative
+boundaries. These layout fixes preserve initializer values and leave operation
+diagnostics independent; initializer false positives remain tracked in #19.
+[Packaged formatting](formatting.md) defines the precise boundaries,
+formatter and CLI configuration, license provenance and verification workflow.
+
 ## Source and scope
 
 The source policy is the coding standards section of
@@ -103,6 +125,19 @@ Ticket 9 implements `CR0700` for immediate Length and non-null constant ordinal
 equality inspection of genuine parameterless framework string trims. The
 [span assessment](spans.md) records the exact available-API catalogue, safe
 synchronous helper rewrite and manual ownership/signature/slicing boundaries.
+
+## Tuple data implementation (ScheduleLib slice 04)
+
+CR0900 implements the settled Q15/Q16 cases as a manual Readability warning:
+ordinary tuple method results, ordinary/local method tuple inputs, and stored
+tuple elements in arrays, List and ReadOnlySpan. Method results and inputs also
+include IEnumerable of tuples. The [tuple data contract](tuple-data.md) records
+the exact catalogue and regression evidence. Private ordinary methods remain
+included; local-function result declarations are excluded. A collection used by
+a local function is not thereby exempt. Deconstruction is not a violation.
+Purely local scalar tuples/swaps and other uncatalogued shapes remain outside
+the settled detection boundary. Domain naming and API/caller migration require
+manual review; CR0900 provides no automatic fix.
 
 ## Primitive sentinel implementation (ticket 8)
 

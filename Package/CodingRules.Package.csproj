@@ -4,11 +4,24 @@
     <Version>0.1.0</Version>
     <Description>C# coding rules with Roslyn diagnostics and code fixes.</Description>
     <Authors>Anton C.</Authors>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>MIT AND Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/AntonC9018/CodingRules</RepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="/" />
+    <!-- The SDK only bundles project references and its own named helpers.
+         Restore upstream assets explicitly; keep their complete dependency sets. -->
+    <PackageReference Include="Roslynator.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />
+    <PackageReference Include="Roslynator.Formatting.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />
+    <!-- Replace the common fixer with our safety-aware RCS1016 provider.
+         dotnet format can bypass DiagnosticSuppressor implementations. -->
+    <None Include="$(PkgRoslynator_Analyzers)/analyzers/dotnet/roslyn4.7/cs/*.dll"
+          Exclude="$(PkgRoslynator_Analyzers)/analyzers/dotnet/roslyn4.7/cs/Roslynator.CSharp.Analyzers.CodeFixes.dll"
+          Pack="true" PackagePath="analyzers/dotnet/cs" />
+    <None Include="$(PkgRoslynator_Formatting_Analyzers)/analyzers/dotnet/roslyn4.7/cs/*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
+    <None Include="buildTransitive/*" Pack="true" PackagePath="buildTransitive" />
+    <None Include="config/*" Pack="true" PackagePath="config" />
+    <None Include="../third-party/roslynator/*" Pack="true" PackagePath="third-party/roslynator" />
   </ItemGroup>
 </Project>

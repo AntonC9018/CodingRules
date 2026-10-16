@@ -1,1 +1,5 @@
-<Project Sdk="Anton.SourceGeneration.Sdk/1.1.0" />
+<Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
+  <ItemGroup>
+    <None Include="../CodeFixTests/Consumers/TupleData/*.cs" Link="TupleData/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

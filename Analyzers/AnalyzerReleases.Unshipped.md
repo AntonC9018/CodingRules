@@ -22,6 +22,10 @@ CR0500 | Readability | Warning | Name arguments with ambiguous same-type roles
 CR0600 | Readability | Warning | Represent proven index-search absence in the return type
 CR0601 | Readability | Warning | Check a private helper's proven index-search sentinel before forwarding
 CR0700 | Readability | Warning | Use a span for transient text inspection
+CR0800 | Formatting | Warning | Place wrapped Boolean operators at the start of the continuation line
+CR0801 | Formatting | Warning | Place object initializer members on separate lines
+CR0802 | Formatting | Warning | Keep a sole constructor argument adjacent to the call parenthesis
+CR0900 | Readability | Warning | Represent tuple method results, inputs and stored collection elements with a named record struct (manual migration)
 
 ### Removed Rules
 

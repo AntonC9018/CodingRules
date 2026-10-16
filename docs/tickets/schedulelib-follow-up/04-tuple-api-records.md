@@ -2,7 +2,7 @@
 
 **Target repository:** [CodingRules](https://github.com/AntonC9018/CodingRules)
 
-**Status:** ready-for-agent
+**Status:** implemented (CR0900; manual migration)
 
 **Published issue:** https://github.com/AntonC9018/CodingRules/issues/23
 
@@ -16,12 +16,15 @@ The accepted tuple API/data cases receive a diagnostic directing the author to a
 
 ## Acceptance criteria
 
-- [ ] Cover the calendar plan collection/API flow, course-name mapping table, private qualification-parser return, and ordinary filtered-item method result.
-- [ ] Keep the nonempty-cell local iterator tuple result unreported. Private ordinary methods do not inherit that exception, and deconstruction syntax is not itself a violation.
-- [ ] Do not infer a universal ban on purely local tuple temporaries/swaps or an exemption for every tuple used somewhere by a local function; constrain detection to settled cases and a documented conservative generalization.
-- [ ] Confident architectural findings may be manual findings. Offer a fix only when naming, API/caller changes, semantics, and compilation can be preserved; verify every offered fix.
+- [x] Cover the calendar plan collection/API flow, course-name mapping table, private qualification-parser return, and ordinary filtered-item method result.
+- [x] Keep the nonempty-cell local iterator tuple result unreported. Private ordinary methods do not inherit that exception, and deconstruction syntax is not itself a violation.
+- [x] Do not infer a universal ban on purely local tuple temporaries/swaps or an exemption for every tuple used somewhere by a local function; constrain detection to settled cases and a documented conservative generalization.
+- [x] Confident architectural findings may be manual findings. Offer a fix only when naming, API/caller changes, semantics, and compilation can be preserved; verify every offered fix.
 
-- [ ] Follow the repository warning/configuration, generated-code, release-metadata, and diagnostic documentation conventions; include positive and accepted-case regression evidence in the packaged offering.
+- [x] Follow the repository warning/configuration, generated-code, release-metadata, and diagnostic documentation conventions; include positive and accepted-case regression evidence in the packaged offering.
+
+Implementation and coverage: [tuple data contract](../../tuple-data.md).
+CR0900 offers no automatic fix; record naming and API/caller migration are manual.
 
 ## Blocked by
 

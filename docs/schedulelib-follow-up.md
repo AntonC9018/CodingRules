@@ -124,12 +124,36 @@ reuse, and any genuinely missing behavior. The
 [formatting reuse research](formatting-reuse-research.md) records the tested
 upstream candidates, gaps, package composition, and version-specific licenses.
 
+Slice 02 now implements A2/A3/A12 through the consumer package. The
+[formatting implementation](formatting.md) records the chosen Roslynator 5.0.1
+binary analyzer delivery with a CodingRules RCS1016 fixer, selective
+configuration, Boolean-only CR0800 gap, conservative RCS1016 exclusions for
+arrow-token trivia and custom async return contracts, tested Roslyn
+4.10/SDK 10.0.112 hosts, and required CLI configuration. Slice 03 adds
+CR0801/CR0802 for A1's multi-member initializer expansion and adjacent sole
+constructor arguments. The same consumer gate verifies exact output, accepted
+layouts, comments, nesting, unchanged runtime evaluation and a byte-identical
+second pass. Focused tests cover all four pinned A1 sites and preserve existing
+operation findings; #19 remains separate. This implementation does not establish
+coverage for other A items.
+
+Slice 04 implements A4/Q15/Q16 as CR0900 manual findings for tuple method
+results, method inputs and catalogued stored collection data. The
+[tuple data contract](tuple-data.md) records the conservative generalization,
+the local-function result exception, and positive/accepted regression evidence
+in analyzer tests and the isolated package gate. No universal scalar-local tuple
+policy or automatic API migration is introduced.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable
   distribution approach, including a configured metapackage. If code is copied,
-  make that reuse clear and preserve its license and attribution. No upstream
-  code or binaries have been incorporated yet.
+  make that reuse clear and preserve its license and attribution. Slice 02
+  incorporates unmodified Apache-2.0 Roslynator binaries with license, NOTICE
+  and provenance, omitting the unsafe common fixer assembly in favor of an
+  independent MIT CodingRules RCS1016 fixer. The compiler suppressor and the
+  fixer both exclude unsafe shapes because the tested CLI bypasses suppressors.
+  No upstream source has been copied or modified.
 - **Q7 — Open; needs real examples.** The maintainer regards the illustrative
   `Report($"Saved {path}")` and `File.WriteAllText(path, $"{heading}\n{body}")`
   calls as quick debugging shortcuts rather than a maintainable design; the

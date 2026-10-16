@@ -96,21 +96,30 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider
         // Change only trivia before line-start tokens. Literal token text and
         // interpolated-string contents must keep their original bytes.
         var tokens = arrow.Expression.DescendantTokens().Where(token =>
-        {
-            if (token.Parent!.AncestorsAndSelf().OfType<InterpolatedStringExpressionSyntax>().Any()) return false;
-            var line = text.Lines.GetLineFromPosition(token.SpanStart);
-            return text.ToString(TextSpan.FromBounds(line.Start, token.SpanStart)).All(char.IsWhiteSpace);
-        });
+            !token.Parent!.AncestorsAndSelf().OfType<InterpolatedStringExpressionSyntax>().Any());
         return arrow.Expression.ReplaceTokens(tokens, (original, rewritten) =>
         {
-            var width = Math.Max(0, LineIndent(original.SpanStart) + delta);
+            var leading = IndentTrivia(original.LeadingTrivia);
+            var line = text.Lines.GetLineFromPosition(original.SpanStart);
+            if (original.SpanStart == line.Start)
+                leading = leading.Add(Indentation(delta));
+            return rewritten.WithLeadingTrivia(leading).WithTrailingTrivia(IndentTrivia(original.TrailingTrivia));
+        });
+
+        SyntaxTriviaList IndentTrivia(SyntaxTriviaList trivia) => SyntaxFactory.TriviaList(trivia.Select(item =>
+        {
+            if (!item.IsKind(SyntaxKind.WhitespaceTrivia)) return item;
+            if (item.SpanStart != text.Lines.GetLineFromPosition(item.SpanStart).Start) return item;
+            return Indentation(LineIndent(item.Span.End) + delta);
+        }));
+
+        SyntaxTrivia Indentation(int width)
+        {
+            width = Math.Max(0, width);
             var indentation = useTabs ? new string('\t', width / tabSize) + new string(' ', width % tabSize)
                 : new string(' ', width);
-            var trivia = rewritten.LeadingTrivia;
-            while (trivia.Count > 0 && trivia.Last().IsKind(SyntaxKind.WhitespaceTrivia))
-                trivia = trivia.RemoveAt(trivia.Count - 1);
-            return rewritten.WithLeadingTrivia(trivia.Add(SyntaxFactory.Whitespace(indentation)));
-        });
+            return SyntaxFactory.Whitespace(indentation);
+        }
 
         int LineIndent(int position)
         {

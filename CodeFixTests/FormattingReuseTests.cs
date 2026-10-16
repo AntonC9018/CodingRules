@@ -312,6 +312,23 @@ public sealed class FormattingReuseTests
         Assert.Empty(await Diagnostics(changed));
     }
 
+    [Fact]
+    public async Task IndentsCommentsWithinTheConvertedExpression()
+    {
+        var document = Document("""
+            class C
+            {
+                int M() => System.Math.Max(
+                    /* first */ 1,
+                    // second
+                    2);
+            }
+            """);
+        var changed = await FixAll(document);
+        Assert.Contains("\n            /* first */ 1,\n            // second\n            2);",
+            (await changed.GetTextAsync()).ToString());
+    }
+
     [Theory]
     [InlineData("method", "/* preserve this explanation */ ")]
     [InlineData("method", "// preserve this explanation\n        ")]

@@ -5,6 +5,7 @@ global_level = -100
 
 # Compact properties must survive the standard formatter.
 csharp_preserve_single_line_blocks = true
+csharp_new_line_before_members_in_object_initializers = true
 roslynator_use_block_body_when_expression_spans_over_multiple_lines = true
 
 dotnet_diagnostic.RCS0001.severity = none

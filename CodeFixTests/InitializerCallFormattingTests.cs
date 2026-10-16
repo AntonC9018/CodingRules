@@ -218,6 +218,58 @@ public sealed partial class FormattingReuseTests
             .DescendantTokens().Select(token => token.Text))).ToArray();
     }
 
+    [Theory]
+    [InlineData("CR0801")]
+    [InlineData("CR0802")]
+    public async Task ExportedInitializerFixAllHandlesMultipleSitesAndConsumerSeverity(string id)
+    {
+        const string source = """
+            class C
+            {
+                int A;
+                int B;
+                void Use(C value) { }
+                void M()
+                {
+                    Use(
+                        new() { A = 1, B = 2 });
+                    Use(
+                        new C { A = 3, B = 4 });
+                }
+            }
+            """;
+        var document = Document(source);
+        var provider = new InitializerCallLayoutCodeFixProvider();
+        var context = new FixAllContext(document, provider, FixAllScope.Document, id,
+            new[] { id }, new InitializerDiagnostics(id), CancellationToken.None);
+        var action = await provider.GetFixAllProvider().GetFixAsync(context);
+        Assert.NotNull(action);
+        var operations = await action.GetOperationsAsync(CancellationToken.None);
+        var changed = Assert.Single(operations.OfType<ApplyChangesOperation>()).ChangedSolution.GetDocument(document.Id)!;
+        Assert.DoesNotContain(await Diagnostics(changed), diagnostic => diagnostic.Id == id);
+        await AssertStableLayout(document, await Formatter.FormatAsync(await FixAll(changed)));
+        var disabled = Document(source, $"root = true\n[*]\ndotnet_diagnostic.{id}.severity = none\n");
+        Assert.DoesNotContain(await Diagnostics(disabled), diagnostic => diagnostic.Id == id);
+    }
+
+    private sealed class InitializerDiagnostics(string id) : FixAllContext.DiagnosticProvider
+    {
+        public override async Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(Document document,
+            CancellationToken cancellationToken) => (await Diagnostics(document)).Where(diagnostic => diagnostic.Id == id);
+
+        public override Task<IEnumerable<Diagnostic>> GetProjectDiagnosticsAsync(Project project,
+            CancellationToken cancellationToken) => Task.FromResult(Enumerable.Empty<Diagnostic>());
+
+        public override async Task<IEnumerable<Diagnostic>> GetAllDiagnosticsAsync(Project project,
+            CancellationToken cancellationToken)
+        {
+            var diagnostics = new List<Diagnostic>();
+            foreach (var document in project.Documents)
+                diagnostics.AddRange(await GetDocumentDiagnosticsAsync(document, cancellationToken));
+            return diagnostics;
+        }
+    }
+
     [Fact]
     public async Task StandardFormatterAndRcs0053DoNotCloseThePinnedGaps()
     {

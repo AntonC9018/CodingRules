@@ -15,7 +15,7 @@ from zipfile import ZipFile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DIAGNOSTICS = ["RCS0042", "RCS1016", "CR0800"]
+DIAGNOSTICS = ["RCS0042", "RCS1016", "CR0800", "CR0801", "CR0802"]
 SOURCE_WARNING = re.compile(r"([^/\\\s]+\.cs)\((\d+),(\d+)\): warning (\w+):")
 
 
@@ -100,8 +100,10 @@ def main():
         output = run(["dotnet", "build", project, "--no-restore"], consumer, environment)
         reports = set(SOURCE_WARNING.findall(output))
         counts = Counter(report[3] for report in reports)
-        assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2}, counts
+        assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2, "CR0801": 5, "CR0802": 2}, counts
         assert not re.search(r"warning (?:AD|CS|ROS)\d+", output), output
+        original_behavior = run(["dotnet", "run", "--project", project, "--no-build"], consumer, environment)
+        assert original_behavior.strip() == "123345667890123", original_behavior
 
         # The SDK CLI's analyzer filter overlooks global diagnostic severities.
         # Exercise the documented setup using the template actually shipped.
@@ -118,6 +120,13 @@ def main():
         task_like_original = (ROOT / "CodeFixTests/Consumers/Formatting/TaskLike.cs").read_bytes()
         assert task_like_path.read_bytes() == task_like_original, "Custom async contracts must remain unchanged"
         fixed = source_path.read_bytes()
+        initializer_path = consumer / "InitializerCalls.cs"
+        initializer_fixed = initializer_path.read_bytes()
+        initializer_expected = (ROOT / "CodeFixTests/Expected/InitializerCalls.Fixed.cs.txt").read_bytes()
+        initializer_difference = "".join(difflib.unified_diff(
+            initializer_expected.decode().splitlines(keepends=True), initializer_fixed.decode().splitlines(keepends=True),
+            fromfile="initializer expected", tofile="initializer actual"))
+        assert initializer_fixed == initializer_expected, initializer_difference
         expected = (ROOT / "CodeFixTests/Expected/Formatting.Fixed.cs.txt").read_bytes()
         difference = "".join(difflib.unified_diff(expected.decode().splitlines(keepends=True),
                                                fixed.decode().splitlines(keepends=True),
@@ -139,8 +148,10 @@ def main():
         run(["dotnet", "format", "whitespace", project, "--no-restore", "--verify-no-changes"],
             consumer, environment)
         assert source_path.read_bytes() == fixed
+        assert initializer_path.read_bytes() == initializer_fixed
         assert task_like_path.read_bytes() == task_like_original
         run(["dotnet", "build", project, "--no-restore", "-warnaserror"], consumer, environment)
+        assert run(["dotnet", "run", "--project", project, "--no-build"], consumer, environment) == original_behavior
         print("PASS: exact diagnostics, exported CLI fixes, formatter and second-pass stability; isolated package.")
 
 

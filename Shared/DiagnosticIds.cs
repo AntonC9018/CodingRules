@@ -25,4 +25,5 @@ public static class DiagnosticIds
     public const string LeadingBooleanOperator = "CR0800";
     public const string InitializerMemberLayout = "CR0801";
     public const string SoleConstructorArgumentLayout = "CR0802";
+    public const string NamedTupleData = "CR0900";
 }

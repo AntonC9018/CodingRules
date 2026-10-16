@@ -25,6 +25,7 @@ CR0700 | Readability | Warning | Use a span for transient text inspection
 CR0800 | Formatting | Warning | Place wrapped Boolean operators at the start of the continuation line
 CR0801 | Formatting | Warning | Place object initializer members on separate lines
 CR0802 | Formatting | Warning | Keep a sole constructor argument adjacent to the call parenthesis
+CR0900 | Readability | Warning | Represent tuple method results, inputs and stored collection elements with a named record struct (manual migration)
 
 ### Removed Rules
 

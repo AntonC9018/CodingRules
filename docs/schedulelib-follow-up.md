@@ -126,8 +126,10 @@ upstream candidates, gaps, package composition, and version-specific licenses.
 
 Slice 02 now implements A2/A3/A12 through the consumer package. The
 [formatting implementation](formatting.md) records the chosen Roslynator 5.0.1
-binary delivery, selective configuration, Boolean-only CR0800 gap, tested
-Roslyn 4.10/SDK 10.0.112 hosts, and required CLI configuration. A1 remains
+binary analyzer delivery with a CodingRules RCS1016 fixer, selective
+configuration, Boolean-only CR0800 gap, conservative RCS1016 exclusions for
+arrow-token trivia and custom async return contracts, tested Roslyn
+4.10/SDK 10.0.112 hosts, and required CLI configuration. A1 remains
 slice 03. This implementation does not establish coverage for other A items.
 
 ## Open design questions
@@ -136,7 +138,10 @@ slice 03. This implementation does not establish coverage for other A items.
   distribution approach, including a configured metapackage. If code is copied,
   make that reuse clear and preserve its license and attribution. Slice 02
   incorporates unmodified Apache-2.0 Roslynator binaries with license, NOTICE
-  and provenance; no upstream source has been copied or modified.
+  and provenance, omitting the unsafe common fixer assembly in favor of an
+  independent MIT CodingRules RCS1016 fixer. The compiler suppressor and the
+  fixer both exclude unsafe shapes because the tested CLI bypasses suppressors.
+  No upstream source has been copied or modified.
 - **Q7 — Open; needs real examples.** The maintainer regards the illustrative
   `Report($"Saved {path}")` and `File.WriteAllText(path, $"{heading}\n{body}")`
   calls as quick debugging shortcuts rather than a maintainable design; the

@@ -13,8 +13,13 @@ The consumer package enables upstream RCS0042 for compact bodyless accessors
 and RCS1016 for multiline expressions converted to blocks. Simple single-line
 arrows and blocks remain accepted. CR0800 moves only already-wrapped trailing
 `&&`/`||` to the continuation's beginning, skipping comments/directives that
-would move. Other upstream rules and broader binary-operator policies remain
-disabled. [Packaged formatting](formatting.md) defines the precise boundaries,
+would move. RCS1016 conservatively excludes arrow-token comments and custom async
+return contracts because the upstream fixer is unsafe for those shapes. The
+package replaces the common upstream fixer assembly with a CodingRules RCS1016
+provider that independently declines these shapes, including in CLI hosts that
+bypass diagnostic suppressors.
+Other upstream rules and broader binary-operator policies remain disabled.
+[Packaged formatting](formatting.md) defines the precise boundaries,
 formatter and CLI configuration, license provenance and verification workflow.
 
 ## Source and scope

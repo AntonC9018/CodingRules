@@ -2,8 +2,10 @@
 
 `Anton.CodingRules` is the only required PackageReference. It bundles the
 unmodified Roslynator.Analyzers and Roslynator.Formatting.Analyzers **5.0.1**
-Roslyn 4.7 assets, including both complete helper and code-fix assembly sets.
-These assets work on the repository's Roslyn **4.10** host floor and the
+Roslyn 4.7 assets. The common code-fix assembly is omitted and the selected
+RCS1016 conversion is provided by CodingRules; the formatting code-fix assembly
+and both helper sets are retained unchanged. These assets work on the
+repository's Roslyn **4.10** host floor and the
 **.NET SDK 10.0.112** compiler/CLI tested here. No IDE GUI session was tested.
 
 The package imports a low-priority global analyzer configuration through
@@ -18,9 +20,19 @@ enabled, as warnings:
   Methods, local functions, properties and accessors are tested, including
   return-bearing getters and statement-only void methods/setters. Upstream
   also supports constructors, destructors, operators and indexers. Directive
-  bodies are skipped. Simple single-line arrows and blocks remain accepted;
+  bodies are skipped. A packaged CodingRules diagnostic suppressor excludes
+  arrows with non-whitespace arrow-token trivia (including directly attached
+  block/line comments) and async methods/local functions returning custom
+  task-like types. Roslynator 5.0.1 loses the former comments and can omit a
+  required return for the latter. The CodingRules fixer also declines these
+  shapes directly because the tested CLI bypasses diagnostic suppressors.
+  These exclusions leave the entire body unchanged; they are safety boundaries,
+  not acceptance of the formatting.
+  Async void and resolved framework `Task`/`Task<T>`/`ValueTask`/`ValueTask<T>` remain
+  supported. Simple single-line arrows and blocks remain accepted;
   a multiline declaration header alone is not a trigger. Lambdas are separate
-  policy and are not enabled here.
+  policy and are not enabled here. Alternate RCS1016 block-to-expression
+  configurations are outside this package's fixer contract.
 
 **CR0800 / A3** supplies the actual upstream gap: move an existing trailing
 `&&` or `||` to the continuation's beginning. It preserves line endings,
@@ -80,10 +92,22 @@ formatter supplies indentation; it does not replace these diagnostics/fixes.
 
 Bundling avoids relying on analyzer transitivity from a metapackage. SDK 1.1.0
 does not gather arbitrary upstream analyzer references; the package project
-explicitly restores and packs the two pinned dependency sets. This uses normal
-NuGet pack items and needs no change to the shared SDK. Production code in
-CodingRules implements only the Boolean-placement policy gap, without copied
-upstream source. The unmodified binaries are Apache-2.0; CodingRules source
+explicitly restores and packs the two pinned helper dependency sets. This uses
+normal NuGet pack items and needs no change to the shared SDK. Production code in
+CodingRules implements the Boolean-placement policy gap, a conservative
+RCS1016 safety suppressor and an independent expression-to-block fixer using
+public Roslyn syntax/formatter APIs, without copied upstream source. Suppressions
+CRSPR0801 (arrow-token trivia) and CRSPR0802 (custom async return contract)
+exclude the unsafe shapes from build diagnostics. SDK 10.0.112's tested
+`dotnet format` workflow bypasses suppressors and reproduced both unsafe fixes;
+see also the [upstream suppressor issue](https://github.com/dotnet/sdk/issues/51364).
+The package therefore omits `Roslynator.CSharp.Analyzers.CodeFixes.dll` and
+ships exactly one RCS1016 provider, which independently refuses the same unsafe
+shapes. It implements the selected expression-to-block action; other common
+upstream fixes are outside the enabled policy. The formatting fixer and both
+helper sets remain intact. All 15 retained upstream DLLs are unmodified.
+This keeps the selected binary analyzers without maintaining an upstream fork.
+The unmodified binaries are Apache-2.0; CodingRules source
 remains MIT. Required license, NOTICE and credit/provenance are shipped under
 `third-party/roslynator`. The package declares `MIT AND Apache-2.0`.
 
@@ -102,12 +126,21 @@ It then applies actual exported fixes through `dotnet format`, compares exact
 source with `CodeFixTests/Expected/Formatting.Fixed.cs.txt`, runs whitespace
 formatting and a second idempotent pass, and builds with warnings as errors.
 Accepted simple bodies, arithmetic placement, comments and directive bodies
-are part of the same fixture. CI checks the retained release artifact itself.
+are part of the same fixture. Exact-output fixtures include block and line
+comments immediately after arrows in methods, properties and accessors. A
+separate custom generic task-like fixture contains both an async method and
+local function; it must remain unchanged, compile before/after fixing and
+survive the second pass. CI checks the retained release artifact itself.
 
-`FormattingReuseTests` run the actual upstream analyzers/providers on Roslyn
-4.10, check the complete descriptor inventory and exported Fix All providers,
-and exercise trivia skips, default configuration, consumer overrides,
-formatter conflict/recovery, CRLF/tabs and short-circuit runtime effects.
+`FormattingReuseTests` run the actual upstream analyzers and formatting provider,
+the CodingRules expression-body provider and packaged safety suppressor on
+Roslyn 4.10, check the complete descriptor inventory and exported Fix All
+providers, and exercise trivia skips, default configuration, consumer overrides,
+formatter conflict/recovery, CRLF/tabs and short-circuit runtime effects. They
+also pass unsuppressed upstream diagnostics to the replacement provider and
+assert no unsafe action is offered. Constructors, destructors, indexers,
+operators/conversions, init/event accessors, ref returns and throws are
+compilation-checked alongside the four primary member shapes.
 Packaging tests and this consumer gate establish CLI discovery; they do not
 claim GUI-host interaction or coverage of every upstream host shape.
 

@@ -19,7 +19,8 @@ namespace CodingRules;
 public sealed class FormattingReuseTests
 {
     private static readonly ImmutableArray<DiagnosticAnalyzer> Selected = ImmutableArray.Create<DiagnosticAnalyzer>(
-        new AccessorListAnalyzer(), new UseBlockBodyOrExpressionBodyAnalyzer(), new LeadingBooleanOperatorAnalyzer());
+        new AccessorListAnalyzer(), new UseBlockBodyOrExpressionBodyAnalyzer(), new LeadingBooleanOperatorAnalyzer(),
+        new UnsafeExpressionBodySuppressor());
 
     private static Document Document(string source, string? config = null)
     {
@@ -29,12 +30,15 @@ public sealed class FormattingReuseTests
             filePath: "/CodingRules.globalconfig").Project.GetDocument(document.Id)!;
     }
 
-    private static async Task<ImmutableArray<Diagnostic>> Diagnostics(Document document)
+    private static async Task<ImmutableArray<Diagnostic>> Diagnostics(Document document, bool includeSafetySuppressor = true)
     {
         var compilation = await document.Project.GetCompilationAsync();
-        var diagnostics = await compilation!.WithAnalyzers(Selected, document.Project.AnalyzerOptions).GetAnalyzerDiagnosticsAsync();
+        var analyzers = includeSafetySuppressor ? Selected
+            : Selected.Where(analyzer => analyzer is not DiagnosticSuppressor).ToImmutableArray();
+        var diagnostics = await compilation!.WithAnalyzers(analyzers, document.Project.AnalyzerOptions).GetAnalyzerDiagnosticsAsync();
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "AD0001");
-        return diagnostics.OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start).ToImmutableArray();
+        return diagnostics.Where(diagnostic => !diagnostic.IsSuppressed)
+            .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start).ToImmutableArray();
     }
 
     private static async Task<Document> Fix(Document document, Diagnostic diagnostic)
@@ -240,6 +244,81 @@ public sealed class FormattingReuseTests
         Assert.Contains("return System.Math.Abs(", text);
         Assert.DoesNotContain("return System.Console.WriteLine", text);
         Assert.Empty(await Diagnostics(changed));
+    }
+
+    [Theory]
+    [InlineData("method", "/* preserve this explanation */ ")]
+    [InlineData("method", "// preserve this explanation\n        ")]
+    [InlineData("property", "/* preserve this explanation */ ")]
+    [InlineData("property", "// preserve this explanation\n        ")]
+    [InlineData("accessor", "/* preserve this explanation */ ")]
+    [InlineData("accessor", "// preserve this explanation\n        ")]
+    public async Task LeavesArrowCommentsExactlyIntact(string host, string comment)
+    {
+        var expression = $"=> {comment}System.Math.Abs(\n        -1);";
+        var member = host switch
+        {
+            "method" => $"int M() {expression}",
+            "property" => $"int P {expression}",
+            "accessor" => $"int P {{ get {expression} }}",
+            _ => throw new InvalidOperationException(host),
+        };
+        var source = $"class C {{ {member} }}";
+        var document = Document(source);
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Equal("RCS1016", Assert.Single(await Diagnostics(document, includeSafetySuppressor: false)).Id);
+        // The bundled fixer loses arrow trivia: these bodies must stay excluded.
+        Assert.Empty(await Diagnostics(document));
+        var changed = await FixAll(document);
+        Assert.Equal(source, (await changed.GetTextAsync()).ToString());
+        Assert.Equal(source, (await (await FixAll(changed)).GetTextAsync()).ToString());
+        await StatementOperationTestFixture.Compiles(changed);
+    }
+
+    [Fact]
+    public async Task LeavesCustomAsyncMethodAndLocalFunctionCompilableAndIdempotent()
+    {
+        var source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "TaskLike.cs.txt"));
+        var document = Document(source);
+        await StatementOperationTestFixture.Compiles(document);
+        var upstreamDiagnostics = await Diagnostics(document, includeSafetySuppressor: false);
+        Assert.Equal(2, upstreamDiagnostics.Length);
+        Assert.All(upstreamDiagnostics, diagnostic => Assert.Equal("RCS1016", diagnostic.Id));
+        Assert.Empty(await Diagnostics(document));
+        var changed = await FixAll(document);
+        Assert.Equal(source, (await changed.GetTextAsync()).ToString());
+        await StatementOperationTestFixture.Compiles(changed);
+        var repeated = await FixAll(changed);
+        Assert.Equal(source, (await repeated.GetTextAsync()).ToString());
+        await StatementOperationTestFixture.Compiles(repeated);
+    }
+
+    [Theory]
+    [InlineData("System.Threading.Tasks.Task<int>", "FromResult")]
+    [InlineData("System.Threading.Tasks.ValueTask<int>", "FromResult")]
+    [InlineData("System.Threading.Tasks.Task", "Delay")]
+    [InlineData("System.Threading.Tasks.ValueTask", "Delay")]
+    [InlineData("void", "Delay")]
+    public async Task StillConvertsSupportedAsyncMethodsAndLocalFunctions(string returnType, string operation)
+    {
+        var expression = $"await System.Threading.Tasks.Task.{operation}(\n        1)";
+        var document = Document($$"""
+            class C
+            {
+                async {{returnType}} M() => {{expression}};
+                void Host()
+                {
+                    async {{returnType}} Local() => {{expression}};
+                }
+            }
+            """);
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Equal(2, (await Diagnostics(document)).Length);
+        var changed = await FixAll(document);
+        Assert.Empty((await changed.GetSyntaxRootAsync())!.DescendantNodes().OfType<ArrowExpressionClauseSyntax>());
+        Assert.Empty(await Diagnostics(changed));
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Equal(text, (await (await FixAll(changed)).GetTextAsync()).ToString());
     }
 
     [Fact]

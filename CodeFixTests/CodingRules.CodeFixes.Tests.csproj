@@ -1,6 +1,7 @@
 <Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
   <ItemGroup>
     <Compile Remove="Consumers/**/*.cs" />
+    <None Include="Consumers/Formatting/TaskLike.cs" Link="Fixtures/TaskLike.cs.txt" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Anton.SourceGeneration.PackageTesting" Version="1.0.0" />
     <PackageReference Include="Roslynator.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />
     <PackageReference Include="Roslynator.Formatting.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />

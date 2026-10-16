@@ -8,20 +8,20 @@ public static class CalendarSync
 {
     public static void Run()
     {
-        var plan = new List<(string Id, string Action, string? CalendarId, int? DesiredEventIndex)>(); // CR0900
+        var plan = new List<(string Id, string Action, string? CalendarId, int? DesiredEventIndex)>(); // CR0900: plan
         plan.Add(("event", "delete", null, null));
         foreach (var step in plan)
         {
             ReportPlanned(step);
         }
 
-        void ReportPlanned((string Id, string Action, string? CalendarId, int? DesiredEventIndex) step) // CR0900
+        void ReportPlanned((string Id, string Action, string? CalendarId, int? DesiredEventIndex) step) // CR0900: (string Id
         {
             Console.WriteLine(step.Id);
         }
     }
 
-    public static IEnumerable<(string Id, string Action, string? CalendarId, int? DesiredEventIndex)> Plan() // CR0900
+    public static IEnumerable<(string Id, string Action, string? CalendarId, int? DesiredEventIndex)> Plan() // CR0900: IEnumerable<
     {
         yield return ("event", "delete", null, null);
     }
@@ -29,7 +29,7 @@ public static class CalendarSync
 
 public static class Config
 {
-    public static ReadOnlySpan<(string From, string To)> CourseNameUnificationConfig => new[] // CR0900
+    public static ReadOnlySpan<(string From, string To)> CourseNameUnificationConfig => new[] // CR0900: ReadOnlySpan<
     {
         (From: "Dezv. apl. server-side cu Node.js", To: "Node.js"),
         (From: "HTML", To: "HTML și CSS"),
@@ -41,7 +41,7 @@ public enum QualificationType { Bachelor }
 
 public static class PathParser
 {
-    private static (int? cycle, QualificationType? qualificationType) ParseQualificationSegment(string segment) // CR0900
+    private static (int? cycle, QualificationType? qualificationType) ParseQualificationSegment(string segment) // CR0900: (int?
     {
         if (segment.Length == 0)
         {
@@ -65,7 +65,7 @@ public sealed class FilteredSchedule { }
 
 public sealed class FilteredItems<T>(IEnumerable<T> items, Func<T, int, int> producer)
 {
-    public IEnumerable<(T Item, FilteredSchedule Schedule)> Filter(Schedule schedule) // CR0900
+    public IEnumerable<(T Item, FilteredSchedule Schedule)> Filter(Schedule schedule) // CR0900: IEnumerable<
     {
         foreach (var it in items)
         {

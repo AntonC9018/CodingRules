@@ -17,23 +17,44 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider
 {
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create("RCS1016");
 
-    public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+    // A CLI can supply no equivalence key when its first diagnostic is unsafe.
+    // Process each document directly so that safe diagnostics are still fixed.
+    public override FixAllProvider GetFixAllProvider() => FixAllProvider.Create(async (context, document, diagnostics) =>
+    {
+        foreach (var diagnostic in diagnostics.OrderByDescending(item => item.Location.SourceSpan.Start))
+        {
+            context.CancellationToken.ThrowIfCancellationRequested();
+            document = await ChangeAsync(document, diagnostic.Location.SourceSpan.Start, context.CancellationToken)
+                .ConfigureAwait(false);
+        }
+        return await Formatter.FormatAsync(document, Formatter.Annotation, cancellationToken: context.CancellationToken)
+            .ConfigureAwait(false);
+    });
 
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null) return;
-        var arrow = root.FindNode(context.Span).AncestorsAndSelf().OfType<ArrowExpressionClauseSyntax>().FirstOrDefault();
-        if (arrow?.Parent is not { } declaration) return;
-        if (declaration.ContainsDiagnostics || arrow.ContainsDirectives) return;
-        if (UnsafeExpressionBodySuppressor.HasUnsafeArrowTrivia(arrow)) return;
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (model is null) return;
-        if (UnsafeExpressionBodySuppressor.HasUnsupportedAsyncReturn(arrow, model, context.CancellationToken)) return;
-        var symbol = model.GetDeclaredSymbol(declaration, context.CancellationToken);
-        if (symbol is null) return;
+        var changed = await ChangeAsync(context.Document, context.Span.Start, context.CancellationToken).ConfigureAwait(false);
+        if (ReferenceEquals(changed, context.Document)) return;
+        context.RegisterCodeFix(CodeAction.Create("Use block body",
+            cancellationToken => Formatter.FormatAsync(changed, Formatter.Annotation, cancellationToken: cancellationToken),
+            "RCS1016.UseBlockBody"), context.Diagnostics);
+    }
+
+    private static async Task<Document> ChangeAsync(Document document, int position, CancellationToken cancellationToken)
+    {
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root is null) return document;
+        var arrow = root.FindToken(position).Parent as ArrowExpressionClauseSyntax;
+        if (arrow?.Parent is not { } declaration) return document;
+        if (declaration.ContainsDiagnostics || arrow.ContainsDirectives) return document;
+        if (UnsafeExpressionBodySuppressor.HasUnsafeArrowTrivia(arrow)) return document;
+        var model = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+        if (model is null) return document;
+        if (UnsafeExpressionBodySuppressor.HasUnsupportedAsyncReturn(arrow, model, cancellationToken)) return document;
+        var symbol = model.GetDeclaredSymbol(declaration, cancellationToken);
+        if (symbol is null) return document;
         var semicolon = declaration.GetLastToken();
-        if (!semicolon.IsKind(SyntaxKind.SemicolonToken)) return;
+        if (!semicolon.IsKind(SyntaxKind.SemicolonToken)) return document;
 
         var statement = CreateStatement(arrow.Expression, symbol, semicolon);
         var block = SyntaxFactory.Block(statement);
@@ -52,11 +73,9 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider
                 .WithAccessorList(Getter(block)),
             _ => null,
         };
-        if (replacement is null) return;
+        if (replacement is null) return document;
         var changedRoot = root.ReplaceNode(declaration, replacement.WithAdditionalAnnotations(Formatter.Annotation));
-        context.RegisterCodeFix(CodeAction.Create("Use block body",
-            cancellationToken => Formatter.FormatAsync(context.Document.WithSyntaxRoot(changedRoot),
-                Formatter.Annotation, cancellationToken: cancellationToken), "RCS1016.UseBlockBody"), context.Diagnostics);
+        return document.WithSyntaxRoot(changedRoot);
     }
 
     private static StatementSyntax CreateStatement(ExpressionSyntax expression, ISymbol symbol, SyntaxToken semicolon)

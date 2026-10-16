@@ -380,6 +380,67 @@ public sealed class FormattingReuseTests
         Assert.Equal((await changed.GetTextAsync()).ToString(), (await (await FixAll(changed)).GetTextAsync()).ToString());
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("RCS1016.UseBlockBody")]
+    public async Task ExportedFixAllSkipsUnsafeDiagnosticsAndStillFixesSafeBodies(string? equivalenceKey)
+    {
+        var fixture = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "TaskLike.cs.txt"));
+        var document = Document(fixture + "\n" + """
+            class C
+            {
+                int Unsafe() => /* preserve */ System.Math.Abs(
+                    -1);
+                int Safe() => System.Math.Abs(
+                    -2);
+            }
+            """);
+        await StatementOperationTestFixture.Compiles(document);
+        var upstreamDiagnostics = await Diagnostics(document, includeSafetySuppressor: false);
+        Assert.Equal(4, upstreamDiagnostics.Length);
+        Assert.Single(await Diagnostics(document));
+        var changed = await ExportedExpressionFixAll(document, equivalenceKey);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.StartsWith(fixture, text);
+        Assert.Contains("Unsafe() => /* preserve */", text);
+        Assert.DoesNotContain("Safe() =>", text);
+        Assert.Empty(await Diagnostics(changed));
+        await StatementOperationTestFixture.Compiles(await StatementOperationTestFixture.Reparse(changed));
+        var repeated = await ExportedExpressionFixAll(changed, equivalenceKey);
+        Assert.Equal(text, (await repeated.GetTextAsync()).ToString());
+    }
+
+    private static async Task<Document> ExportedExpressionFixAll(Document document, string? equivalenceKey)
+    {
+        var provider = new ExpressionBodyCodeFixProvider();
+        var context = new FixAllContext(document, provider, FixAllScope.Document, equivalenceKey,
+            provider.FixableDiagnosticIds, new UnsuppressedExpressionDiagnostics(), CancellationToken.None);
+        var action = await provider.GetFixAllProvider().GetFixAsync(context);
+        Assert.NotNull(action);
+        var operations = await action.GetOperationsAsync(CancellationToken.None);
+        var operation = Assert.Single(operations.OfType<ApplyChangesOperation>());
+        return operation.ChangedSolution.GetDocument(document.Id)!;
+    }
+
+    private sealed class UnsuppressedExpressionDiagnostics : FixAllContext.DiagnosticProvider
+    {
+        public override async Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(Document document,
+            CancellationToken cancellationToken) =>
+            (await Diagnostics(document, includeSafetySuppressor: false)).Where(diagnostic => diagnostic.Id == "RCS1016");
+
+        public override Task<IEnumerable<Diagnostic>> GetProjectDiagnosticsAsync(Project project,
+            CancellationToken cancellationToken) => Task.FromResult(Enumerable.Empty<Diagnostic>());
+
+        public override async Task<IEnumerable<Diagnostic>> GetAllDiagnosticsAsync(Project project,
+            CancellationToken cancellationToken)
+        {
+            var diagnostics = new List<Diagnostic>();
+            foreach (var document in project.Documents)
+                diagnostics.AddRange(await GetDocumentDiagnosticsAsync(document, cancellationToken));
+            return diagnostics;
+        }
+    }
+
     [Fact]
     public async Task LeavesDirectiveContainingArrowAndGeneratedCode()
     {

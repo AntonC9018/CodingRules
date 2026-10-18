@@ -52,6 +52,36 @@ public sealed class ReviewedCompoundRuntimeTests
         Assert.DoesNotContain("||", fixedText);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task JsonGuardDeclinesExpansionThatMovesLaterCallerLineNumbers(bool separateMember)
+    {
+        var source = ReviewedCompoundConditionTests.Json.Replace("class C", "public class C")
+            .Replace("const int Success = 0;", """
+                const int Success = 0;
+                static int Line([System.Runtime.CompilerServices.CallerLineNumber] int line = 0) => line;
+                public static string Run() => new C().ValidateOperation(new JsonObject { ["key"] = "a", ["operation"] = "b" });
+                """)
+            .Replace("return key + operation;", separateMember
+                ? "return Later() + key + operation;\n}\nstatic int Later() { return Line();"
+                : "return Line() + key + operation;");
+        var document = InlineConditionTestFixture.Document(source);
+        var line = source.Split('\n').Select((text, index) => (text, index))
+            .Single(item => item.text.Contains("return Line();") || item.text.Contains("return Line() +")).index + 1;
+        var before = await InlineConditionTestFixture.Run(document);
+        Assert.Equal(line + "ab", before);
+        foreach (var diagnostic in await InlineConditionTestFixture.Diagnostics(document))
+        foreach (var action in await InlineConditionTestFixture.Actions(document, diagnostic))
+        {
+            var changed = await InlineConditionTestFixture.Fix(document, action.EquivalenceKey!);
+            var saved = await InlineConditionTestFixture.Reparse(changed);
+            Assert.Equal(before, await InlineConditionTestFixture.Run(saved));
+        }
+        Assert.Empty(await InlineConditionTestFixture.Diagnostics(document));
+        Assert.Equal(before, await InlineConditionTestFixture.Run(await InlineConditionTestFixture.Reparse(document)));
+    }
+
     [Fact]
     public async Task CancellationFilterRunsBeforeUnwindAndStillSelectsSameCatch()
     {

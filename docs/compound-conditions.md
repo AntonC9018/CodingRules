@@ -52,7 +52,10 @@ statement is duplicated in syntax but can execute only on the first failed
 check, exactly once. Its call bindings are checked with that precise expected
 multiplicity; unrelated calls keep their original binding counts. Comments in
 the terminal body and implicit caller-information arguments prevent this
-expansion. General multi-statement failure paths remain for agent review.
+expansion. Implicit caller-line arguments at or after the guard, including in
+later members of the document, also prevent expansion because formatting can
+move their call sites. Explicit caller arguments remain supported. General
+multi-statement failure paths remain for agent review.
 
 The status extension recognizes only a whole catch-filter expression of the
 form `(int)<framework HttpStatusCode expression> is ...`, with exactly these six

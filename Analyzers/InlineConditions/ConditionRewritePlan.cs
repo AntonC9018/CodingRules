@@ -319,6 +319,7 @@ internal sealed class ConditionRewritePlan
         return binary.IsKind(SyntaxKind.LogicalOrExpression) && (statement.Statement is ReturnStatementSyntax or ThrowStatementSyntax
                 || statement.Statement is BlockSyntax { Statements.Count: 1 } block
                     && block.Statements[0] is ReturnStatementSyntax or ThrowStatementSyntax)
+            && !CallerInformation.AffectedDefaults(statement.Condition, statement, model)
             && !HasCallerInformationAt(statement.Statement.DescendantNodesAndSelf().OfType<ExpressionSyntax>(), model)
             && statement.Statement.DescendantTrivia().All(trivia => !trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
                 && !trivia.IsKind(SyntaxKind.MultiLineCommentTrivia));

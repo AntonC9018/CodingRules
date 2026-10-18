@@ -1,5 +1,8 @@
 using System;
 using System.Net;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 internal static class Accepted
 {
@@ -10,6 +13,19 @@ internal static class Accepted
     public static bool Named(HttpStatusCode status) => status is HttpStatusCode.BadRequest
         or HttpStatusCode.Forbidden or HttpStatusCode.NotFound or HttpStatusCode.Conflict
         or HttpStatusCode.PreconditionFailed or HttpStatusCode.UnprocessableEntity;
+
+    // Expanding this guard would move an implicit caller-line constant below it.
+    public static string CallerLine(JsonObject action)
+    {
+        if (action["key"] is not JsonValue keyValue || !keyValue.TryGetValue<string>(out var key)
+            || action["operation"] is not JsonValue opValue || !opValue.TryGetValue<string>(out var operation))
+        {
+            throw new JsonException("Invalid operation");
+        }
+        return Line() + key + operation;
+    }
+
+    private static int Line([CallerLineNumber] int line = 0) => line;
 
     // No status policy was accepted for this different set. Keep it for agent review.
     public static void Unreviewed()

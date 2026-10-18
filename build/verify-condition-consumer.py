@@ -48,6 +48,9 @@ class Generated {
         output = run(build, consumer, environment)
         assert set(REPORT.findall(output)) == expected, output
         behavior = run(["dotnet", "run", "--project", "Consumer.csproj", "--no-build"], consumer, environment)
+        caller_line = next(number for number, line in enumerate(sources["Accepted.cs"].decode().splitlines(), start=1)
+                           if "return Line()" in line)
+        assert behavior.splitlines()[-1] == f"{caller_line}ab", behavior
         assert behavior.count("rejected;") == 6, "The reviewed set must match exactly six statuses"
         errors = {(name, line, column, "error", rule) for name, line, column, _, rule in expected}
         output = run([*build, "-warnaserror"], consumer, environment, expected_returncode=1)

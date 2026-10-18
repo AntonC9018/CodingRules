@@ -62,6 +62,13 @@ results and deconstruction remain allowed; scalar local tuples and swaps remain
 outside the settled scope. The [tuple data contract](docs/tuple-data.md) records
 the finite collection catalogue, Q15/Q16 coverage and isolated package gate.
 
+`CR1000` reports locally owned interface, virtual/abstract, delegate and
+abstract-class constructor contracts with four or more parameters, including
+cancellation. Architectural grouping is manual; implementations and overrides
+receive no duplicate. The [contract parameter boundary](docs/contract-parameters.md)
+records the static-function and external-contract exceptions, accepted
+Finish/Edit fixtures, configuration and isolated package gate.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

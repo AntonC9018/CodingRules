@@ -144,6 +144,15 @@ the local-function result exception, and positive/accepted regression evidence
 in analyzer tests and the isolated package gate. No universal scalar-local tuple
 policy or automatic API migration is introduced.
 
+Slice 05 implements the revised A5/Q12/Q17/Q18 count boundary as CR1000 manual
+findings on owned interface, virtual/abstract, delegate and abstract-class
+constructor declarations with four or more parameters, including cancellation.
+The [contract parameter boundary](contract-parameters.md) records ownership and
+external exemptions, accepted static Finish/Edit fixtures, and the shared compiled
+positive/accepted cases checked by analyzer tests and the isolated package gate.
+Overload/builder and repeated-plumbing decisions remain independent; ordinary
+nonvirtual instance methods receive no new blanket count rule.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable

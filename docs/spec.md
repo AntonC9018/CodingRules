@@ -142,6 +142,21 @@ Purely local scalar tuples/swaps and other uncatalogued shapes remain outside
 the settled detection boundary. Domain naming and API/caller migration require
 manual review; CR0900 provides no automatic fix.
 
+## Contract parameter implementation (ScheduleLib slice 05)
+
+CR1000 is a manual Readability warning on locally owned interface methods,
+virtual/abstract methods, delegate types and abstract-class constructors with
+more than three parameters, counting context and cancellation. It reports at the
+owned declaration; implementations and overrides do not repeat the finding.
+Abstract primary constructors are included. Externally imposed signatures are
+exempt; ordinary concrete constructors and nonvirtual instance methods remain
+outside the count rule. Static functions such as the reviewed Finish/Edit shapes
+remain allowed by count. Static abstract/virtual interface members still define
+owned contracts. The [contract parameter boundary](contract-parameters.md)
+records exact ownership, regression evidence and the package gate. Grouping is
+an architectural decision with no automatic fix. Overload/builder and repeated
+plumbing policies remain independent.
+
 ## Primitive sentinel implementation (ticket 8)
 
 The accepted first version proves exactly `int -1` absence from resolved

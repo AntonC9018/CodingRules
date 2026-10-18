@@ -41,6 +41,8 @@ jobs:
         run: python3 build/verify-formatting-consumer.py artifacts/release
       - name: Verify packaged tuple data findings and accepted cases in a clean consumer
         run: python3 build/verify-tuple-consumer.py artifacts/release
+      - name: Verify packaged owned-contract findings and accepted signatures in a clean consumer
+        run: python3 build/verify-contract-consumer.py artifacts/release
       - name: Retain tested main package
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4

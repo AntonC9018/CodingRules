@@ -198,6 +198,16 @@ Actual external interface/override/fixed callback contracts are exempt. All
 earlier diagnostic contracts remain independent. [Sentinel documentation](sentinels.md)
 records the full evidence, visibility, flow, safety and compilation boundaries.
 
+## String concatenation implementation (ScheduleLib slice 10)
+
+ScheduleLib slice 10 implements `CR1100` for runtime built-in string-only
+concatenations. The [interpolation contract](string-concatenation.md) records
+the reuse probe, original A10 calls, explicit invariant conversion, static
+string binding, handler timing and conservative accepted cases. The shared
+unit/consumer fixture and final package test are registered; package execution
+is deferred until the stable candidate after all tickets. Broader inline-string
+and structured-message policy remains separate and unresolved.
+
 ## Reference cases to verify
 
 These examples come from the linked FindJobHelper branch and serve as

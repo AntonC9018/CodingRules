@@ -79,6 +79,12 @@ parameter type, and matching ref/params/default presence. One-parameter Parse an
 builder Output overloads remain allowed. The [overload configuration boundary](docs/overload-configuration.md)
 records manual API migration, required-step review and isolated package evidence.
 
+`CR1100` prefers interpolation for runtime built-in string-only concatenations,
+including ScheduleLib's invariant desired identifier and lock path. It preserves
+explicit formatting calls, string overload selection and handler gating. The
+[interpolation contract](docs/string-concatenation.md) records accepted cases,
+reuse evidence and the shared regression reserved for final package validation.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

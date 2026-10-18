@@ -182,6 +182,14 @@ Scope-value extraction remains separate; the exact parameterless chain receives
 no current CR03 finding. Final common-package validation and downstream adoption
 remain separate from this coverage work.
 
+Slice 10 adds CR1100 for A10's desired identifier and lock path using a
+conservative runtime string-only concatenation boundary. The
+[interpolation contract](string-concatenation.md) records the upstream reuse
+probe, explicit invariant conversion, binding and handler safety, accepted
+cases, and shared saved-source/runtime regression. Its packaged consumer test
+is registered for the final stable candidate; no package validation runs during
+this ticket. Universal inline-string/message-record policy remains open.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable

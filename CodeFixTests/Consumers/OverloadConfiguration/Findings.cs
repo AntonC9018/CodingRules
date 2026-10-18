@@ -25,3 +25,15 @@ public sealed class Renderer
     public void Write<T>(IReadOnlyList<T[]> input, Stream output) { } // CR1001: Write
     public void Write<U>(IReadOnlyList<U[]> values, string path) { } // CR1001: Write
 }
+
+public interface ITupleSerializer
+{
+    void Save((int a, int b) input, Stream output); // CR1001: Save
+    void Save((int x, int y) input, string path); // CR1001: Save
+
+    void Store((int a, int b) input, Stream output); // CR1001: Store
+    void Store(System.ValueTuple<int, int> input, string path); // CR1001: Store
+
+    void Write<T>(IReadOnlyList<((T a, T b) pair, int count)[]> input, Stream output); // CR1001: Write
+    void Write<U>(IReadOnlyList<System.ValueTuple<System.ValueTuple<U, U>, int>[]> input, string path); // CR1001: Write
+}

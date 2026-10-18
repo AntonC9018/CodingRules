@@ -74,12 +74,56 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
             if (parameter.IsParams != other.IsParams) return false;
             if (parameter.IsOptional != other.IsOptional) return false;
             if (parameter.HasExplicitDefaultValue != other.HasExplicitDefaultValue) return false;
-            if (SymbolEqualityComparer.Default.Equals(parameter.Type, other.Type)) continue;
+            if (HaveEquivalentTypes(parameter.Type, other.Type)) continue;
             differences++;
             if (differences > 1) return false;
         }
 
         return differences == 1;
+    }
+
+    private static bool HaveEquivalentTypes(ITypeSymbol type, ITypeSymbol other)
+    {
+        if (SymbolEqualityComparer.Default.Equals(type, other)) return true;
+        // Tuple labels are source names, not overload-signature differences.
+        // Unwrap at every level, including inside constructed containing types.
+        if (type is INamedTypeSymbol { TupleUnderlyingType: { } underlying }) type = underlying;
+        if (other is INamedTypeSymbol { TupleUnderlyingType: { } otherUnderlying }) other = otherUnderlying;
+        if (type is INamedTypeSymbol named && other is INamedTypeSymbol otherNamed)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, otherNamed.OriginalDefinition)) return false;
+            if (named.ContainingType is { } containing && otherNamed.ContainingType is { } otherContaining
+                && !HaveEquivalentTypes(containing, otherContaining)) return false;
+            return HaveEquivalentTypeArguments(named.TypeArguments, otherNamed.TypeArguments);
+        }
+        if (type is IArrayTypeSymbol array && other is IArrayTypeSymbol otherArray)
+        {
+            return array.Rank == otherArray.Rank && array.IsSZArray == otherArray.IsSZArray
+                && HaveEquivalentTypes(array.ElementType, otherArray.ElementType);
+        }
+        if (type is IPointerTypeSymbol pointer && other is IPointerTypeSymbol otherPointer)
+        {
+            return HaveEquivalentTypes(pointer.PointedAtType, otherPointer.PointedAtType);
+        }
+        if (type is IFunctionPointerTypeSymbol function && other is IFunctionPointerTypeSymbol otherFunction)
+        {
+            var signature = function.Signature;
+            var otherSignature = otherFunction.Signature;
+            if (signature.CallingConvention != otherSignature.CallingConvention) return false;
+            if (signature.RefKind != otherSignature.RefKind) return false;
+            if (!HaveEquivalentTypeArguments(signature.UnmanagedCallingConventionTypes, otherSignature.UnmanagedCallingConventionTypes)) return false;
+            if (!HaveEquivalentTypes(signature.ReturnType, otherSignature.ReturnType)) return false;
+            if (signature.Parameters.Length != otherSignature.Parameters.Length) return false;
+            return signature.Parameters.Zip(otherSignature.Parameters, (parameter, otherParameter) =>
+                parameter.RefKind == otherParameter.RefKind && HaveEquivalentTypes(parameter.Type, otherParameter.Type)).All(equal => equal);
+        }
+        return false;
+    }
+
+    private static bool HaveEquivalentTypeArguments<T>(ImmutableArray<T> types, ImmutableArray<T> others) where T : ITypeSymbol
+    {
+        if (types.Length != others.Length) return false;
+        return types.Zip(others, (type, other) => HaveEquivalentTypes(type, other)).All(equal => equal);
     }
 
     private static bool HasErrorType(ITypeSymbol type)

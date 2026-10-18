@@ -16,7 +16,7 @@ public sealed class OverloadConfigurationAnalyzerTests
     {
         var sources = new[] { Fixture("Findings.cs"), Fixture("Accepted.cs") };
         var diagnostics = await Analyze(sources);
-        Assert.Equal(8, diagnostics.Length);
+        Assert.Equal(14, diagnostics.Length);
         var expected = sources[0].Split('\n').Select((line, index) => (line, index))
             .Where(item => item.line.Contains("// CR1001: "))
             .Select(item => (item.index, item.line.IndexOf(item.line.Split("// CR1001: ")[1].Trim(), StringComparison.Ordinal)));
@@ -31,7 +31,7 @@ public sealed class OverloadConfigurationAnalyzerTests
             Assert.Equal("Test0.cs", diagnostic.Location.GetLineSpan().Path);
             Assert.Contains("configuration builder", diagnostic.GetMessage());
         });
-        Assert.Equal(new[] { "Serialize", "Serialize", "Export", "Export", "Render", "Render", "Write", "Write" },
+        Assert.Equal(new[] { "Serialize", "Serialize", "Export", "Export", "Render", "Render", "Write", "Write", "Save", "Save", "Store", "Store", "Write", "Write" },
             diagnostics.Select(Text));
     }
 
@@ -62,6 +62,29 @@ public sealed class OverloadConfigurationAnalyzerTests
     public async Task EnforcesExactlyTheApprovedPairBoundary(string members, int count)
     {
         Assert.Equal(count, (await Analyze(["interface I { " + members + " }"])).Length);
+    }
+
+    [Theory]
+    [InlineData("(int a, int b)", "(int x, int y)", 2)]
+    [InlineData("(int a, int b)", "System.ValueTuple<int, int>", 2)]
+    [InlineData("System.ValueTuple<int, int>", "(int x, int y)", 2)]
+    [InlineData("((int a, int b) pair, int c)", "((int x, int y) other, int z)", 2)]
+    [InlineData("(int a, (int b, int c) pair)", "System.ValueTuple<int, System.ValueTuple<int, int>>", 2)]
+    [InlineData("System.Collections.Generic.List<(T a, T b)[]>", "System.Collections.Generic.List<System.ValueTuple<U, U>[]>", 2)]
+    [InlineData("Outer<(T a, T b)>.Nested", "Outer<System.ValueTuple<U, U>>.Nested", 2)]
+    [InlineData("(int a, int b)*", "System.ValueTuple<int, int>*", 2)]
+    [InlineData("delegate*<(T a, T b), void>", "delegate*<System.ValueTuple<U, U>, void>", 2)]
+    [InlineData("delegate*<int, (T a, T b)>", "delegate*<int, System.ValueTuple<U, U>>", 2)]
+    [InlineData("delegate*<ref (T a, T b), void>", "delegate*<System.ValueTuple<U, U>, void>", 0)]
+    [InlineData("delegate* unmanaged[Cdecl]<(int a, int b), void>", "delegate* unmanaged[Stdcall]<System.ValueTuple<int, int>, void>", 0)]
+    [InlineData("(T a, T b)[]", "System.ValueTuple<U, U>[,]", 0)]
+    [InlineData("(int a, long b)", "(int x, int y)", 0)]
+    [InlineData("(T a, T b)", "(U x, int y)", 0)]
+    public async Task ComparesTupleTypesWithoutElementNamesRecursively(string input, string alternative, int count)
+    {
+        var source = "class Outer<T> { public class Nested { } } unsafe interface I { void Save<T>("
+            + input + " input, System.IO.Stream output); void Save<U>(" + alternative + " input, string path); }";
+        Assert.Equal(count, (await Analyze([source])).Length);
     }
 
     [Fact]
@@ -169,7 +192,7 @@ public sealed class OverloadConfigurationAnalyzerTests
     public async Task CountRuleConfigurationDoesNotDisableStaticOverloadRule()
     {
         var diagnostics = await Analyze([Fixture("Findings.cs"), Fixture("Accepted.cs")], includeCountAnalyzer: true);
-        Assert.Equal(8, diagnostics.Length);
+        Assert.Equal(14, diagnostics.Length);
         Assert.All(diagnostics, item => Assert.Equal(DiagnosticIds.OverloadConfigurationBuilder, item.Id));
     }
 
@@ -231,7 +254,7 @@ public sealed class OverloadConfigurationAnalyzerTests
         var trees = sources.Select((source, index) => CSharpSyntaxTree.ParseText(source,
             new CSharpParseOptions(LanguageVersion.CSharp12), path: path ?? $"Test{index}.cs"));
         var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
-            nullableContextOptions: NullableContextOptions.Enable,
+            nullableContextOptions: NullableContextOptions.Enable, allowUnsafe: true,
             specificDiagnosticOptions: ImmutableDictionary<string, ReportDiagnostic>.Empty
                 .Add(DiagnosticIds.OverloadConfigurationBuilder, severity)
                 .Add(DiagnosticIds.ContractParameterGroup, ReportDiagnostic.Suppress));

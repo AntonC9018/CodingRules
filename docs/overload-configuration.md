@@ -27,7 +27,10 @@ Parameter names may differ. Default **values** may differ; their presence must
 match. Generic method type parameters are compared by ordinal after substitution,
 so `Save<T>(List<T[]> input, Stream output)` and
 `Save<U>(List<U[]> values, string path)` qualify. Type comparison uses resolved
-Roslyn symbol equality, ignoring nullable annotations and spelling aliases.
+Roslyn symbol equality, ignoring nullable annotations and spelling aliases. Tuple
+element labels are ignored recursively, including tuples inside arrays, generic
+arguments and containing types; tuple syntax and its underlying `ValueTuple`
+form compare equally. Generic method parameters still compare by ordinal.
 
 The test is pairwise. Each qualifying method identifier receives one diagnostic,
 even if several peers qualify. A pair with differing arity or with more than one
@@ -111,7 +114,7 @@ python3 build/verify-overload-consumer.py artifacts/ticket06
 ```
 
 The shared manual-consumer harness restores the exact archive from a local-only
-feed into an empty cache. It verifies eight exact positive locations, accepted
+feed into an empty cache. It verifies fourteen exact positive locations, accepted
 and generated sources with no findings, unchanged source after a CR1001 fixer
 pass, warnings-as-errors failure, and actual editorconfig error/disabled behavior.
 CI runs this gate against the same archive as all existing consumer gates.

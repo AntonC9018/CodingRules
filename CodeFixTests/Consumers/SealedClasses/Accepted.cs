@@ -23,7 +23,10 @@ public sealed class TypeAttribute<T> : TypeAttribute
     public TypeAttribute() : base(typeof(T)) { }
 }
 
-public class PrimaryAttribute(Type type) : Attribute;
+public class PrimaryAttribute(Type type) : Attribute
+{
+    public Type Type { get; } = type;
+}
 public sealed class PrimaryAttribute<T>() : PrimaryAttribute(typeof(T));
 
 [ComImport, Guid("1A894A19-2FCD-4F87-A5A2-83C64F9FA833")]

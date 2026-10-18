@@ -12,6 +12,17 @@ public sealed class SealConcreteClassAnalyzerTests
         .Split(Path.PathSeparator).Select(path => MetadataReference.CreateFromFile(path)).ToImmutableArray<MetadataReference>();
 
     [Fact]
+    public void AcceptedFixtureCompilesWithWarningsAsErrors()
+    {
+        var source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "SealedClasses", "Accepted.cs"));
+        var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.CSharp12));
+        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+            generalDiagnosticOption: ReportDiagnostic.Error, nullableContextOptions: NullableContextOptions.Enable);
+        var compilation = CSharpCompilation.Create("AcceptedSealingFixture", [tree], References, options);
+        Assert.Empty(compilation.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
     public async Task ReportsA16DespiteInheritedTestSeamAndAcceptsSharedBoundaries()
     {
         var findings = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "SealedClasses", "Findings.cs"));

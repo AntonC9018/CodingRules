@@ -90,7 +90,8 @@ the document, including collection `Add` and indexer calls, exclude the rewrite
 because blocks can change source lines or property getter member names.
 
 Before offering an action the fixer formats, saves and reparses the candidate,
-rejects compiler errors/nullable warnings, and compares every original call,
+rejects new compiler errors/nullable warnings (comparing diagnostic identity and
+counts with the original document), and compares every original call,
 construction and indexer binding/argument conversion in the document. A confident
 finding may have no automatic action if scope or nullable-flow changes fail this
 validation; this follows [ADR 0001](adr/0001-separate-findings-from-fix-availability.md).

@@ -294,6 +294,33 @@ public sealed class UnchangedAssignmentTests
         Assert.Empty(await Diagnostics(StatementOperationTestFixture.Document("class C { void M(int current, bool flag) { " + statement + " } }")));
     }
 
+    [Theory]
+    [InlineData("Missing Broken() => null;", "CS0246")]
+    [InlineData("string Broken() => null;", "CS8603")]
+    public async Task FixRemainsAvailableWithUnrelatedExistingDiagnostics(string member, string diagnosticId)
+    {
+        var document = StatementOperationTestFixture.Document("""
+            class C
+            {
+                int M(int current, bool flag) => current = flag ? current : 1;
+                MEMBER
+            }
+            """.Replace("MEMBER", member));
+        var before = (await document.GetSemanticModelAsync())!.GetDiagnostics();
+        Assert.Contains(before, diagnostic => diagnostic.Id == diagnosticId);
+        var diagnostic = Assert.Single(await Diagnostics(document));
+        var actions = new List<CodeAction>();
+        await new UnchangedAssignmentCodeFixProvider().RegisterCodeFixesAsync(new CodeFixContext(document,
+            diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        var operation = Assert.Single((await Assert.Single(actions).GetOperationsAsync(CancellationToken.None)).OfType<ApplyChangesOperation>());
+        var changed = await StatementOperationTestFixture.Reparse(operation.ChangedSolution.GetDocument(document.Id)!);
+        var after = (await changed.GetSemanticModelAsync())!.GetDiagnostics();
+        Assert.Equal(before.Select(item => item.Id + ":" + item.GetMessage()).OrderBy(value => value),
+            after.Select(item => item.Id + ":" + item.GetMessage()).OrderBy(value => value));
+        Assert.Empty(await Diagnostics(changed));
+        Assert.Contains("if (!(flag))", (await changed.GetTextAsync()).ToString());
+    }
+
     [Fact]
     public async Task PreservesConditionMutationAndThrowingUpdateAtTheirOriginalSites()
     {

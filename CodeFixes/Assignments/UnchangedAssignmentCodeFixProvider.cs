@@ -56,13 +56,25 @@ public sealed class UnchangedAssignmentCodeFixProvider : CodeFixProvider
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
         var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)model.SyntaxTree.Options, model.SyntaxTree.FilePath, token);
         var after = model.Compilation.ReplaceSyntaxTree(model.SyntaxTree, tree).GetSemanticModel(tree);
-        if (after.GetDiagnostics(cancellationToken: token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error
-            || diagnostic.Id.StartsWith("CS86", System.StringComparison.Ordinal))) return null;
+        var beforeDiagnostics = RelevantDiagnostics(model, token).GroupBy(DiagnosticKey)
+            .ToDictionary(group => group.Key, group => group.Count());
+        foreach (var group in RelevantDiagnostics(after, token).GroupBy(DiagnosticKey))
+        {
+            if (!beforeDiagnostics.TryGetValue(group.Key, out var count) || group.Count() > count) return null;
+        }
         // The only removed expressions are proven storage reads/null. Every call,
         // creation and argument conversion must retain its resolved binding.
         if (!Bindings(root!, model, token).SequenceEqual(Bindings(tree.GetRoot(token), after, token))) return null;
         return changed;
     }
+
+    // Locations can move when an arrow becomes a block. Retain multiplicity so
+    // an additional occurrence of an existing error/warning still rejects a fix.
+    private static System.Collections.Generic.IEnumerable<Diagnostic> RelevantDiagnostics(SemanticModel model, CancellationToken token) =>
+        model.GetDiagnostics(cancellationToken: token).Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error
+            || diagnostic.Id.StartsWith("CS86", System.StringComparison.Ordinal));
+
+    private static string DiagnosticKey(Diagnostic diagnostic) => diagnostic.Id + ":" + diagnostic.Severity + ":" + diagnostic.GetMessage();
 
     private static string[] Bindings(SyntaxNode root, SemanticModel model, CancellationToken token) => root.DescendantNodes()
         .Where(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax)

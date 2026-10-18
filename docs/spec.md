@@ -24,8 +24,11 @@ separate lines and CR0802 for a sole positional constructor argument adjacent
 to an invocation's opening parenthesis. Empty/single-member initializers and
 already adjacent constructors remain accepted. Comment-separated argument
 gaps, directives, invalid syntax and other argument policies are conservative
-boundaries. These layout fixes preserve initializer values and leave operation
-diagnostics independent; initializer false positives remain tracked in #19.
+boundaries. These layout fixes preserve initializer values and implicit
+caller-information constants across the final formatted document; affected
+layouts remain diagnosed without an automatic fix. Fix All validates edits
+sequentially. Operation diagnostics remain independent; initializer false
+positives remain tracked in #19.
 [Packaged formatting](formatting.md) defines the precise boundaries,
 formatter and CLI configuration, license provenance and verification workflow.
 

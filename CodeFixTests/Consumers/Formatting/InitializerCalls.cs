@@ -58,5 +58,7 @@ public static class Program
     public static void Main()
     {
         Console.WriteLine(InitializerCalls.Run());
+        CallerExpressionCases.Run();
+        CallerInformationCases.Run();
     }
 }

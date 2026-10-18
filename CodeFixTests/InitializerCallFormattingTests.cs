@@ -290,9 +290,10 @@ public sealed partial class FormattingReuseTests
             "capture" => "return Capture(new Payload { A = 1, B = 2 });",
             "capture-join" => "return Capture(Identity(\n            new Payload(line: 0)));",
             "constructor" => "Use(\n            new Payload()); return result;",
-            "downstream-expand" => "Use(new Payload { A = 1, B = 2 }); return Later();",
-            _ => "Use(\n            new Payload()); return Later();",
+            "downstream-expand" => "Use(new Payload(line: 0) { A = 1, B = 2 }); return Later();",
+            _ => "Use(\n            new Payload(line: 0)); return Later();",
         };
+        var laterReturn = scenario.StartsWith("downstream", StringComparison.Ordinal) ? "Line()" : "\"unused\"";
         var document = Document($$"""
             using System.Runtime.CompilerServices;
             public class Payload
@@ -314,7 +315,7 @@ public sealed partial class FormattingReuseTests
                 }
                 static string Later()
                 {
-                    return Line();
+                    return {{laterReturn}};
                 }
                 static string Line([CallerLineNumber] int line = 0) { return line.ToString(); }
             }

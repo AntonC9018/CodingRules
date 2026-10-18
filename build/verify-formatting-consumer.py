@@ -100,10 +100,10 @@ def main():
         output = run(["dotnet", "build", project, "--no-restore"], consumer, environment)
         reports = set(SOURCE_WARNING.findall(output))
         counts = Counter(report[3] for report in reports)
-        assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2, "CR0801": 5, "CR0802": 2}, counts
+        assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2, "CR0801": 8, "CR0802": 4}, counts
         assert not re.search(r"warning (?:AD|CS|ROS)\d+", output), output
         original_behavior = run(["dotnet", "run", "--project", project, "--no-build"], consumer, environment)
-        assert original_behavior.strip() == "123345667890123", original_behavior
+        assert original_behavior.splitlines() == ["123345667890123", "new CallerPayload(line: 0) { A = 1, B = 2 }", "18", "19", "27", "42"], original_behavior
 
         # The SDK CLI's analyzer filter overlooks global diagnostic severities.
         # Exercise the documented setup using the template actually shipped.
@@ -132,10 +132,21 @@ def main():
                                                fixed.decode().splitlines(keepends=True),
                                                fromfile="expected", tofile="actual"))
         assert fixed == expected, difference
-        # Unlike the combined RCS1016 command below, the documented A1-only
-        # check must succeed without any residual manual diagnostics.
-        run(["dotnet", "format", "analyzers", project, "--no-restore", "--diagnostics",
-             "CR0801", "CR0802", "--verify-no-changes"], consumer, environment)
+        caller_path = consumer / "CallerInformation.cs"
+        caller_fixed = caller_path.read_bytes()
+        caller_expected = (ROOT / "CodeFixTests/Expected/CallerInformation.Fixed.cs.txt").read_bytes()
+        assert caller_fixed == caller_expected, "Caller-information cases must keep unsafe layouts and fix safe ones"
+        expression_path = consumer / "CallerExpressions.cs"
+        expression_fixed = expression_path.read_bytes()
+        assert expression_fixed == (ROOT / "CodeFixTests/Expected/CallerExpressions.Fixed.cs.txt").read_bytes()
+        caller_reports = {
+            ("CallerExpressions.cs", "9", "62", "CR0801"),
+            ("CallerInformation.cs", "17", "12", "CR0802"),
+            ("CallerInformation.cs", "19", "31", "CR0801"),
+        }
+        output = run(["dotnet", "format", "analyzers", project, "--no-restore", "--diagnostics",
+                      "CR0801", "CR0802", "--verify-no-changes"], consumer, environment, expected_returncode=2)
+        assert set(SOURCE_WARNING.findall(output)) == caller_reports, output
         # This CLI bypasses suppressors and reports protected manual cases even
         # though the replacement fixer offers no action. Assert that exact set;
         # actual idempotence is the byte comparison after the next fixing pass.
@@ -147,14 +158,18 @@ def main():
                     manual_reports.add((filename, str(number), str(line.index("=>") + 1), "RCS1016"))
         assert len(manual_reports) == 8
         output = run([*command, "--verify-no-changes"], consumer, environment, expected_returncode=2)
-        assert set(SOURCE_WARNING.findall(output)) == manual_reports, output
+        assert set(SOURCE_WARNING.findall(output)) == manual_reports | caller_reports, output
         run(command, consumer, environment)
         run(["dotnet", "format", "whitespace", project, "--no-restore", "--verify-no-changes"],
             consumer, environment)
         assert source_path.read_bytes() == fixed
         assert initializer_path.read_bytes() == initializer_fixed
         assert task_like_path.read_bytes() == task_like_original
-        run(["dotnet", "build", project, "--no-restore", "-warnaserror"], consumer, environment)
+        assert caller_path.read_bytes() == caller_fixed
+        assert expression_path.read_bytes() == expression_fixed
+        output = run(["dotnet", "build", project, "--no-restore", "-warnaserror",
+                      "-p:WarningsNotAsErrors=CR0801%3BCR0802"], consumer, environment)
+        assert set(SOURCE_WARNING.findall(output)) == caller_reports, output
         assert run(["dotnet", "run", "--project", project, "--no-build"], consumer, environment) == original_behavior
         print("PASS: exact diagnostics, exported CLI fixes, formatter and second-pass stability; isolated package.")
 

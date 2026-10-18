@@ -52,7 +52,14 @@ not add extraction requirements or change those diagnostics. Single-member
 initializers remain accepted; named/ref/multiple arguments, non-constructor
 values and constructor argument lists retain their existing policies. Comments
 in the opening argument gap, directives, invalid syntax and generated code are
-conservative skips. No new rule-policy decision was needed.
+conservative skips. Caller-information-sensitive layouts remain diagnosed but
+have no automatic fix when the final formatted, reparsed document changes any
+implicit caller-information value. Validation covers the whole document,
+including enclosing expression captures and later line-number arguments. Fix All
+validates sequential edits and still fixes safe sites. Runtime regressions cover
+individual fixes, exported Fix All, the isolated package and a second idempotent
+pass. Declining these fixes follows the existing decision record; no new
+rule-policy decision was needed.
 
 ## Blocked by
 

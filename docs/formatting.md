@@ -57,6 +57,17 @@ syntax with errors or directives and generated code. The fixes change layout,
 retain token text and leave initializer values inline. Existing operation
 findings, including initializer false positives tracked in #19, are independent.
 
+Before offering an A1 fix, CodingRules compares implicit caller-information
+argument constants throughout the original document and the final formatted,
+reparsed source. Enclosing `CallerArgumentExpression` captures and downstream
+`CallerLineNumber` arguments (including calls in later members) must keep their
+values. If a value changes or cannot be established, the fix is declined and the
+layout warning remains for manual review. Explicit caller arguments and edits
+that leave all implicit values unchanged remain fixable. Fix All validates each
+edit against the document produced by preceding edits; safe sites still format
+when another site is unsafe. This follows the existing separation of confident
+findings from automatic fix availability and does not inject caller constants.
+
 The standard formatter supplies indentation and
 `csharp_new_line_before_members_in_object_initializers=true` for expanded
 initializers. With `csharp_preserve_single_line_blocks=true`, it leaves compact
@@ -129,7 +140,9 @@ dotnet format whitespace Consumer.csproj --no-restore --verify-no-changes
 
 The analyzer check returns nonzero for remaining A1 violations. Comment-separated
 constructor arguments and the other conservative skips above are left alone.
-Unlike the combined RCS1016 check, A1 has no protected manual diagnostic set.
+Caller-information-sensitive layouts retain their warnings and make this check
+return nonzero, even though the fixer leaves their source unchanged. Review
+these sites manually; a successful fix pass alone does not clear their findings.
 
 ## Delivery, licenses and verification
 
@@ -164,17 +177,22 @@ python3 build/verify-formatting-consumer.py path/to/Anton.CodingRules.0.1.0.nupk
 
 It uses a fresh cache, an Anton-only local feed and a consumer referencing only
 Anton.CodingRules. Before adding the shipped CLI configuration it asserts
-exactly sixteen ordinary-build warnings: one RCS0042, six RCS1016, two CR0800,
-five CR0801 and two CR0802.
+exactly twenty-one ordinary-build warnings: one RCS0042, six RCS1016, two CR0800,
+eight CR0801 and four CR0802.
 It then applies actual exported fixes through `dotnet format`, compares exact
 source with `CodeFixTests/Expected/Formatting.Fixed.cs.txt` and
-`CodeFixTests/Expected/InitializerCalls.Fixed.cs.txt`, runs whitespace
-formatting and a second idempotent pass, and builds with warnings as errors.
+`CodeFixTests/Expected/InitializerCalls.Fixed.cs.txt` and
+`CodeFixTests/Expected/CallerInformation.Fixed.cs.txt` plus
+`CodeFixTests/Expected/CallerExpressions.Fixed.cs.txt`, runs whitespace
+formatting and a second idempotent pass, and builds with warnings as errors
+except for the three precisely asserted residual A1 warnings.
 The analyzer verification command is separately expected to return exit 2
-with exactly the six arrow-comment and two custom task-like diagnostics;
-no safe case may remain in that set. Whitespace verification and the final
-compiler build must succeed normally. The A1-only analyzer verification command
-must return exit 0 with no remaining diagnostics.
+with exactly the six arrow-comment, two custom task-like and three protected
+A1 diagnostics; no safe case may remain in that set. Whitespace verification and
+the final compiler build must succeed. The A1-only analyzer verification command
+must return exit 2 with exactly those three A1 diagnostics. Its command-scoped
+`WarningsNotAsErrors=CR0801%3BCR0802` build exception permits these deliberate
+manual cases; the gate asserts their exact locations and rejects other warnings.
 Accepted simple bodies, arithmetic placement, comments and directive bodies
 are part of the same fixture. Exact-output fixtures include block and line
 comments immediately after arrows in methods, properties and accessors. A
@@ -189,6 +207,10 @@ and after formatting with the same evaluation trace, `123345667890123`. The
 fixture locally suppresses pre-existing CR0300/CR0302 findings to isolate layout;
 the A1 fixer neither extracts values nor adds operation requirements. Its bytes
 must remain identical on the second analyzer/formatter pass.
+Separate caller-information fixtures isolate enclosing expression captures
+from constructor line numbers and a line-number argument in a later member. The CLI
+must retain three unsafe layouts, format safe sites after the last observer,
+and preserve all runtime output, including captured text and line numbers.
 
 `FormattingReuseTests` run the actual upstream analyzers and formatting provider,
 the CodingRules expression-body provider and packaged safety suppressor on
@@ -238,7 +260,9 @@ manual cases described above; the A1-only check returned exit 0. `git diff
 
 The A1 cross-ID Fix All regression initially failed for both IDs because the
 batch fixer returned no action with the other diagnostic's key. The shared
-action key makes both cases pass and allows the actual CLI to fix both IDs.
+action key made both cases pass. The current sequential Fix All provider retains
+the shared key and supports both IDs, including when the CLI supplies no key
+because its first diagnostic is unsafe.
 
 In slice 02, temporarily bypassing the suppressor with the original upstream provider made
 all six arrow-comment exact-output regressions fail and reproduced CS0161 for

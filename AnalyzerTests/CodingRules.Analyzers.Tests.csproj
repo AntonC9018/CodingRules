@@ -2,5 +2,7 @@
   <ItemGroup>
     <None Include="../CodeFixTests/Consumers/TupleData/*.cs" Link="TupleData/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../CodeFixTests/Consumers/ContractParameters/*.cs" Link="ContractParameters/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/ReviewedConditions/Findings.cs" Link="ReviewedConditions/Findings.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/ReviewedConditions/Accepted.cs" Link="ReviewedConditions/Accepted.cs" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

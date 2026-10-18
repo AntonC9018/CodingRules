@@ -183,4 +183,28 @@ public sealed class ReviewedCompoundConditionTests
         Assert.Empty(await InlineConditionTestFixture.Diagnostics(document));
     }
 
+    [Fact]
+    public async Task SharedPackageFixturesOfferValidatedActionsAtEveryFinding()
+    {
+        var source = System.IO.File.ReadAllText(System.IO.Path.Combine(System.AppContext.BaseDirectory, "ReviewedConditions", "Findings.cs"));
+        var document = InlineConditionTestFixture.Document(source);
+        var before = await InlineConditionTestFixture.Run(document);
+        var diagnostics = await InlineConditionTestFixture.Diagnostics(document);
+        Assert.Equal(6, diagnostics.Length);
+        foreach (var diagnostic in diagnostics)
+        {
+            var actions = await InlineConditionTestFixture.Actions(document, diagnostic);
+            Assert.True(actions.Count != 0, diagnostic.ToString());
+            foreach (var action in actions)
+            {
+                var operation = Assert.Single((await action.GetOperationsAsync(System.Threading.CancellationToken.None))
+                    .OfType<Microsoft.CodeAnalysis.CodeActions.ApplyChangesOperation>());
+                var changed = operation.ChangedSolution.GetDocument(document.Id)!;
+                var saved = await InlineConditionTestFixture.Reparse(changed);
+                Assert.Equal(before, await InlineConditionTestFixture.Run(saved));
+                Assert.Equal(diagnostics.Length - 1, (await InlineConditionTestFixture.Diagnostics(saved)).Length);
+            }
+        }
+    }
+
 }

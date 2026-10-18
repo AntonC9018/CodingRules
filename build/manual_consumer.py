@@ -2,21 +2,12 @@
 """Exercise manual diagnostic fixtures through the exact isolated consumer package."""
 
 import argparse
-import importlib.util
-import os
 from pathlib import Path
 import re
-import shutil
-import tempfile
-import xml.etree.ElementTree as ET
-from zipfile import ZipFile
+
+from consumer_fixture import packaged_consumer
 
 
-ROOT = Path(__file__).resolve().parents[1]
-# Use the existing package selector and command runner, including their failure handling.
-SPEC = importlib.util.spec_from_file_location("formatting_consumer", ROOT / "build/verify-formatting-consumer.py")
-FORMATTING = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(FORMATTING)
 REPORT = re.compile(r"([^/\\\s]+\.cs)\((\d+),(\d+)\): (warning|error) (\w+):")
 
 
@@ -24,38 +15,7 @@ def verify_manual_consumer(fixture_name, diagnostic_id, expected_count, generate
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("package", nargs="?", type=Path, help="Existing nupkg or package directory; otherwise pack")
     arguments = parser.parse_args()
-    with tempfile.TemporaryDirectory(prefix="codingrules-manual-consumer-") as temporary:
-        work = Path(temporary)
-        feed = work / "feed"
-        feed.mkdir()
-        environment = dict(os.environ)
-        run = FORMATTING.run
-        if arguments.package is None:
-            run(["dotnet", "pack", "Package/CodingRules.Package.csproj", "-c", "Release", "--output", str(feed)],
-                ROOT, environment)
-        try:
-            package = FORMATTING.select_package(arguments.package or feed)
-        except ValueError as error:
-            parser.error(str(error))
-        if arguments.package is not None:
-            shutil.copyfile(package, feed / package.name)
-        with ZipFile(package) as archive:
-            metadata = ET.fromstring(archive.read("Anton.CodingRules.nuspec"))
-            version = metadata.find("{*}metadata/{*}version").text
-            assert "analyzers/dotnet/cs/CodingRules.Analyzers.dll" in archive.namelist()
-        shutil.copyfile(ROOT / "global.json", work / "global.json")
-        consumer = work / "consumer"
-        shutil.copytree(ROOT / "CodeFixTests/Consumers" / fixture_name, consumer,
-                        ignore=shutil.ignore_patterns("bin", "obj"))
-        project = ET.parse(consumer / "Consumer.csproj")
-        project.find("ItemGroup/PackageReference").set("Version", version)
-        project.write(consumer / "Consumer.csproj", encoding="utf-8")
-        (work / "NuGet.Config").write_text(f"""<configuration>
-  <packageSources><clear /><add key="test-feed" value="{feed}" /></packageSources>
-</configuration>
-""")
-        # No cache or remote feeds can supply missing analyzer/package assets.
-        environment["NUGET_PACKAGES"] = str(work / "packages")
+    with packaged_consumer(fixture_name, arguments.package, parser) as (consumer, environment, run):
         config = consumer / ".editorconfig"
         template = """root = true
 

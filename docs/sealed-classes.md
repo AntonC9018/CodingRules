@@ -82,7 +82,9 @@ public class FrameworkEntryPoint { }
 
 Abstract/static/sealed classes, interfaces, structs, delegates, implicit top-level
 Program, malformed declarations, unresolved base types and generated code are
-not reported. A partial class receives one warning on its declaration identifier.
+not reported. A partial class receives one warning on a hand-written declaration
+identifier, including when a generated declaration appears first. The analyzer
+uses Roslyn's generated-code classification and deduplicates partial symbols.
 
 ## Configuration and regression evidence
 

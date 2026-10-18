@@ -3,8 +3,10 @@
 // MIT license and source/change provenance: third-party/meziantou/.
 // Changes: CR1400 manual findings, public/exception/virtual/inherited coverage,
 // forwarding-attribute exception, semantic framework identity and generated-code handling.
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -30,31 +32,33 @@ public sealed class SealConcreteClassAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(start =>
         {
             var analyzerContext = new AnalyzerContext(start.Compilation);
-            start.RegisterSymbolAction(analyzerContext.AnalyzeNamedTypeSymbol, SymbolKind.NamedType);
+            start.RegisterSyntaxNodeAction(analyzerContext.AnalyzeTypeDeclaration,
+                SyntaxKind.ClassDeclaration, SyntaxKind.RecordDeclaration);
         });
     }
 
     private sealed class AnalyzerContext(Compilation compilation)
     {
+        private readonly ConcurrentDictionary<INamedTypeSymbol, byte> reported = new(SymbolEqualityComparer.Default);
         private readonly INamedTypeSymbol? comImportSymbol = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.ComImportAttribute");
         private readonly INamedTypeSymbol? benchmarkSymbol = compilation.GetTypeByMetadataName("BenchmarkDotNet.Attributes.BenchmarkAttribute");
 
-        public void AnalyzeNamedTypeSymbol(SymbolAnalysisContext context)
+        public void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
         {
-            var symbol = (INamedTypeSymbol)context.Symbol;
+            var declaration = (TypeDeclarationSyntax)context.Node;
+            if (declaration.ContainsDiagnostics) return;
+            if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not INamedTypeSymbol symbol) return;
             if (symbol.TypeKind != TypeKind.Class) return;
             if (symbol.IsSealed || symbol.IsAbstract || symbol.IsStatic || symbol.IsImplicitlyDeclared) return;
             if (HasExternalAttribute(symbol, comImportSymbol)) return;
             if (HasBenchmarkContract(symbol)) return;
             if (ForwardingAttribute.IsBase(symbol, compilation, context.CancellationToken)) return;
 
-            // One finding per symbol, including partial types. Compiler-generated
-            // Program has no source type declaration and is not a review target.
-            var declaration = symbol.DeclaringSyntaxReferences
-                .Select(reference => reference.GetSyntax(context.CancellationToken))
-                .OfType<TypeDeclarationSyntax>().FirstOrDefault();
-            if (declaration is null || declaration.ContainsDiagnostics) return;
             if (symbol.BaseType?.TypeKind == TypeKind.Error) return;
+            // Roslyn invokes this action only for hand-written declarations.
+            // A symbol's first declaration can be generated, so selecting it in
+            // a symbol action would lose a mixed partial type's finding.
+            if (!reported.TryAdd(symbol, 0)) return;
             context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), symbol.Name));
         }
 

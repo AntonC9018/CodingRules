@@ -35,6 +35,21 @@ There is no automatic sealing action. The isolated consumer regression is
 registered for final stable-package execution after all tickets; it has not
 been executed during this ticket. CI remains disabled.
 
+## Validation (2026-10-18)
+
+- Focused sealing tests: **45 passed**. The resumed WIP initially passed 42/43;
+  selecting a generated first partial declaration hid the hand-written finding.
+  Declaration actions with symbol deduplication fix that case. Class/record
+  declaration order and inherited external benchmark constraints are covered.
+- Broad solution tests: **242 analyzer + 1,052 code-fix tests passed**, zero
+  failures. Both runs exclude Package, Packaged and Consumer test names; the
+  broad run also explicitly excludes PackageConsumptionTests.
+- Both runs use Release and the command-scoped
+  `-p:WarningsNotAsErrors=NU1902%3BNU1903` exception for existing transitive
+  dependency advisories. No repository warning policy changed.
+- No pack or consumer gate ran. The final stable candidate must still run
+  `build/verify-sealed-classes-consumer.py` with the shared candidate archive.
+
 ## Blocked by
 
 None (can start immediately).

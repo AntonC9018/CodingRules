@@ -9,8 +9,10 @@ Changes: use CR1400 and repository warning/help-link conventions; analyze
 hand-written source only; include public classes, exceptions, virtual members
 and classes with inheritors; retain COM-import and externally defined benchmark
 constraints with semantic identity checks; add the generic attribute-forwarding
-exception. Reporting uses a symbol action because existing inheritance no longer
-removes candidates. The separate forwarding proof is original CodingRules code.
+exception. Reporting uses declaration actions with symbol deduplication so mixed
+generated/hand-written partial types retain one finding at a hand-written
+declaration. Existing inheritance no longer removes candidates. The separate
+forwarding proof is original CodingRules code.
 
 No upstream binary, configuration surface or fixer is bundled. The original
 fixer's unconditional modifier insertion is unsuitable for the added inherited

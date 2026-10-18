@@ -99,7 +99,16 @@ public sealed class ContractParameterAnalyzer : DiagnosticAnalyzer
         if (type.TypeKind == TypeKind.Error) return true;
         if (type is IArrayTypeSymbol array) return HasErrorType(array.ElementType);
         if (type is IPointerTypeSymbol pointer) return HasErrorType(pointer.PointedAtType);
-        if (type is INamedTypeSymbol named) return named.TypeArguments.Any(HasErrorType);
+        if (type is INamedTypeSymbol named)
+        {
+            if (named.ContainingType is { } containing && HasErrorType(containing)) return true;
+            return named.TypeArguments.Any(HasErrorType);
+        }
+        if (type is IFunctionPointerTypeSymbol function)
+        {
+            if (HasErrorType(function.Signature.ReturnType)) return true;
+            return function.Signature.Parameters.Any(parameter => HasErrorType(parameter.Type));
+        }
         return false;
     }
 }

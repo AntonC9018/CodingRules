@@ -53,6 +53,9 @@ public sealed class ContractParameterAnalyzerTests
     [InlineData("abstract class C { protected abstract void M(int a, int b, int c, int d); }", 1)]
     [InlineData("delegate void C<T>(T a, T b, T c, T d);", 1)]
     [InlineData("interface C { static virtual void M(int a, int b, int c, int d) { } }", 1)]
+    [InlineData("class Outer<T> { public class Nested { } } interface C { void M(Outer<int>.Nested a, int b, int c, int d); }", 1)]
+    [InlineData("unsafe interface C { void M(delegate*<int, void> a, int b, int c, int d); }", 1)]
+    [InlineData("unsafe interface C { void M(delegate*<int, int> a, int b, int c, int d); }", 1)]
     [InlineData("interface C { int this[int a, int b, int c, int d] { get; } }", 0)]
     public async Task CountsDeclaredSlotsAtFourWithinAcceptedCallableCategories(string source, int count)
     {
@@ -193,6 +196,9 @@ public sealed class ContractParameterAnalyzerTests
     [Theory]
     [InlineData("interface I { void M(Missing a, int b, int c, int d); }")]
     [InlineData("interface I { void M(System.Collections.Generic.List<Missing> a, int b, int c, int d); }")]
+    [InlineData("class Outer<T> { public class Nested { } } interface I { void M(Outer<Missing>.Nested a, int b, int c, int d); }")]
+    [InlineData("unsafe interface I { void M(delegate*<Missing, void> a, int b, int c, int d); }")]
+    [InlineData("unsafe interface I { void M(delegate*<int, Missing> a, int b, int c, int d); }")]
     [InlineData("interface I { void M(int a, int b, int c, ); }")]
     public async Task SkipsInvalidSignatures(string source)
     {
@@ -209,7 +215,7 @@ public sealed class ContractParameterAnalyzerTests
         var trees = sources.Select((source, index) => CSharpSyntaxTree.ParseText(source,
             new CSharpParseOptions(LanguageVersion.CSharp12), path: path ?? $"Test{index}.cs"));
         var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
-            nullableContextOptions: NullableContextOptions.Enable,
+            nullableContextOptions: NullableContextOptions.Enable, allowUnsafe: true,
             specificDiagnosticOptions: ImmutableDictionary<string, ReportDiagnostic>.Empty.Add(DiagnosticIds.ContractParameterGroup, severity));
         var references = additionalReference is null ? References : References.Add(additionalReference);
         var compilation = CSharpCompilation.Create("ContractTests", trees, references, options);

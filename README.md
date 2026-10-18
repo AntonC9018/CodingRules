@@ -72,6 +72,13 @@ receive no duplicate. The [contract parameter boundary](docs/contract-parameters
 records the static-function and external-contract exceptions, accepted
 Finish/Edit fixtures, configuration and isolated package gate.
 
+`CR1001` requires a configuration builder for multi-parameter overload alternatives,
+including static operations. The approved pair has the same declaring type, name,
+staticness, generic arity and parameter count, exactly one differing resolved
+parameter type, and matching ref/params/default presence. One-parameter Parse and
+builder Output overloads remain allowed. The [overload configuration boundary](docs/overload-configuration.md)
+records manual API migration, required-step review and isolated package evidence.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

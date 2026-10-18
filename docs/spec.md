@@ -157,6 +157,21 @@ records exact ownership, regression evidence and the package gate. Grouping is
 an architectural decision with no automatic fix. Overload/builder and repeated
 plumbing policies remain independent.
 
+## Overload configuration implementation (ScheduleLib slice 06)
+
+CR1001 is a manual Readability warning requiring a configuration builder for
+methods with more than one parameter and an overload alternative, including
+static methods. The approved pair has the same declaring type, name, staticness,
+generic arity and parameter count, exactly one differing resolved parameter type,
+and matching ref-kinds, params, optional and default presence throughout.
+Parameter names may differ. Differing counts and multiple type differences stay
+outside initial coverage; one-parameter Parse and builder Output overloads remain
+allowed. The [overload configuration boundary](overload-configuration.md) records
+symbol comparison, declaration locations, accepted cases and package evidence.
+API migration has no automatic fix. Required builder steps remain a manual agent
+check with runtime validation; the RequiredStep proposal stays deferred. Broader
+repeated plumbing still requires semantic review independent of overload count.
+
 ## Reviewed compound guards (ScheduleLib slice 08)
 
 CR0201/CR0202/CR0203 cover the reviewed config-result, JSON lookup,

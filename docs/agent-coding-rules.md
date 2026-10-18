@@ -57,6 +57,14 @@ parameter has alternative overload forms. One-parameter overloads remain allowed
 This rule also applies to static operations; it is independent of the separate
 parameter-count requirement for extensible contracts.
 
+CR1001 identifies the [approved overload pairs](overload-configuration.md): same
+declaring type, name, staticness, generic arity and parameter count greater than
+one, with exactly one differing resolved parameter type and matching ref-kinds,
+params, optional and default presence. Parameter names may differ. Its finding
+requires manual builder design and caller migration. Differing counts or multiple
+type differences remain outside initial analyzer coverage; review broader repeated
+plumbing by shared meaning and usage rather than inferring it from overload count.
+
 ## Check builder completeness manually
 
 The [RequiredStep analyzer idea](required-builder-steps-proposal.md) is deferred.

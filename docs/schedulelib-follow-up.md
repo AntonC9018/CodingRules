@@ -2,8 +2,9 @@
 
 The acceptance backlog is [ScheduleLib #229](https://github.com/AntonC9018/ScheduleLib/issues/229),
 based on the [reviewed implementation at 12e601e](https://github.com/AntonC9018/ScheduleLib/tree/12e601e7b62511bdecc44e280407fee12147b230).
-This document records the maintainer's 2026-10-15 clarifications. It describes
-pending work, not coverage already provided by the published package.
+This document records the maintainer's 2026-10-15 clarifications and subsequent
+implementation decisions, including the 2026-10-18 overload boundary approval.
+Implementation coverage below is distinct from publication of the package.
 
 ## Discussion record
 
@@ -152,6 +153,16 @@ external exemptions, accepted static Finish/Edit fixtures, and the shared compil
 positive/accepted cases checked by analyzer tests and the isolated package gate.
 Overload/builder and repeated-plumbing decisions remain independent; ordinary
 nonvirtual instance methods receive no new blanket count rule.
+
+Slice 06 implements Q19 as CR1001 manual configuration-builder findings on
+multi-parameter method declarations, including static operations. The approved
+pairwise boundary requires the same declaring type, name, staticness, generic
+arity and parameter count, exactly one differing resolved parameter type, and
+matching ref-kinds, params, optional and default presence. Parameter names may
+differ. The [overload configuration boundary](overload-configuration.md) records
+the conservative symbol comparison, one-parameter Parse/Output exceptions, and
+shared analyzer/package regression evidence. Required-step checks remain manual
+with runtime validation; the RequiredStep analyzer remains deferred.
 
 Slice 08 reuses CR0201/CR0202/CR0203 for the actual A3/A11/A15 config-result,
 JSON lookup, cancellation/authentication and rejected-action status conditions.
@@ -323,6 +334,17 @@ in its commit history must not be treated as human authorship.
   A one-parameter Parse(string)/Parse(ReadOnlySpan<char>) pair is allowed. This
   overload rule is independent of the more-than-three grouping requirement for
   the specified contract kinds; static functions are not exempt from it.
+
+  **Approved initial overload-alternative boundary (2026-10-18).** A pair must
+  have the same declaring type, method name, staticness and generic arity;
+  equal parameter counts greater than one; and exactly one differing resolved
+  parameter type. All other parameter types and all corresponding ref-kinds,
+  params flags, optional flags and default presence must match. Parameter names
+  may differ. Differing-arity pairs and pairs with more than one parameter type
+  difference remain outside initial coverage. CR1001 implements this exact
+  pairwise boundary as a manual finding, without an automatic API rewrite or
+  required-step analysis. [Rule documentation](overload-configuration.md) records
+  generic parameter normalization, locations, configuration and regression evidence.
 - **Q20 — Resolved for the shown import flow: one shared record struct.**
   The lesson, day, time slot, groups, and alternative should travel together in
   one record struct through the importer, delegate, cohort handler, and

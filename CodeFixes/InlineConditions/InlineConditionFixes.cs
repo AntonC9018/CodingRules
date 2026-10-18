@@ -39,6 +39,20 @@ internal static class InlineConditionFixes
         }
 
         var originalBindings = CallBindings(await document.GetSyntaxRootAsync(token).ConfigureAwait(false), plan.Model, token);
+        // Flow-preserving OR guards duplicate a terminal statement syntactically.
+        // Only the first reached guard executes it, just as in the original OR.
+        if (!extract && plan.NeedsFlowPreservingIf && plan.Statement is IfStatementSyntax flowIf
+            && ConditionFacts.Unwrap(plan.Expression) is BinaryExpressionSyntax disjunction
+            && disjunction.IsKind(SyntaxKind.LogicalOrExpression))
+        {
+            var leaves = new List<ExpressionSyntax>();
+            ConditionFacts.CollectChain(disjunction, SyntaxKind.LogicalOrExpression, leaves);
+            foreach (var pair in CallBindings(flowIf.Statement, plan.Model, token))
+            {
+                originalBindings[pair.Key] += pair.Value * (leaves.Count - 1);
+            }
+        }
+
         var changedBindings = CallBindings(changedTree.GetRoot(token), changedModel, token);
         foreach (var pair in originalBindings)
         {

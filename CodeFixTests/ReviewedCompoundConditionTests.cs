@@ -78,11 +78,11 @@ public sealed class ReviewedCompoundConditionTests
 
     [Theory]
     [InlineData("config", "CR0201")]
-    [InlineData("json", null)]
+    [InlineData("json", "CR0203")]
     [InlineData("cancellation", "CR0202")]
-    [InlineData("authentication", null)]
-    [InlineData("status", null)]
-    public async Task EstablishExistingFamilyCoverageForPinnedExamples(string example, string? expected)
+    [InlineData("authentication", "CR0202")]
+    [InlineData("status", "CR0203")]
+    public async Task ExistingFamiliesFixPinnedExamples(string example, string? expected)
     {
         var source = example switch
         {

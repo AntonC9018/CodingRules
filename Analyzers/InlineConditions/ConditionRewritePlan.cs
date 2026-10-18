@@ -194,6 +194,7 @@ internal sealed class ConditionRewritePlan
                     and not IPropertySymbol { ReturnsByRefReadonly: true },
                 MemberAccessExpressionSyntax => true,
                 CastExpressionSyntax => true,
+                IsPatternExpressionSyntax => ReviewedHttpStatusFilter.NamedPattern(expression, model) is not null,
                 _ => false,
             };
             if (!supported)
@@ -315,8 +316,9 @@ internal sealed class ConditionRewritePlan
                     && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol)));
         }
 
-        return binary.IsKind(SyntaxKind.LogicalOrExpression) && (statement.Statement is ReturnStatementSyntax
-                || statement.Statement is BlockSyntax { Statements.Count: 1 } block && block.Statements[0] is ReturnStatementSyntax)
+        return binary.IsKind(SyntaxKind.LogicalOrExpression) && (statement.Statement is ReturnStatementSyntax or ThrowStatementSyntax
+                || statement.Statement is BlockSyntax { Statements.Count: 1 } block
+                    && block.Statements[0] is ReturnStatementSyntax or ThrowStatementSyntax)
             && statement.Statement.DescendantTrivia().All(trivia => !trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
                 && !trivia.IsKind(SyntaxKind.MultiLineCommentTrivia));
     }

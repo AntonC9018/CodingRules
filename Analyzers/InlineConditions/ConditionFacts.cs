@@ -335,6 +335,11 @@ internal sealed class ConditionFacts
         expression = Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary)
         {
+            if (binary.IsKind(SyntaxKind.IsExpression) && model.GetOperation(binary) is IIsTypeOperation)
+            {
+                return Subject(binary.Left, model);
+            }
+
             if (binary.Kind() is not (SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression or SyntaxKind.LessThanExpression
                 or SyntaxKind.LessThanOrEqualExpression or SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression)) return null;
             if (model.GetOperation(binary) is not IBinaryOperation { OperatorMethod: null }) return null;
@@ -349,7 +354,7 @@ internal sealed class ConditionFacts
         if (expression is IsPatternExpressionSyntax pattern)
         {
             if (pattern.Pattern.DescendantNodesAndSelf().Any(node => node is VariableDesignationSyntax)) return null;
-            return Subject(pattern.Expression, model);
+            return ConditionSubject.CreatePropertyPattern(pattern, model) ?? Subject(pattern.Expression, model);
         }
 
         if (expression is InvocationExpressionSyntax invocation && IsPredicate(invocation, model))

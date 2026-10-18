@@ -10,6 +10,10 @@ Reuse [CodingRules #19](https://github.com/AntonC9018/CodingRules/issues/19), wh
 
 Each ticket is a complete diagnostic/fix/consumer or downstream behavior slice. SDK repair and consumer rollout are separate from introducing rule policy. Slice 18 is the package adoption/coverage gate, not a blocker for independent rule development or the three downstream feature refactors.
 
+Review Cycle 3 (slices 05, 06 and 08) is closed. The
+[verification record](cycle-3-verification.md) documents the three accepted fixes,
+passing focused and broad checks, and deferred final package validation.
+
 | Slice | GitHub issue | Delivers | Blocked by |
 | --- | --- | --- | --- |
 | [01](01-repair-shared-testing-dependencies.md) | [SourceGenerators #12: Repair the shared SDK testing dependency graph](https://github.com/AntonC9018/SourceGenerators/issues/12) | A fresh SDK-based CodingRules test consumer restores, builds, and runs its tests with normal audit and warnings-as-errors settings, without per-repository advisory exceptions. | None |

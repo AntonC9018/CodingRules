@@ -19,7 +19,7 @@ public sealed class ContractParameterAnalyzerTests
         Assert.Equal(9, diagnostics.Length);
         var expected = sources[0].Split('\n').Select((line, index) => (line, index))
             .Where(item => item.line.Contains("// CR1000: "))
-            .Select(item => (item.index, item.line.IndexOf(item.line.Split("// CR1000: ")[1], StringComparison.Ordinal)));
+            .Select(item => (item.index, item.line.IndexOf(item.line.Split("// CR1000: ")[1].Trim(), StringComparison.Ordinal)));
         Assert.Equal(expected, diagnostics.Select(item =>
         {
             var position = item.Location.GetLineSpan().StartLinePosition;

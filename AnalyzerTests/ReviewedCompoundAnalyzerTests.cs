@@ -12,16 +12,19 @@ public sealed class ReviewedCompoundAnalyzerTests
     private static readonly ImmutableArray<MetadataReference> References = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
         .Split(Path.PathSeparator).Select(path => MetadataReference.CreateFromFile(path)).ToImmutableArray<MetadataReference>();
 
-    [Fact]
-    public async Task SharedConsumerFixturesHaveExactFindingsAndAcceptedCases()
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public async Task SharedConsumerFixturesHaveExactFindingsAndAcceptedCases(string newLine)
     {
-        var findings = Fixture("Findings.cs");
-        var diagnostics = await Analyze(findings, Fixture("Accepted.cs"));
-        var expected = findings.Split('\n').Select((line, number) => (line, number))
+        var findings = Fixture("Findings.cs").ReplaceLineEndings(newLine);
+        var accepted = Fixture("Accepted.cs").ReplaceLineEndings(newLine);
+        var diagnostics = await Analyze(findings, accepted);
+        var expected = findings.Split('\n').Select((line, number) => (line: line.TrimEnd('\r'), number))
             .Select(item => (match: Regex.Match(item.line, "// (CR[0-9]+): (.+)$"), item.line, item.number))
             .Where(item => item.match.Success)
             .Select(item => (item.match.Groups[1].Value, item.number,
-                item.line.IndexOf(item.match.Groups[2].Value, StringComparison.Ordinal))).ToArray();
+                item.line.IndexOf(item.match.Groups[2].Value.Trim(), StringComparison.Ordinal))).ToArray();
         Assert.Equal(6, expected.Length);
         Assert.Equal(expected, diagnostics.Select(d => (d.Id, d.Location.GetLineSpan().StartLinePosition.Line,
             d.Location.GetLineSpan().StartLinePosition.Character)));

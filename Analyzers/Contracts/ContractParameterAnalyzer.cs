@@ -40,7 +40,7 @@ public sealed class ContractParameterAnalyzer : DiagnosticAnalyzer
         {
             case MethodDeclarationSyntax method:
                 contract = model.GetDeclaredSymbol(method, cancellation);
-                if (contract is null) return;
+                if (contract is not { Parameters.Length: > 3 }) return;
                 if (!OwnsMethodContract(contract)) return;
                 location = method.Identifier.GetLocation();
                 break;
@@ -81,7 +81,7 @@ public sealed class ContractParameterAnalyzer : DiagnosticAnalyzer
         var type = method.ContainingType;
         foreach (var contract in type.AllInterfaces)
         {
-            foreach (var member in contract.GetMembers().OfType<IMethodSymbol>())
+            foreach (var member in contract.GetMembers(method.Name).OfType<IMethodSymbol>())
             {
                 var implementation = type.FindImplementationForInterfaceMember(member);
                 if (SymbolEqualityComparer.Default.Equals(method, implementation)) return false;

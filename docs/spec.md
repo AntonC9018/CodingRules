@@ -208,6 +208,16 @@ unit/consumer fixture and final package test are registered; package execution
 is deferred until the stable candidate after all tickets. Broader inline-string
 and structured-message policy remains separate and unresolved.
 
+## Unchanged assignment implementation (ScheduleLib slice 11)
+
+CR1200 covers A13/Q13's reflection null preservation and direct current-value
+branches for stable local/parameter/current-instance-field storage. Supported
+statement, return and property/accessor arrow hosts become explicit conditional
+updates with required returns. The [assignment contract](unchanged-assignments.md)
+records exact proofs, setter/receiver/alias exclusions, saved-source validation,
+and shared positive/accepted/runtime evidence. Package execution remains reserved
+for the final stable candidate.
+
 ## Reference cases to verify
 
 These examples come from the linked FindJobHelper branch and serve as

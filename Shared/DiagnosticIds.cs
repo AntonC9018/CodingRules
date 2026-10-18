@@ -28,5 +28,6 @@ public static class DiagnosticIds
     public const string NamedTupleData = "CR0900";
     public const string ContractParameterGroup = "CR1000";
     public const string OverloadConfigurationBuilder = "CR1001";
+    public const string UnchangedAssignment = "CR1200";
     public const string StringConcatenation = "CR1100";
 }

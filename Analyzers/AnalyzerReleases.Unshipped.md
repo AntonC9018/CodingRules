@@ -29,6 +29,7 @@ CR0900 | Readability | Warning | Represent tuple method results, inputs and stor
 CR1000 | Readability | Warning | Group more than three parameters on locally owned extensible contracts (manual migration)
 CR1001 | Readability | Warning | Use a configuration builder for multi-parameter overloads differing in exactly one parameter type (manual migration)
 CR1100 | Readability | Warning | Prefer interpolation for runtime built-in string-only concatenations
+CR1200 | Readability | Warning | Make proven unchanged assignment branches explicit conditional updates
 
 ### Removed Rules
 

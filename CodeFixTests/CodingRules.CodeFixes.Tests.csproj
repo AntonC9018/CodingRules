@@ -1,6 +1,9 @@
 <Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
   <ItemGroup>
     <Compile Remove="Consumers/**/*.cs" />
+    <None Include="Consumers/UnchangedAssignment/Consumer.cs" Link="UnchangedAssignment/Consumer.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/UnchangedAssignment/.editorconfig" Link="UnchangedAssignment/.editorconfig" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Expected/UnchangedAssignment.Fixed.cs.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Consumers/StringConcatenation/Consumer.cs" Link="StringConcatenation/Consumer.cs" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Consumers/StringConcatenation/.editorconfig" Link="StringConcatenation/.editorconfig" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Expected/StringConcatenation.Fixed.cs.txt" CopyToOutputDirectory="PreserveNewest" />

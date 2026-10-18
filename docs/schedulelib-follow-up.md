@@ -190,6 +190,15 @@ cases, and shared saved-source/runtime regression. Its packaged consumer test
 is registered for the final stable candidate; no package validation runs during
 this ticket. Universal inline-string/message-record policy remains open.
 
+Slice 11 implements A13/Q13 as CR1200 for proven direct current-value and
+reference-null branches on stable storage. The [assignment contract](unchanged-assignments.md)
+records conditional updates in statement/return/property/accessor hosts,
+conservative setter/receiver/ref/volatile boundaries and preserved assignment
+result conversions. Shared compiled/runtime and saved-source cases cover the
+pinned reflection traversal, generalized branches and accepted effectful targets.
+Its package regression is registered for the final stable candidate; package
+validation and downstream adoption remain separate.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable

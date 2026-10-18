@@ -276,3 +276,36 @@ dependency-repair slice owns that baseline issue; this change adds no permanent
 audit exception. Normal package build/pack and the isolated consumer gate pass
 without an audit exception. MSBuild requires the semicolon-separated warning IDs
 to be escaped as `%3B`; passing a literal quoted semicolon produced MSB1006.
+
+Validation on 2026-10-18 (A1 caller-information safety): the baseline at
+`f6e2310` was reproduced in a scratch copy under
+`/tmp/codingrules-a1-caller-repro`. All ten isolated runtime regressions failed
+before the fix, covering individual actions and exported Fix All for enclosing
+expression captures, constructor line numbers and downstream line numbers in a
+later member. A freshly packed baseline also changed the constructor value from
+18 to 17, changed the captured compact initializer to multiline text, and moved
+the downstream value from 27 to 30. These observations used compiler-emitted
+runtime values after formatting and reparsing, not token equality alone.
+
+The corrected implementation passed **986** solution tests (64 analyzer and
+922 code-fix tests), including **78** focused formatting cases, and all **15**
+Python build tests. Verification commands:
+
+```sh
+dotnet test CodingRules.slnx -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903
+dotnet test CodeFixTests/CodingRules.CodeFixes.Tests.csproj -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903 --filter FullyQualifiedName~FormattingReuseTests
+python3 -m unittest discover -s build/tests -v
+dotnet pack Package/CodingRules.Package.csproj -c Release --output /tmp/codingrules-a1-caller-package
+python3 build/verify-formatting-consumer.py /tmp/codingrules-a1-caller-package
+git diff --check
+```
+
+The isolated gate passed exact source, runtime output and byte-identical second
+passes. The A1-only check returned the expected exit 2 for exactly three retained
+manual warnings; the combined check contained those three plus the existing
+eight RCS1016 manual cases. The final compiler build passed with only the three
+explicitly permitted and asserted A1 warnings. All 15 bundled Roslynator DLLs
+matched the pinned 5.0.1 NuGet assets byte for byte. No third-party code was copied
+or modified; existing MIT/Apache-2.0 licensing and provenance remain accurate.
+The command-scoped NU1902/NU1903 exception still covers the pre-existing Pkcs
+9.0.6 test-dependency advisories only.

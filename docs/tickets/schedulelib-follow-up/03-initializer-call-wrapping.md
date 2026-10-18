@@ -2,7 +2,7 @@
 
 **Target repository:** [CodingRules](https://github.com/AntonC9018/CodingRules)
 
-**Status:** implemented and verified on 2026-10-16
+**Status:** implemented and verified on 2026-10-18 (including caller-information safety)
 
 **Published issue:** https://github.com/AntonC9018/CodingRules/issues/22
 

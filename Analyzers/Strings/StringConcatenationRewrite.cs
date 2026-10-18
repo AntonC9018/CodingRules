@@ -47,6 +47,16 @@ internal static class StringConcatenationRewrite
             if (hole is not (IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax
                 or ElementAccessExpressionSyntax or ParenthesizedExpressionSyntax or ConditionalAccessExpressionSyntax))
                 hole = SyntaxFactory.ParenthesizedExpression(hole);
+            // An alias at interpolation depth zero can be parsed as a format
+            // clause. Nested arguments/already parenthesized aliases need no wrap.
+            if (hole.DescendantNodesAndSelf().OfType<AliasQualifiedNameSyntax>().Any())
+            {
+                var probe = SyntaxFactory.ParseExpression("$\"{" + hole.ToFullString() + "}\"",
+                    options: (CSharpParseOptions)binary.SyntaxTree.Options) as InterpolatedStringExpressionSyntax;
+                if (probe?.Contents.SingleOrDefault() is not InterpolationSyntax parsed
+                    || !SyntaxFactory.AreEquivalent(hole, parsed.Expression))
+                    hole = SyntaxFactory.ParenthesizedExpression(hole);
+            }
             // Before C# 11 ordinary interpolation holes cannot contain newlines.
             if (((CSharpParseOptions)binary.SyntaxTree.Options).LanguageVersion < LanguageVersion.CSharp11
                 && hole.ToFullString().IndexOfAny(['\r', '\n']) >= 0) return null;

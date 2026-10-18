@@ -18,6 +18,34 @@ namespace CodingRules;
 
 public sealed partial class StringConcatenationTests
 {
+    [Theory]
+    [InlineData("global::C.Value", "(global::C.Value)")]
+    [InlineData("global::C.Get()", "(global::C.Get())")]
+    [InlineData("Alias::C.Value", "(Alias::C.Value)")]
+    [InlineData("(global::C.Value)", "(global::C.Value)")]
+    [InlineData("Identity(global::C.Value)", "Identity(global::C.Value)")]
+    [InlineData("value", "value")]
+    public async Task AliasQualifiedHolesReparseWithoutRedundantParentheses(string operand, string hole)
+    {
+        var document = StatementOperationTestFixture.Document("""
+            using Alias = N;
+            namespace N { public class C { public static string Value = "value"; } }
+            public class C
+            {
+                public static string Value = "value";
+                public static string Get() => Value;
+                static string Identity(string value) => value;
+                public static string Run() { string value = "value"; return OPERAND + "!"; }
+            }
+            """.Replace("OPERAND", operand));
+        var expected = await StatementOperationTestFixture.Run(document);
+        Assert.Single(await Diagnostics(document));
+        document = await FixAll(document);
+        Assert.Contains("{" + hole + "}", (await document.GetTextAsync()).ToString());
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(document));
+        Assert.Empty(await Diagnostics(document));
+    }
+
     [Fact]
     public async Task BundledRoslynatorConcatRuleDoesNotCoverA10Addition()
     {

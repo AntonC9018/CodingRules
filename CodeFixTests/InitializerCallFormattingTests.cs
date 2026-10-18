@@ -272,6 +272,124 @@ public sealed partial class FormattingReuseTests
         await AssertStableLayout(document, await Formatter.FormatAsync(changed));
     }
 
+    [Theory]
+    [InlineData("capture", false)]
+    [InlineData("capture", true)]
+    [InlineData("capture-join", false)]
+    [InlineData("capture-join", true)]
+    [InlineData("constructor", false)]
+    [InlineData("constructor", true)]
+    [InlineData("downstream-expand", false)]
+    [InlineData("downstream-expand", true)]
+    [InlineData("downstream-join", false)]
+    [InlineData("downstream-join", true)]
+    public async Task InitializerLayoutPreservesCallerInformation(string scenario, bool fixAll)
+    {
+        var statement = scenario switch
+        {
+            "capture" => "return Capture(new Payload { A = 1, B = 2 });",
+            "capture-join" => "return Capture(Identity(\n            new Payload(line: 0)));",
+            "constructor" => "Use(\n            new Payload()); return result;",
+            "downstream-expand" => "Use(new Payload { A = 1, B = 2 }); return Later();",
+            _ => "Use(\n            new Payload()); return Later();",
+        };
+        var document = Document($$"""
+            using System.Runtime.CompilerServices;
+            public class Payload
+            {
+                public int A;
+                public int B;
+                public int Line;
+                public Payload([CallerLineNumber] int line = 0) { Line = line; }
+            }
+            public class C
+            {
+                static string result = "";
+                static void Use(Payload value) { result = value.Line.ToString(); }
+                static Payload Identity(Payload value) { return value; }
+                static string Capture(Payload value, [CallerArgumentExpression("value")] string expression = "") { return expression; }
+                public static string Run()
+                {
+                    {{statement}}
+                }
+                static string Later()
+                {
+                    return Line();
+                }
+                static string Line([CallerLineNumber] int line = 0) { return line.ToString(); }
+            }
+            """);
+        document = await Formatter.FormatAsync(document);
+        var expected = await StatementOperationTestFixture.Run(document);
+        var id = scenario is "capture" or "downstream-expand" ? "CR0801" : "CR0802";
+        Document changed;
+        if (fixAll)
+        {
+            changed = await ExportedInitializerFixAll(document, id);
+        }
+        else
+        {
+            var diagnostic = Assert.Single((await Diagnostics(document)).Where(item => item.Id == id));
+            var actions = new List<CodeAction>();
+            await new InitializerCallLayoutCodeFixProvider().RegisterCodeFixesAsync(new CodeFixContext(document, diagnostic,
+                (action, _) => actions.Add(action), CancellationToken.None));
+            changed = document;
+            if (actions.Count > 0)
+            {
+                var operations = await Assert.Single(actions).GetOperationsAsync(CancellationToken.None);
+                changed = Assert.Single(operations.OfType<ApplyChangesOperation>()).ChangedSolution.GetDocument(document.Id)!;
+            }
+        }
+        changed = await StatementOperationTestFixture.Reparse(await Formatter.FormatAsync(changed));
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(changed));
+        Assert.Equal((await document.GetTextAsync()).ToString(), (await changed.GetTextAsync()).ToString());
+        var repeated = await ExportedInitializerFixAll(changed, id);
+        Assert.Equal((await changed.GetTextAsync()).ToString(), (await repeated.GetTextAsync()).ToString());
+    }
+
+    [Theory]
+    [InlineData("CR0801")]
+    [InlineData("CR0802")]
+    public async Task InitializerFixAllSkipsUnsafeSitesAndStillFormatsSafeSites(string id)
+    {
+        var document = Document("""
+            using System.Runtime.CompilerServices;
+            public class Payload { public int A; public int B; }
+            public class C
+            {
+                static void Use(Payload value) { }
+                static string Capture(Payload value, [CallerArgumentExpression("value")] string expression = "") { return expression; }
+                public static string Run()
+                {
+                    var expression = Capture(new Payload { A = 1, B = 2 });
+                    Use(
+                        new Payload { A = 3, B = 4 });
+                    return expression;
+                }
+            }
+            """);
+        var expected = await StatementOperationTestFixture.Run(document);
+        // CLI hosts may have no action key when their first diagnostic is unsafe.
+        var changed = await ExportedInitializerFixAll(document, id, null);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("Capture(new Payload { A = 1, B = 2 })", text);
+        if (id == "CR0801") Assert.Contains("A = 3,\n", text);
+        else Assert.Contains("Use(new Payload", text);
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(await StatementOperationTestFixture.Reparse(changed)));
+        Assert.Equal(text, (await (await ExportedInitializerFixAll(changed, id, null)).GetTextAsync()).ToString());
+    }
+
+    private static async Task<Document> ExportedInitializerFixAll(Document document, string id, string? key = nameof(InitializerCallLayoutCodeFixProvider))
+    {
+        var provider = new InitializerCallLayoutCodeFixProvider();
+        var context = new FixAllContext(document, provider, FixAllScope.Document, key,
+            new[] { id }, new InitializerDiagnostics(id), CancellationToken.None);
+        var action = await provider.GetFixAllProvider().GetFixAsync(context);
+        if (action is null) return document;
+        var operations = await action.GetOperationsAsync(CancellationToken.None);
+        return operations.OfType<ApplyChangesOperation>().SingleOrDefault()?.ChangedSolution.GetDocument(document.Id) ?? document;
+    }
+
     private static async Task<string[]> OperationFindings(Document document)
     {
         var root = (await document.GetSyntaxRootAsync())!;

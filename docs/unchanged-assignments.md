@@ -86,17 +86,19 @@ Internal comments, including comments on removed `?:` and arrow tokens, are
 retained once at the beginning of the replacement block. Exterior comments and
 documentation stay on the host. Directives, expression trees and invalid source
 are conservative exclusions. Implicit caller-information arguments anywhere in
-the document, including collection `Add`, indexer calls, constructor initializers,
-primary-constructor base calls and attribute constructors, exclude the rewrite
-because blocks can change source lines or property getter member names. Explicitly
-supplied caller-information arguments do not impose this exclusion.
+the document, including collection `Add`, ordinary and conditional (`observer?[0]`)
+indexer calls, constructor initializers, primary-constructor base calls and
+attribute constructors, exclude the rewrite because blocks can change source
+lines or property getter member names. Explicitly supplied caller-information
+arguments do not impose this exclusion.
 
 Before offering an action the fixer formats, saves and reparses the candidate,
 rejects new compiler errors/nullable warnings (comparing diagnostic identity and
 counts with the original document), and compares every original call,
-construction and indexer binding/argument conversion in the document, including
-constructor initializers, primary-constructor base calls and attributes. A confident
-finding may have no automatic action if scope or nullable-flow changes fail this
+construction and ordinary/conditional indexer binding/argument conversion in the
+document, including constructor initializers, primary-constructor base calls and
+attributes. A confident finding may have no automatic action if scope or
+nullable-flow changes fail this
 validation; this follows [ADR 0001](adr/0001-separate-findings-from-fix-availability.md).
 Document/project/solution Fix All tracks sites and replans/validates each edit in
 sequence. A saved second pass is unchanged.

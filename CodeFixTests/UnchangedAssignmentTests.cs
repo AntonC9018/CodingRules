@@ -466,6 +466,55 @@ public sealed class UnchangedAssignmentTests
     }
 
     [Theory]
+    [InlineData("[CallerLineNumber]", "observer?[0]", true)]
+    [InlineData("[CallerLineNumber]", "observer?[0, 123]", false)]
+    [InlineData("[CallerLineNumber]", "observer?[0, line: 123]", false)]
+    [InlineData("", "observer?[0]", false)]
+    public async Task ProtectsCallerLinesInConditionalIndexers(string attribute, string access, bool implicitLine)
+    {
+        var document = StatementOperationTestFixture.Document("""
+            using System.Runtime.CompilerServices;
+            public class C
+            {
+                int M(int current, bool flag) => current = flag ? current : 1;
+                static int? Read(Observer? observer) => ACCESS;
+                public static string Run() => Read(new Observer()) + "|" + (Read(null)?.ToString() ?? "null");
+            }
+            class Observer
+            {
+                public int this[int index, ATTRIBUTE int line = 0] => line;
+            }
+            """.Replace("ACCESS", access).Replace("ATTRIBUTE", attribute));
+        var expected = await StatementOperationTestFixture.Run(document);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var model = (await document.GetSemanticModelAsync())!;
+        var binding = Assert.Single(root.DescendantNodes().OfType<ElementBindingExpressionSyntax>());
+        var operation = Assert.IsAssignableFrom<IPropertyReferenceOperation>(model.GetOperation(binding));
+        var line = Assert.Single(operation.Arguments, argument => argument.Parameter?.Name == "line");
+        Assert.Equal(implicitLine || attribute.Length == 0, line.IsImplicit);
+        Assert.Equal(line.Value.ConstantValue.Value + "|null", expected);
+        if (implicitLine) Assert.True((int)line.Value.ConstantValue.Value! > 0);
+
+        if (implicitLine)
+        {
+            Assert.Empty(await Diagnostics(document));
+            var assignment = Assert.Single(root.DescendantNodes().OfType<AssignmentExpressionSyntax>());
+            var diagnostic = Diagnostic.Create(UnchangedAssignmentAnalyzer.Rule, assignment.GetLocation());
+            var actions = new List<CodeAction>();
+            await new UnchangedAssignmentCodeFixProvider().RegisterCodeFixesAsync(new CodeFixContext(document,
+                diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+            Assert.Empty(actions);
+        }
+        else
+        {
+            Assert.Single(await Diagnostics(document));
+            document = await Fix(document);
+            Assert.Empty(await Diagnostics(document));
+        }
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(document));
+    }
+
+    [Theory]
     [InlineData(FixAllScope.Document)]
     [InlineData(FixAllScope.Project)]
     [InlineData(FixAllScope.Solution)]

@@ -51,7 +51,16 @@ with zero failures. `%3B` passes the existing semicolon-separated NU1902/NU1903
 warning overrides through MSBuild's command-line parser. The broad exclusion
 also omits package/consumer-named fixture tests, beyond the heavyweight class.
 
+Cycle 4 review regression: expanding an earlier arrow method changed a later
+`observer?[0]` indexer's implicit caller line from 5 to 13. Both source-observer
+scanning and saved-source binding validation now include conditional indexers.
+The regression verifies analyzer/direct-fixer rejection of the implicit caller
+line and preserved null/non-null behavior for explicit positional/named caller
+lines and ordinary optional defaults. Focused: 57 passed. Broad: 161 analyzer
+tests and 1,052 code-fix tests passed, with zero failures; all package/packaged/
+consumer tests were excluded. No pack or consumer gates ran.
+
 ```sh
-dotnet test CodeFixTests/CodingRules.CodeFixes.Tests.csproj -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903 --filter 'FullyQualifiedName~UnchangedAssignmentTests&FullyQualifiedName!~PackageConsumptionTests&FullyQualifiedName!~Packaged&FullyQualifiedName!~Consumer' --no-restore
+dotnet test CodeFixTests/CodingRules.CodeFixes.Tests.csproj -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903 --filter 'FullyQualifiedName~UnchangedAssignmentTests&FullyQualifiedName!~Package&FullyQualifiedName!~Packaged&FullyQualifiedName!~Consumer' --no-restore
 dotnet test CodingRules.slnx -c Release -p:WarningsNotAsErrors=NU1902%3BNU1903 --filter 'FullyQualifiedName!~PackageConsumptionTests&FullyQualifiedName!~Packaged&FullyQualifiedName!~Package&FullyQualifiedName!~Consumer'
 ```

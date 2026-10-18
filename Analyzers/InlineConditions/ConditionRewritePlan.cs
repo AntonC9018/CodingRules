@@ -319,6 +319,7 @@ internal sealed class ConditionRewritePlan
         return binary.IsKind(SyntaxKind.LogicalOrExpression) && (statement.Statement is ReturnStatementSyntax or ThrowStatementSyntax
                 || statement.Statement is BlockSyntax { Statements.Count: 1 } block
                     && block.Statements[0] is ReturnStatementSyntax or ThrowStatementSyntax)
+            && !HasCallerInformationAt(statement.Statement.DescendantNodesAndSelf().OfType<ExpressionSyntax>(), model)
             && statement.Statement.DescendantTrivia().All(trivia => !trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
                 && !trivia.IsKind(SyntaxKind.MultiLineCommentTrivia));
     }
@@ -328,7 +329,12 @@ internal sealed class ConditionRewritePlan
         var affectedCalls = ConditionFacts.EvaluationNodes(expression).OfType<ExpressionSyntax>()
             .Concat(expression.Ancestors().OfType<ExpressionSyntax>())
             .Where(node => node is InvocationExpressionSyntax or ObjectCreationExpressionSyntax);
-        foreach (var call in affectedCalls)
+        return HasCallerInformationAt(affectedCalls, model);
+    }
+
+    private static bool HasCallerInformationAt(IEnumerable<ExpressionSyntax> calls, SemanticModel model)
+    {
+        foreach (var call in calls)
         {
             var arguments = model.GetOperation(call) switch
             {

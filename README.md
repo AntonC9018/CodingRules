@@ -90,6 +90,12 @@ updates, including property/accessor arrow hosts. The [assignment contract](docs
 records storage/null proofs, setter and receiver exclusions, returning behavior,
 and the shared regression reserved for final package validation.
 
+`CR1300` identifies repeated timestamp formatting within a method as a duplication
+candidate. Review [shared meaning](docs/agent-coding-rules.md#review-duplication-by-meaning)
+before extracting a helper; independent domain policies may remain separate with
+a justified scoped suppression. The [recognition contract](docs/repeated-formatting.md)
+records exact A14 coverage, accepted distinctions and the deferred package gate.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

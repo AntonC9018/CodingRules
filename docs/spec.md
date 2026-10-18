@@ -94,8 +94,9 @@ through `.editorconfig`.
   distinct operations separate when their meaning or reasons to change differ.
 - Agents must make that judgment before acting on a duplication diagnostic.
   The [agent guidance](agent-coding-rules.md) records the review expected in
-  this repository and in the intended consumer integration. Automatic detection
-  of the ScheduleLib formatting examples remains pending implementation.
+  this repository and in the intended consumer integration. CR1300 identifies
+  the reviewed repeated timestamp formatting as a manual duplication candidate;
+  the [recognition boundary](repeated-formatting.md) preserves semantic review.
 
 ### Return decisions
 

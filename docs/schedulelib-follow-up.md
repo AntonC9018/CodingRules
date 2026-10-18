@@ -199,6 +199,15 @@ pinned reflection traversal, generalized branches and accepted effectful targets
 Its package regression is registered for the final stable candidate; package
 validation and downstream adoption remain separate.
 
+Slice 12 implements A14/Q14 as CR1300, a manual duplication-candidate warning
+for matching framework timestamp formatting in one method/local function.
+The [recognition contract](repeated-formatting.md) records constant format,
+provider-source and null-propagation comparisons, the exact start/end chains,
+independent semantic policies and scoped suppressions. Diagnostics link directly
+to semantic-review guidance; no automatic helper extraction is offered. Shared
+positive/accepted consumer fixtures and an isolated package gate are ready for
+the final stable candidate. Package execution and guidance import remain separate.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable

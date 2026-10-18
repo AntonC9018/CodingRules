@@ -30,6 +30,7 @@ CR1000 | Readability | Warning | Group more than three parameters on locally own
 CR1001 | Readability | Warning | Use a configuration builder for multi-parameter overloads differing in exactly one parameter type (manual migration)
 CR1100 | Readability | Warning | Prefer interpolation for runtime built-in string-only concatenations
 CR1200 | Readability | Warning | Make proven unchanged assignment branches explicit conditional updates
+CR1300 | Readability | Warning | Review repeated timestamp formatting for shared meaning (manual duplication candidate)
 
 ### Removed Rules
 

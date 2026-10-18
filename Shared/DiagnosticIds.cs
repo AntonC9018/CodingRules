@@ -30,4 +30,5 @@ public static class DiagnosticIds
     public const string OverloadConfigurationBuilder = "CR1001";
     public const string UnchangedAssignment = "CR1200";
     public const string StringConcatenation = "CR1100";
+    public const string RepeatedFormattingCandidate = "CR1300";
 }

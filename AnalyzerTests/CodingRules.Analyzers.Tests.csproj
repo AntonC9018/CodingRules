@@ -1,5 +1,6 @@
 <Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
   <ItemGroup>
+    <None Include="../CodeFixTests/Consumers/RepeatedFormatting/*.cs" Link="RepeatedFormatting/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../CodeFixTests/Consumers/TupleData/*.cs" Link="TupleData/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../CodeFixTests/Consumers/ContractParameters/*.cs" Link="ContractParameters/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../CodeFixTests/Consumers/OverloadConfiguration/*.cs" Link="OverloadConfiguration/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

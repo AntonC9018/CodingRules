@@ -28,6 +28,16 @@ meaning from the code and its documented model; ask the maintainer only when
 that meaning remains uncertain. An analyzer's inability to prove a semantic
 distinction does not make the distinction unimportant.
 
+[CR1300](repeated-formatting.md) identifies repeated timestamp formatting in one
+method. Start/end values sharing a calendar timestamp representation may warrant
+one helper. Audit timestamps and exported timestamps may instead have independent
+versioning policies despite both currently using invariant `"o"` formatting.
+Keep those policies separate, using independently named helpers or a narrow
+CR1300 pragma/SuppressMessage with that reason. A diagnostic is a request for
+this review; it does not require a shared abstraction. The shared accepted-case
+fixture in `CodeFixTests/Consumers/RepeatedFormatting/Accepted.cs` demonstrates
+both intentional separation and justified suppression.
+
 ## Review repeated argument plumbing
 
 When the same related values are carried repeatedly through several calls or

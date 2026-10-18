@@ -10,6 +10,8 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="/" />
+    <None Include="../docs/agent-coding-rules.md" Pack="true" PackagePath="agent-guidance" />
+    <None Include="../docs/consumer-agent-guidance.md" Pack="true" PackagePath="agent-guidance" />
     <!-- The SDK only bundles project references and its own named helpers.
          Restore upstream assets explicitly; keep their complete dependency sets. -->
     <PackageReference Include="Roslynator.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />

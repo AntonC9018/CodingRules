@@ -102,6 +102,12 @@ source reuse, the type-forwarding attribute exception, concrete external constra
 and shared positive/accepted regressions. Architecture and sealing changes are
 manual; package validation remains reserved for the final stable candidate.
 
+The package also supplies versioned [agent guidance](docs/agent-coding-rules.md)
+for semantic reuse, repeated plumbing, builder completeness, structured messages
+and accessible exception context. [Export and import it explicitly](docs/consumer-agent-guidance.md)
+through your repository's existing agent instructions; referencing NuGet alone
+does not make agents read it. See `samples/AgentGuidance` for a consuming example.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

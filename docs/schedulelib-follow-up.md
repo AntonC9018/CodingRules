@@ -431,8 +431,17 @@ analyzer exists anywhere.
 
 ## Consumer agent guidance
 
-[Agent coding rules](agent-coding-rules.md) records the semantic review required
-for duplication candidates. This repository imports that guidance through its
-AGENTS.md. Shipping it with the consumer entry-point package and documenting
-how consuming agents read/import it are requirements for the package work;
-no automatic consumer-repository import has been implemented yet.
+[Agent coding rules](agent-coding-rules.md) records semantic reuse, repeated
+plumbing, builder completeness, structured reporting, exception context and the
+accepted string-construction boundaries. Slice 14 includes this self-contained
+file in each version of `Anton.CodingRules`. Its explicit
+`ExportCodingRulesAgentGuidance` target copies the rules to a consumer-selected
+directory; [consumer import instructions](consumer-agent-guidance.md) and
+`samples/AgentGuidance` show how an existing AGENTS.md directs agents to read it
+without overwriting unrelated instructions. No export runs on normal build or
+restore, and a NuGet reference alone does not make agents read the file. Focused
+tests exercise export and sample discovery from the declared package layout;
+final nupkg verification remains deferred until the stable candidate after all
+tickets. This repository continues to import the source guidance through AGENTS.md.
+Universal interpolation, blanket ordinary-instance-method grouping and RequiredStep
+analysis remain undecided/deferred; no new analyzer or downstream refactor is added.

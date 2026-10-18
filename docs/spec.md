@@ -231,6 +231,19 @@ and shared positive/accepted fixtures. Sealing and replacement seam design are
 manual; no automatic modifier insertion is offered. Package regression execution
 is reserved for the final stable candidate after all tickets.
 
+## Consumer agent guidance (ScheduleLib slice 14)
+
+Each `Anton.CodingRules` version includes the self-contained agent rules, with an
+explicit `ExportCodingRulesAgentGuidance` target and a sample repository read
+directive. The [consumer import contract](consumer-agent-guidance.md) explains
+discovery, updates and preservation of unrelated instructions. A package reference
+alone does not cause an agent to read them. The rules record semantic reuse,
+repeated plumbing, manual builder completeness, structured reporting and exception
+context, plus accepted multiline literals, lexer interpolation and file-glob
+construction. Universal interpolation, blanket ordinary-instance grouping and
+RequiredStep analysis remain undecided/deferred. No diagnostic, annotation,
+generator or downstream ScheduleLib refactor is introduced by this slice.
+
 ## Reference cases to verify
 
 These examples come from the linked FindJobHelper branch and serve as

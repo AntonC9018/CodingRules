@@ -1,5 +1,10 @@
 <Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
   <ItemGroup>
+    <None Include="../Package/CodingRules.Package.csproj" Link="AgentGuidance/Package/CodingRules.Package.csproj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Package/buildTransitive/*" Link="AgentGuidance/Package/buildTransitive/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../docs/agent-coding-rules.md" Link="AgentGuidance/docs/agent-coding-rules.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../docs/consumer-agent-guidance.md" Link="AgentGuidance/docs/consumer-agent-guidance.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../samples/AgentGuidance/AGENTS.md" Link="AgentGuidance/Sample/AGENTS.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../CodeFixTests/Consumers/SealedClasses/*.cs" Link="SealedClasses/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../CodeFixTests/Consumers/RepeatedFormatting/*.cs" Link="RepeatedFormatting/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../CodeFixTests/Consumers/TupleData/*.cs" Link="TupleData/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

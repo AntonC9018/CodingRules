@@ -27,6 +27,7 @@ CR0801 | Formatting | Warning | Place object initializer members on separate lin
 CR0802 | Formatting | Warning | Keep a sole constructor argument adjacent to the call parenthesis
 CR0900 | Readability | Warning | Represent tuple method results, inputs and stored collection elements with a named record struct (manual migration)
 CR1000 | Readability | Warning | Group more than three parameters on locally owned extensible contracts (manual migration)
+CR1001 | Readability | Warning | Use a configuration builder for multi-parameter overloads differing in exactly one parameter type (manual migration)
 
 ### Removed Rules
 

@@ -153,6 +153,14 @@ positive/accepted cases checked by analyzer tests and the isolated package gate.
 Overload/builder and repeated-plumbing decisions remain independent; ordinary
 nonvirtual instance methods receive no new blanket count rule.
 
+Slice 08 reuses CR0201/CR0202/CR0203 for the actual A3/A11/A15 config-result,
+JSON lookup, cancellation/authentication and rejected-action status conditions.
+The [compound-condition boundary](compound-conditions.md) records baseline
+probes, scope-safe throw guards, nested property subjects, the exact six-status
+named enum predicate kept inside the exception filter, accepted simple
+invariants and shared compiled/package evidence. Other status sets and semantic
+policy generalizations remain for agent review; no new rule ID is added.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable

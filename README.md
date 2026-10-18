@@ -12,7 +12,10 @@ decision forms in returns nested deeper than the function body's top level.
 independent subjects, combined operations, and three or more repeated alternatives.
 They offer local-function extraction first and statement expansion when safe.
 Member initializers use a private static helper; filters and switch guards keep
-their helper invocation at the original guard site.
+their helper invocation at the original guard site. The reviewed ScheduleLib
+config, JSON, cancellation/authentication and numeric status examples reuse these
+families; the [compound-condition boundary](docs/compound-conditions.md) records
+the exact six-status enum predicate, safe flow rewrites and package gate.
 `CR0300` names nested argument operations, `CR0301` names embedded conditional
 values, and `CR0302` separates arithmetic or other mechanically proven combined
 values. Calls and constructors with no explicitly supplied arguments remain

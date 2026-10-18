@@ -157,6 +157,18 @@ records exact ownership, regression evidence and the package gate. Grouping is
 an architectural decision with no automatic fix. Overload/builder and repeated
 plumbing policies remain independent.
 
+## Reviewed compound guards (ScheduleLib slice 08)
+
+CR0201/CR0202/CR0203 cover the reviewed config-result, JSON lookup,
+cancellation/authentication and numeric HTTP-status examples. CR0202 resolves
+simple type tests and single-constant typed property-pattern subjects. CR0203's
+flow expansion supports terminal throw guards; its exact reviewed six-status
+catch filter extracts a named predicate using HttpStatusCode members while
+keeping evaluation inside `when`. No new diagnostic is introduced. The
+[compound-condition boundary](compound-conditions.md) records original-source
+provenance, exact recognition, accepted invariants, manual review cases and
+packaged positive/accepted/runtime regression evidence.
+
 ## Primitive sentinel implementation (ticket 8)
 
 The accepted first version proves exactly `int -1` absence from resolved

@@ -1,0 +1,8 @@
+root = true
+
+[*.cs]
+dotnet_analyzer_diagnostic.severity = none
+dotnet_diagnostic.RCS0042.severity = none
+dotnet_diagnostic.RCS1016.severity = none
+dotnet_diagnostic.CR0500.severity = warning
+dotnet_code_quality.CR0500.allow_positional_arguments = Consumer::M:ScheduleLib.Cli.RegisteredEdit.%23ctor(System.String,System.String)

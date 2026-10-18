@@ -172,6 +172,16 @@ named enum predicate kept inside the exception filter, accepted simple
 invariants and shared compiled/package evidence. Other status sets and semantic
 policy generalizations remain for agent review; no new rule ID is added.
 
+Slice 09 proves the existing CR0500 behavior for A9's pinned SettingsEdit return
+and ordinary construction. No detection or binding extension was needed. The
+[named argument contract](named-arguments.md#schedulelib-a9-return-construction)
+records the source/configuration investigation and shared unit/package consumer
+regression: bound string-role names, unchanged Boolean, preserved expressions
+and overload/evaluation behavior, exact opt-outs and framework exceptions.
+Scope-value extraction remains separate; the exact parameterless chain receives
+no current CR03 finding. Final common-package validation and downstream adoption
+remain separate from this coverage work.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable

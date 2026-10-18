@@ -1,6 +1,9 @@
 <Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
   <ItemGroup>
     <Compile Remove="Consumers/**/*.cs" />
+    <None Include="Consumers/NamedArguments/Consumer.cs" Link="NamedArguments/Consumer.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/NamedArguments/.editorconfig" Link="NamedArguments/.editorconfig" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Expected/NamedArguments.Fixed.cs.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Consumers/ReviewedConditions/Findings.cs" Link="ReviewedConditions/Findings.cs" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Consumers/Formatting/TaskLike.cs" Link="Fixtures/TaskLike.cs.txt" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Anton.SourceGeneration.PackageTesting" Version="1.0.0" />

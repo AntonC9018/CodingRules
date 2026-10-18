@@ -522,3 +522,7 @@ pattern can establish whether a change needed backward compatibility.
 ## Named argument roles (ticket 6)
 
 CR0500 implements the accepted supplied repeated-type policy, all explicit call/constructor/attribute hosts, shipped exact-callee annotation and exact canonical declaration-ID registrations. The [named argument contract](named-arguments.md) records grouping, provenance, configuration transport/precedence, pre-warning correspondence proof, saved-source semantic/diagnostic validation and individual safety omissions. Every warning has an Add parameter names action; Fix All supports fresh document/project/solution replanning. Older families remain independent.
+ScheduleLib slice 09 adds shared unit/consumer evidence for the pinned A9
+target-typed return and ordinary construction, using the existing rule unchanged.
+The four string roles receive their bound names; the unique Boolean remains
+positional. Scope-expression extraction remains a separate operation concern.

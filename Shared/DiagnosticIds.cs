@@ -26,4 +26,5 @@ public static class DiagnosticIds
     public const string InitializerMemberLayout = "CR0801";
     public const string SoleConstructorArgumentLayout = "CR0802";
     public const string NamedTupleData = "CR0900";
+    public const string ContractParameterGroup = "CR1000";
 }

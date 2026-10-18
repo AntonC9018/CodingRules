@@ -214,6 +214,7 @@ public sealed class OverloadConfigurationAnalyzerTests
     [InlineData("void M(Missing a, int b); void M(Missing a, string b);")]
     [InlineData("void M(System.Collections.Generic.List<Missing[]> a, int b); void M(System.Collections.Generic.List<Missing[]> a, string b);")]
     [InlineData("void M(int a, Missing[] b); void M(int a, string b);")]
+    [InlineData("class Outer<T> { public class Nested { } } void M(Outer<Missing>.Nested a, int b); void M(Outer<Missing>.Nested a, string b);")]
     [InlineData("void M(int a, int b); void M(int a, string b, );")]
     public async Task SkipsUnresolvedOrMalformedSignatures(string members)
     {

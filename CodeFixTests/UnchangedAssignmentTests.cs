@@ -11,6 +11,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 using Xunit;
 
 namespace CodingRules;
@@ -404,6 +405,64 @@ public sealed class UnchangedAssignmentTests
             """);
         await StatementOperationTestFixture.Compiles(document);
         Assert.Empty(await Diagnostics(document));
+    }
+
+    [Theory]
+    [InlineData("class Derived : Base { public Derived() : base() { } }", "new Derived().Line", true)]
+    [InlineData("class Derived : Base { public Derived() : this(0) { } public Derived(int value, [CallerLineNumber] int line = 0) : base(line) { } }", "new Derived().Line", true)]
+    [InlineData("class Derived() : Base();", "new Derived().Line", true)]
+    [InlineData("[Observer] class Derived { }", "((ObserverAttribute)Attribute.GetCustomAttribute(typeof(Derived), typeof(ObserverAttribute))!).Line", true)]
+    [InlineData("class Derived : Base { public Derived() : base(123) { } }", "new Derived().Line", false)]
+    [InlineData("class Derived : Base { public Derived() : this(0, 123) { } public Derived(int value, [CallerLineNumber] int line = 0) : base(line) { } }", "new Derived().Line", false)]
+    [InlineData("class Derived() : Base(123);", "new Derived().Line", false)]
+    [InlineData("[Observer(123)] class Derived { }", "((ObserverAttribute)Attribute.GetCustomAttribute(typeof(Derived), typeof(ObserverAttribute))!).Line", false)]
+    public async Task ProtectsCallerLinesInConstructorInitializersPrimaryBasesAndAttributes(string declaration, string observe, bool implicitLine)
+    {
+        var document = StatementOperationTestFixture.Document("""
+            using System;
+            using System.Runtime.CompilerServices;
+            public class C
+            {
+                int M(int current, bool flag) => current = flag ? current : 1;
+                public static string Run() => (OBSERVE).ToString();
+            }
+            class Base
+            {
+                public int Line { get; }
+                public Base([CallerLineNumber] int line = 0) { Line = line; }
+            }
+            class ObserverAttribute : Attribute
+            {
+                public int Line { get; }
+                public ObserverAttribute([CallerLineNumber] int line = 0) { Line = line; }
+            }
+            DECLARATION
+            """.Replace("OBSERVE", observe).Replace("DECLARATION", declaration));
+        var expected = await StatementOperationTestFixture.Run(document);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var model = (await document.GetSemanticModelAsync())!;
+        var callerArguments = root.DescendantNodes()
+            .Where(node => node is ConstructorInitializerSyntax or PrimaryConstructorBaseTypeSyntax or AttributeSyntax)
+            .Select(modelNode => model.GetOperation(modelNode))
+            .Where(operation => operation is not null)
+            .SelectMany(operation => operation!.DescendantsAndSelf().OfType<IArgumentOperation>())
+            .Where(argument => argument.IsImplicit && argument.Parameter?.Name == "line").ToArray();
+        if (implicitLine)
+        {
+            var argument = Assert.Single(callerArguments);
+            Assert.Equal(int.Parse(expected), argument.Value.ConstantValue.Value);
+            Assert.True(int.Parse(expected) > 0);
+            Assert.Empty(await Diagnostics(document));
+        }
+        else
+        {
+            Assert.Empty(callerArguments);
+            Assert.Equal("123", expected);
+            Assert.Single(await Diagnostics(document));
+            document = await Fix(document);
+            Assert.Empty(await Diagnostics(document));
+            Assert.Equal(expected, await StatementOperationTestFixture.Run(document));
+        }
     }
 
     [Theory]

@@ -184,10 +184,12 @@ internal sealed class UnchangedAssignmentPlan
     private static bool ScanSourceObservers(SemanticModel model, CancellationToken token)
     {
         // A block changes source lines and property getter member names. Include
-        // implicit collection Add/indexer arguments as well as ordinary calls.
+        // implicit collection Add/indexer arguments, constructor initializers,
+        // primary-constructor bases and attribute constructors as well as calls.
         foreach (var node in model.SyntaxTree.GetRoot(token).DescendantNodes().Where(node =>
             node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax
-                or ImplicitElementAccessSyntax || node.IsKind(SyntaxKind.CollectionInitializerExpression)))
+                or ImplicitElementAccessSyntax or ConstructorInitializerSyntax or PrimaryConstructorBaseTypeSyntax
+                or AttributeSyntax || node.IsKind(SyntaxKind.CollectionInitializerExpression)))
         {
             token.ThrowIfCancellationRequested();
             if (model.GetOperation(node, token) is not { } operation) continue;

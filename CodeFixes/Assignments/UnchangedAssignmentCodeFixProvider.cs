@@ -77,6 +77,7 @@ public sealed class UnchangedAssignmentCodeFixProvider : CodeFixProvider
     private static string DiagnosticKey(Diagnostic diagnostic) => diagnostic.Id + ":" + diagnostic.Severity + ":" + diagnostic.GetMessage();
 
     private static string[] Bindings(SyntaxNode root, SemanticModel model, CancellationToken token) => root.DescendantNodes()
-        .Where(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax)
+        .Where(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax
+            or ConstructorInitializerSyntax or PrimaryConstructorBaseTypeSyntax or AttributeSyntax)
         .Select(node => NamedArgumentIdentity.Operation(model.GetOperation(node, token))).ToArray();
 }

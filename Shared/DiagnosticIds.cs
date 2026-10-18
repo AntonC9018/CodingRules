@@ -31,4 +31,5 @@ public static class DiagnosticIds
     public const string UnchangedAssignment = "CR1200";
     public const string StringConcatenation = "CR1100";
     public const string RepeatedFormattingCandidate = "CR1300";
+    public const string SealConcreteClass = "CR1400";
 }

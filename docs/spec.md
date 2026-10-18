@@ -219,6 +219,18 @@ records exact proofs, setter/receiver/alias exclusions, saved-source validation,
 and shared positive/accepted/runtime evidence. Package execution remains reserved
 for the final stable candidate.
 
+## Concrete class sealing implementation (ScheduleLib slice 13)
+
+CR1400 reviews non-abstract classes for sealing, including public types,
+exceptions, virtual members and existing inherited test seams. Adapted MIT
+MA0053 source supplies candidate/framework selection; its general inheritor
+exclusion is removed to cover A16. The [sealing contract](sealed-classes.md)
+records the narrow non-generic attribute/type-forwarding generic variant
+exception, concrete external constraints, warning/configuration conventions,
+and shared positive/accepted fixtures. Sealing and replacement seam design are
+manual; no automatic modifier insertion is offered. Package regression execution
+is reserved for the final stable candidate after all tickets.
+
 ## Reference cases to verify
 
 These examples come from the linked FindJobHelper branch and serve as

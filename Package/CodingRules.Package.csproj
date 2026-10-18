@@ -23,5 +23,6 @@
     <None Include="buildTransitive/*" Pack="true" PackagePath="buildTransitive" />
     <None Include="config/*" Pack="true" PackagePath="config" />
     <None Include="../third-party/roslynator/*" Pack="true" PackagePath="third-party/roslynator" />
+    <None Include="../third-party/meziantou/*" Pack="true" PackagePath="third-party/meziantou" />
   </ItemGroup>
 </Project>

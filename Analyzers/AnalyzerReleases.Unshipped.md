@@ -31,6 +31,7 @@ CR1001 | Readability | Warning | Use a configuration builder for multi-parameter
 CR1100 | Readability | Warning | Prefer interpolation for runtime built-in string-only concatenations
 CR1200 | Readability | Warning | Make proven unchanged assignment branches explicit conditional updates
 CR1300 | Readability | Warning | Review repeated timestamp formatting for shared meaning (manual duplication candidate)
+CR1400 | Readability | Warning | Review concrete classes for sealing, including inherited test seams (manual architectural finding; adapted MA0053)
 
 ### Removed Rules
 

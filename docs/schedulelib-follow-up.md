@@ -208,6 +208,14 @@ to semantic-review guidance; no automatic helper extraction is offered. Shared
 positive/accepted consumer fixtures and an isolated package gate are ready for
 the final stable candidate. Package execution and guidance import remain separate.
 
+Slice 13 implements A16 as CR1400, a manual sealing-review warning adapted from
+MIT-licensed MA0053 source. Public/virtual/inherited classes remain findings,
+including CalendarCommands and its derived test seam. The [sealing contract](sealed-classes.md)
+records the narrow type-forwarding generic attribute exception, concrete external
+framework constraints and shared positive/accepted fixtures. No automatic sealing
+or replacement test architecture is chosen. The isolated package regression is
+registered for the final stable candidate; package execution remains deferred.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable

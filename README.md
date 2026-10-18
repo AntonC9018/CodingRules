@@ -96,6 +96,12 @@ before extracting a helper; independent domain policies may remain separate with
 a justified scoped suppression. The [recognition contract](docs/repeated-formatting.md)
 records exact A14 coverage, accepted distinctions and the deferred package gate.
 
+`CR1400` reviews concrete classes for sealing, including existing inherited test
+seams. The [sealing contract](docs/sealed-classes.md) records adapted MIT MA0053
+source reuse, the type-forwarding attribute exception, concrete external constraints
+and shared positive/accepted regressions. Architecture and sealing changes are
+manual; package validation remains reserved for the final stable candidate.
+
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:
 

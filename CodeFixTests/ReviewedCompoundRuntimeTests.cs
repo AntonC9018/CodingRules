@@ -127,8 +127,10 @@ public sealed class ReviewedCompoundRuntimeTests
         await VerifyEveryAction(source, "CR0202", InlineConditionCodeFixProvider.ExtractKey, InlineConditionCodeFixProvider.ExpandKey);
     }
 
-    [Fact]
-    public async Task StatusPredicatePreservesEveryStatusGetterExceptionAndFilterTiming()
+    [Theory]
+    [InlineData("400 or 403 or 404 or 409 or 412 or 422")]
+    [InlineData("(422 or 412) or (409 or 404) or (403 or 400)")]
+    public async Task StatusPredicatePreservesEveryStatusGetterExceptionAndFilterTiming(string numericPattern)
     {
         var source = """
             using System;
@@ -165,6 +167,7 @@ public sealed class ReviewedCompoundRuntimeTests
                 }
             }
             """;
+        source = source.Replace("400 or 403 or 404 or 409 or 412 or 422", numericPattern);
         var fixedText = await VerifyEveryAction(source, "CR0203", InlineConditionCodeFixProvider.ExtractKey);
         Assert.Contains("when (IsRejectedHttpStatusCode2(e))", fixedText);
         Assert.DoesNotContain("(int)e.HttpStatusCode is", fixedText);

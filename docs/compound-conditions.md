@@ -115,4 +115,5 @@ accepted/generated source stability, warnings-as-errors and editorconfig
 severity, exported fixes, unchanged runtime behavior and a byte-identical subsequent
 fix pass. The .NET CLI chooses one action equivalence key per provider/pass;
 mixed extraction-only filters and expansion-only out guards use a bounded
-workflow of up to three passes, with strictly fewer findings on each pass. Shared setup also serves the existing tuple and contract manual gates.
+workflow of up to three passes, with strictly fewer findings on each pass. CI runs this gate against the exact release candidate. Shared setup also serves
+the existing tuple and contract manual gates.

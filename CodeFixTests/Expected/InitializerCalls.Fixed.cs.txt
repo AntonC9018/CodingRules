@@ -1,0 +1,84 @@
+using System;
+using System.Collections.Generic;
+
+// This fixture exercises formatting only. CR0300 constructor extraction is separate
+// policy; keep CR0302 enabled to catch initializer false positives from #19.
+#pragma warning disable CR0300
+public sealed class InitializerCalls
+{
+    public int Context;
+    public int AppTask;
+    public int Services;
+    public InitializerCalls Child;
+    public TimeSpan Duration;
+
+    public static string Run()
+    {
+        string trace = "";
+        int Next(int n) { trace += n; return n; }
+        void ExecuteTask(InitializerCalls value) { trace += value.Services; }
+        ExecuteTask(new()
+        {
+            Context = Next(1),
+            AppTask = Next(2),
+            Services = Next(3),
+        });
+        ExecuteTask(new InitializerCalls
+        {
+            Context = Next(4),
+            AppTask = Next(5),
+            Services = Next(6),
+        });
+        ExecuteTask(new()
+        {
+            Context = 0,
+            Child = new()
+            {
+                Context = 1,
+                AppTask = 2
+            },
+            Services = 7
+        });
+        ExecuteTask(new()
+        {
+            Context = 0, // retain member comment
+            Services = 8,
+        });
+        ExecuteTask( // retain call comment
+            new() { Services = 9 });
+        ExecuteTask(
+            /* retain leading block comment */ new() { Services = 0 });
+        ExecuteTask(new()
+        {
+            Context = 0, /* between members */
+            Services = 1, /* before closing */
+        });
+        ExecuteTask(new()
+        {
+            Duration = TimeSpan.FromMinutes(90),
+            Services = 2
+        });
+        var updates = new List<DelegateUpdater<int>>();
+        updates.Add(new DelegateUpdater<int>((sp, value) =>
+            {
+                trace += value;
+            }));
+        updates[0].Update(new object(), 3);
+        return trace;
+    }
+}
+
+public sealed class DelegateUpdater<T>(Action<object, T> update)
+{
+    public Action<object, T> Update = update;
+}
+
+public static class Program
+{
+    public static void Main()
+    {
+        Console.WriteLine(InitializerCalls.Run());
+        CallerExpressionCases.Run();
+        CallerInformationCases.Run();
+    }
+}

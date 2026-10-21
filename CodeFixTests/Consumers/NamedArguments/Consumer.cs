@@ -1,5 +1,74 @@
+using ScheduleLib.Cli;
+
 public static class Consumer
 {
     private static int Copy(int source, int destination) => source + destination;
     public static int Run() => Copy(1, 2);
+
+    // ScheduleLib 12e601e, CliSettings.Writes.cs:167 (A9), with its bound declaration below.
+    public static SettingsEdit TargetTyped(string file, SettingsScope scope, SettingsArguments arguments, string key, bool changed)
+    {
+        return new(
+            file,
+            scope.ToString().ToLowerInvariant(),
+            arguments.Profile,
+            key,
+            changed);
+    }
+
+    public static SettingsEdit Ordinary(string file, SettingsScope scope, SettingsArguments arguments, string key, bool changed)
+    {
+        return new SettingsEdit(
+            file,
+            scope.ToString().ToLowerInvariant(),
+            arguments.Profile,
+            key,
+            changed);
+    }
+
+    public static SettingsEdit Named(string file, string scope, string? profile, string key, bool changed)
+    {
+        return new(File: file, Scope: scope, Profile: profile, Key: key, changed);
+    }
+
+    public static PositionalEdit AnnotatedTargetTyped(string file, string scope)
+    {
+        return new(file, scope);
+    }
+
+    public static PositionalEdit AnnotatedOrdinary(string file, string scope)
+    {
+        return new PositionalEdit(file, scope);
+    }
+
+    public static RegisteredEdit ConfiguredTargetTyped(string file, string scope)
+    {
+        return new(file, scope);
+    }
+
+    public static RegisteredEdit ConfiguredOrdinary(string file, string scope)
+    {
+        return new RegisteredEdit(file, scope);
+    }
+
+    public static string Framework(string file, string scope)
+    {
+        return System.IO.Path.Combine(file, scope);
+    }
+}
+
+namespace ScheduleLib.Cli
+{
+    public enum SettingsScope { User, Project }
+    public sealed class SettingsArguments
+    {
+        public string? Profile { get; set; }
+    }
+
+    public sealed record SettingsEdit(string File, string Scope, string? Profile, string Key, bool Changed);
+
+    [method: CodingRules.AllowPositionalArguments]
+    public sealed record PositionalEdit(string File, string Scope);
+
+    public sealed record RegisteredEdit(string File, string Scope);
 }

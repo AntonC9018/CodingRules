@@ -7,6 +7,31 @@ examples, the coverage-based completion criterion, and pending policy changes,
 including separating message data from rendering. Those changes do not imply
 that the currently published package already implements them.
 
+## Selected formatting implementation (ScheduleLib slices 02/03)
+
+The consumer package enables upstream RCS0042 for compact bodyless accessors
+and RCS1016 for multiline expressions converted to blocks. Simple single-line
+arrows and blocks remain accepted. CR0800 moves only already-wrapped trailing
+`&&`/`||` to the continuation's beginning, skipping comments/directives that
+would move. RCS1016 conservatively excludes arrow-token comments and custom async
+return contracts because the upstream fixer is unsafe for those shapes. The
+package replaces the common upstream fixer assembly with a CodingRules RCS1016
+provider that independently declines these shapes, including in CLI hosts that
+bypass diagnostic suppressors.
+Other upstream rules and broader binary-operator policies remain disabled.
+Slice 03 adds CR0801 for object initializers with at least two members on
+separate lines and CR0802 for a sole positional constructor argument adjacent
+to an invocation's opening parenthesis. Empty/single-member initializers and
+already adjacent constructors remain accepted. Comment-separated argument
+gaps, directives, invalid syntax and other argument policies are conservative
+boundaries. These layout fixes preserve initializer values and implicit
+caller-information constants across the final formatted document; affected
+layouts remain diagnosed without an automatic fix. Fix All validates edits
+sequentially. Operation diagnostics remain independent; ordinary initializer
+assignments are accepted as specified below for #19.
+[Packaged formatting](formatting.md) defines the precise boundaries,
+formatter and CLI configuration, license provenance and verification workflow.
+
 ## Source and scope
 
 The source policy is the coding standards section of
@@ -69,8 +94,9 @@ through `.editorconfig`.
   distinct operations separate when their meaning or reasons to change differ.
 - Agents must make that judgment before acting on a duplication diagnostic.
   The [agent guidance](agent-coding-rules.md) records the review expected in
-  this repository and in the intended consumer integration. Automatic detection
-  of the ScheduleLib formatting examples remains pending implementation.
+  this repository and in the intended consumer integration. CR1300 identifies
+  the reviewed repeated timestamp formatting as a manual duplication candidate;
+  the [recognition boundary](repeated-formatting.md) preserves semantic review.
 
 ### Return decisions
 
@@ -104,6 +130,76 @@ equality inspection of genuine parameterless framework string trims. The
 [span assessment](spans.md) records the exact available-API catalogue, safe
 synchronous helper rewrite and manual ownership/signature/slicing boundaries.
 
+## Tuple data implementation (ScheduleLib slice 04)
+
+CR0900 implements the settled Q15/Q16 cases as a manual Readability warning:
+ordinary tuple method results, ordinary/local method tuple inputs, and stored
+tuple elements in arrays, List and ReadOnlySpan. Method results and inputs also
+include IEnumerable of tuples. The [tuple data contract](tuple-data.md) records
+the exact catalogue and regression evidence. Private ordinary methods remain
+included; local-function result declarations are excluded. A collection used by
+a local function is not thereby exempt. Deconstruction is not a violation.
+Purely local scalar tuples/swaps and other uncatalogued shapes remain outside
+the settled detection boundary. Domain naming and API/caller migration require
+manual review; CR0900 provides no automatic fix.
+
+## Contract parameter implementation (ScheduleLib slice 05)
+
+CR1000 is a manual Readability warning on locally owned interface methods,
+virtual/abstract methods, delegate types and abstract-class constructors with
+more than three parameters, counting context and cancellation. It reports at the
+owned declaration; implementations and overrides do not repeat the finding.
+Abstract primary constructors are included. Externally imposed signatures are
+exempt; ordinary concrete constructors and nonvirtual instance methods remain
+outside the count rule. Static functions such as the reviewed Finish/Edit shapes
+remain allowed by count. Static abstract/virtual interface members still define
+owned contracts. The [contract parameter boundary](contract-parameters.md)
+records exact ownership, regression evidence and the package gate. Grouping is
+an architectural decision with no automatic fix. Overload/builder and repeated
+plumbing policies remain independent.
+
+## Overload configuration implementation (ScheduleLib slice 06)
+
+CR1001 is a manual Readability warning requiring a configuration builder for
+methods with more than one parameter and an overload alternative, including
+static methods. The approved pair has the same declaring type, name, staticness,
+generic arity and parameter count, exactly one differing resolved parameter type,
+and matching ref-kinds, params, optional and default presence throughout.
+Parameter names may differ. Differing counts and multiple type differences stay
+outside initial coverage; one-parameter Parse and builder Output overloads remain
+allowed. The [overload configuration boundary](overload-configuration.md) records
+symbol comparison, declaration locations, accepted cases and package evidence.
+API migration has no automatic fix. Required builder steps remain a manual agent
+check with runtime validation; the RequiredStep proposal stays deferred. Broader
+repeated plumbing still requires semantic review independent of overload count.
+
+## Reviewed computations (ScheduleLib slice 07)
+
+CR0300/CR0301 cover the non-message A6/A7/A8 constructions and lookup inputs;
+CR0203 additionally recognizes the exact framework IServiceProvider.GetService
+producer, including its null constant pattern. It names the nullable service
+result before testing it, preserving the original short-circuited branch.
+Parameterless System.Type.GetGenericArguments is the reviewed metadata exception
+to CR0300's ordinary parameterless exemption. CR0301 also names ternaries whose
+branches compose catalogued pipeline calls. CR0302 retains its composition
+policy and also uses the shared metadata-producer fact. No diagnostic ID is
+added; the original CR0001 contract stays unchanged. The
+[computed-operation boundary](computed-operations.md) records provenance,
+same-site params helpers, safety omissions, accepted cases and shared package
+fixtures. Final candidate package execution is deferred until all tickets.
+
+## Reviewed compound guards (ScheduleLib slice 08)
+
+CR0201/CR0202/CR0203 cover the reviewed config-result, JSON lookup,
+cancellation/authentication and numeric HTTP-status examples. CR0202 resolves
+simple type tests and single-constant typed property-pattern subjects. CR0203's
+flow expansion supports terminal throw guards; its exact reviewed six-status
+catch filter extracts a named predicate using HttpStatusCode members while
+keeping evaluation inside `when`. No new diagnostic is introduced. The
+[compound-condition boundary](compound-conditions.md) records original-source
+provenance, exact recognition, accepted invariants, manual review cases and
+packaged positive/accepted/runtime regression evidence.
+
 ## Primitive sentinel implementation (ticket 8)
 
 The accepted first version proves exactly `int -1` absence from resolved
@@ -117,6 +213,51 @@ an exposed host while enabled; severity-none exposes feasible CR0601 sites.
 Actual external interface/override/fixed callback contracts are exempt. All
 earlier diagnostic contracts remain independent. [Sentinel documentation](sentinels.md)
 records the full evidence, visibility, flow, safety and compilation boundaries.
+
+## String concatenation implementation (ScheduleLib slice 10)
+
+ScheduleLib slice 10 implements `CR1100` for runtime built-in string-only
+concatenations. The [interpolation contract](string-concatenation.md) records
+the reuse probe, original A10 calls, explicit invariant conversion, static
+string binding, handler timing and conservative accepted cases. The shared
+unit/consumer fixture and final package test are registered; package execution
+is deferred until the stable candidate after all tickets. Broader inline-string
+and structured-message policy remains separate and unresolved.
+
+## Unchanged assignment implementation (ScheduleLib slice 11)
+
+CR1200 covers A13/Q13's reflection null preservation and direct current-value
+branches for stable local/parameter/current-instance-field storage. Supported
+statement, return and property/accessor arrow hosts become explicit conditional
+updates with required returns. The [assignment contract](unchanged-assignments.md)
+records exact proofs, setter/receiver/alias exclusions, saved-source validation,
+and shared positive/accepted/runtime evidence. Package execution remains reserved
+for the final stable candidate.
+
+## Concrete class sealing implementation (ScheduleLib slice 13)
+
+CR1400 reviews non-abstract classes for sealing, including public types,
+exceptions, virtual members and existing inherited test seams. Adapted MIT
+MA0053 source supplies candidate/framework selection; its general inheritor
+exclusion is removed to cover A16. The [sealing contract](sealed-classes.md)
+records the narrow non-generic attribute/type-forwarding generic variant
+exception, concrete external constraints, warning/configuration conventions,
+and shared positive/accepted fixtures. Sealing and replacement seam design are
+manual; no automatic modifier insertion is offered. Package regression execution
+is reserved for the final stable candidate after all tickets.
+
+## Consumer agent guidance (ScheduleLib slice 14)
+
+Each `Anton.CodingRules` version includes the self-contained agent rules, with an
+explicit `ExportCodingRulesAgentGuidance` target and a sample repository read
+directive. The [consumer import contract](consumer-agent-guidance.md) explains
+discovery, updates and preservation of unrelated instructions. A package reference
+alone does not cause an agent to read them. The rules record semantic reuse,
+repeated plumbing, manual builder completeness, structured reporting and exception
+context, plus accepted multiline literals, lexer interpolation and file-glob
+construction. Universal interpolation, blanket ordinary-instance grouping and
+RequiredStep analysis remain undecided/deferred. No diagnostic, annotation,
+generator or downstream ScheduleLib refactor is introduced by this slice.
 
 ## Reference cases to verify
 
@@ -277,17 +418,28 @@ call/construction with at least one supplied entry is an operation, while
 reduced-extension receiver and an empty implicit params collection do not count.
 Explicit named, static extension and params entries do count. Parameterless
 Trim/ToString remain allowed here; inline-condition diagnostics stay independent.
+ScheduleLib slice 07 additionally treats resolved System.Type.GetGenericArguments
+as a metadata calculation even without source arguments; unrelated parameterless
+factories and service receivers keep their exemption.
 Direct fields, property/index selections and built-in tests remain inline,
 without a purity assumption. At most one supported built-in numeric calculation
 is allowed, including original constant-folded syntax. Supported nonidentity
 casts, ordinary string interpolation and consumed embedded mutation also qualify.
 
 `CR0301` reports an embedded ternary argument or larger consumed value. Entire
-named initializers and assignment right sides are compliant; lone direct
+named initializers and assignment right sides are compliant except when a
+branch composes more than one catalogued pipeline call (for example
+Concat/ToArray). Those branch computations receive CR0301 and become explicit
+lazy branches; ordinary linear pipelines remain allowed. Simple direct
 returns/arrows and switch expressions retain the frozen return policy.
 `CR0302` reports more than one supported calculation in a standalone named value,
 or a producer consumed by another calculation/conversion/formatting stage.
 Delivery through an assignment, declaration or return is not a second operation.
+Object-initializer member assignments likewise do not consume their assignment
+results. Direct values, empty collections, parameterless factories and calls
+such as `TimeSpan.FromMinutes(90)` remain allowed, including nested initializers.
+Combined operations on initializer right-hand sides are still analyzed; there
+is no initializer-specific EditorConfig option.
 One CR03 owner selects the highest enabled feasible reason in the order
 CR0301, CR0300, CR0302. Distinct arguments remain distinct roots; safe inner roots
 remain available when an outer rewrite is unsafe. Return and condition families
@@ -442,3 +594,7 @@ pattern can establish whether a change needed backward compatibility.
 ## Named argument roles (ticket 6)
 
 CR0500 implements the accepted supplied repeated-type policy, all explicit call/constructor/attribute hosts, shipped exact-callee annotation and exact canonical declaration-ID registrations. The [named argument contract](named-arguments.md) records grouping, provenance, configuration transport/precedence, pre-warning correspondence proof, saved-source semantic/diagnostic validation and individual safety omissions. Every warning has an Add parameter names action; Fix All supports fresh document/project/solution replanning. Older families remain independent.
+ScheduleLib slice 09 adds shared unit/consumer evidence for the pinned A9
+target-typed return and ordinary construction, using the existing rule unchanged.
+The four string roles receive their bound names; the unique Boolean remains
+positional. Scope-expression extraction remains a separate operation concern.

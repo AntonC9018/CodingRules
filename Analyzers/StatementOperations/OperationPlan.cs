@@ -209,6 +209,11 @@ internal sealed class OperationPlan
                 case ConditionalExpressionSyntax conditional:
                     if (!IsRenderable(model.GetTypeInfo(conditional).Type ?? model.GetTypeInfo(conditional).ConvertedType)) return false;
                     break;
+                case IsPatternExpressionSyntax pattern:
+                    // Pattern constants stay in their constant-required context;
+                    // only the evaluated input can be lowered into named steps.
+                    if (pattern.Pattern.DescendantNodes().OfType<ExpressionSyntax>().Any(value => HasLowering(value, model))) return false;
+                    break;
                 case CastExpressionSyntax cast:
                     if (model.GetConversion(cast).IsUserDefined) return false;
                     break;

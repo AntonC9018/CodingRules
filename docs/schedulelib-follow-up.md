@@ -2,8 +2,9 @@
 
 The acceptance backlog is [ScheduleLib #229](https://github.com/AntonC9018/ScheduleLib/issues/229),
 based on the [reviewed implementation at 12e601e](https://github.com/AntonC9018/ScheduleLib/tree/12e601e7b62511bdecc44e280407fee12147b230).
-This document records the maintainer's 2026-10-15 clarifications. It describes
-pending work, not coverage already provided by the published package.
+This document records the maintainer's 2026-10-15 clarifications and subsequent
+implementation decisions, including the 2026-10-18 overload boundary approval.
+Implementation coverage below is distinct from publication of the package.
 
 ## Discussion record
 
@@ -113,8 +114,23 @@ Use the individual A1–A16 items in #229 as the source of acceptance fixtures.
 Do not mark a rule covered merely because an existing diagnostic appears related.
 Record both current detection and available fixes for each original example,
 with negative fixtures for the explicitly accepted chained service call, direct
-initializers, and simple factory values. Initializer false positives remain
-tracked in [CodingRules #19](https://github.com/AntonC9018/CodingRules/issues/19).
+initializers, and simple factory values. The
+[CodingRules #19](https://github.com/AntonC9018/CodingRules/issues/19) fix excludes
+object-initializer assignments from consumed mutations while preserving analysis
+of combined right-hand-side operations. Regression tests cover the original
+empty collections and lesson-time factory values, nested initializers, and
+genuine consumed mutations outside initializers.
+
+Slice 07 now covers the non-message A6/A7/A8 computations through CR0300,
+CR0301 and the exact framework service-lookup addition to CR0203. The
+[computed-operation contract](computed-operations.md) records the pinned source,
+parameterless metadata exception, lazy composed-pipeline branches, same-site
+params boundaries and service-result naming. Shared unit/package fixtures retain
+direct initializers, factories, the allowed service receiver chain and lexer
+handler interpolation. Runtime tests verify guarded lookups, exception timing,
+lazy enumeration and handler constructor/append gating. The final candidate
+package/consumer gate remains deferred; this does not implement structured
+message or exception API redesign.
 
 For A1–A3 and A12, first establish what existing formatters/analyzers can enforce
 and fix with their supported configuration. In particular, a formatter applying
@@ -124,12 +140,107 @@ reuse, and any genuinely missing behavior. The
 [formatting reuse research](formatting-reuse-research.md) records the tested
 upstream candidates, gaps, package composition, and version-specific licenses.
 
+Slice 02 now implements A2/A3/A12 through the consumer package. The
+[formatting implementation](formatting.md) records the chosen Roslynator 5.0.1
+binary analyzer delivery with a CodingRules RCS1016 fixer, selective
+configuration, Boolean-only CR0800 gap, conservative RCS1016 exclusions for
+arrow-token trivia and custom async return contracts, tested Roslyn
+4.10/SDK 10.0.112 hosts, and required CLI configuration. Slice 03 adds
+CR0801/CR0802 for A1's multi-member initializer expansion and adjacent sole
+constructor arguments. The same consumer gate verifies exact output, accepted
+layouts, comments, nesting, unchanged runtime evaluation and a byte-identical
+second pass. Focused tests cover all four pinned A1 sites and preserve existing
+operation findings; #19's separate fix now accepts direct initializer assignments.
+This implementation does not establish coverage for other A items.
+
+Slice 04 implements A4/Q15/Q16 as CR0900 manual findings for tuple method
+results, method inputs and catalogued stored collection data. The
+[tuple data contract](tuple-data.md) records the conservative generalization,
+the local-function result exception, and positive/accepted regression evidence
+in analyzer tests and the isolated package gate. No universal scalar-local tuple
+policy or automatic API migration is introduced.
+
+Slice 05 implements the revised A5/Q12/Q17/Q18 count boundary as CR1000 manual
+findings on owned interface, virtual/abstract, delegate and abstract-class
+constructor declarations with four or more parameters, including cancellation.
+The [contract parameter boundary](contract-parameters.md) records ownership and
+external exemptions, accepted static Finish/Edit fixtures, and the shared compiled
+positive/accepted cases checked by analyzer tests and the isolated package gate.
+Overload/builder and repeated-plumbing decisions remain independent; ordinary
+nonvirtual instance methods receive no new blanket count rule.
+
+Slice 06 implements Q19 as CR1001 manual configuration-builder findings on
+multi-parameter method declarations, including static operations. The approved
+pairwise boundary requires the same declaring type, name, staticness, generic
+arity and parameter count, exactly one differing resolved parameter type, and
+matching ref-kinds, params, optional and default presence. Parameter names may
+differ. The [overload configuration boundary](overload-configuration.md) records
+the conservative symbol comparison, one-parameter Parse/Output exceptions, and
+shared analyzer/package regression evidence. Required-step checks remain manual
+with runtime validation; the RequiredStep analyzer remains deferred.
+
+Slice 08 reuses CR0201/CR0202/CR0203 for the actual A3/A11/A15 config-result,
+JSON lookup, cancellation/authentication and rejected-action status conditions.
+The [compound-condition boundary](compound-conditions.md) records baseline
+probes, scope-safe throw guards, nested property subjects, the exact six-status
+named enum predicate kept inside the exception filter, accepted simple
+invariants and shared compiled/package evidence. Other status sets and semantic
+policy generalizations remain for agent review; no new rule ID is added.
+
+Slice 09 proves the existing CR0500 behavior for A9's pinned SettingsEdit return
+and ordinary construction. No detection or binding extension was needed. The
+[named argument contract](named-arguments.md#schedulelib-a9-return-construction)
+records the source/configuration investigation and shared unit/package consumer
+regression: bound string-role names, unchanged Boolean, preserved expressions
+and overload/evaluation behavior, exact opt-outs and framework exceptions.
+Scope-value extraction remains separate; the exact parameterless chain receives
+no current CR03 finding. Final common-package validation and downstream adoption
+remain separate from this coverage work.
+
+Slice 10 adds CR1100 for A10's desired identifier and lock path using a
+conservative runtime string-only concatenation boundary. The
+[interpolation contract](string-concatenation.md) records the upstream reuse
+probe, explicit invariant conversion, binding and handler safety, accepted
+cases, and shared saved-source/runtime regression. Its packaged consumer test
+is registered for the final stable candidate; no package validation runs during
+this ticket. Universal inline-string/message-record policy remains open.
+
+Slice 11 implements A13/Q13 as CR1200 for proven direct current-value and
+reference-null branches on stable storage. The [assignment contract](unchanged-assignments.md)
+records conditional updates in statement/return/property/accessor hosts,
+conservative setter/receiver/ref/volatile boundaries and preserved assignment
+result conversions. Shared compiled/runtime and saved-source cases cover the
+pinned reflection traversal, generalized branches and accepted effectful targets.
+Its package regression is registered for the final stable candidate; package
+validation and downstream adoption remain separate.
+
+Slice 12 implements A14/Q14 as CR1300, a manual duplication-candidate warning
+for matching framework timestamp formatting in one method/local function.
+The [recognition contract](repeated-formatting.md) records constant format,
+provider-source and null-propagation comparisons, the exact start/end chains,
+independent semantic policies and scoped suppressions. Diagnostics link directly
+to semantic-review guidance; no automatic helper extraction is offered. Shared
+positive/accepted consumer fixtures and an isolated package gate are ready for
+the final stable candidate. Package execution and guidance import remain separate.
+
+Slice 13 implements A16 as CR1400, a manual sealing-review warning adapted from
+MIT-licensed MA0053 source. Public/virtual/inherited classes remain findings,
+including CalendarCommands and its derived test seam. The [sealing contract](sealed-classes.md)
+records the narrow type-forwarding generic attribute exception, concrete external
+framework constraints and shared positive/accepted fixtures. No automatic sealing
+or replacement test architecture is chosen. The isolated package regression is
+registered for the final stable candidate; package execution remains deferred.
+
 ## Open design questions
 
 - **Q6 — Resolved.** Apache-2.0 is acceptable. Choose the simplest suitable
   distribution approach, including a configured metapackage. If code is copied,
-  make that reuse clear and preserve its license and attribution. No upstream
-  code or binaries have been incorporated yet.
+  make that reuse clear and preserve its license and attribution. Slice 02
+  incorporates unmodified Apache-2.0 Roslynator binaries with license, NOTICE
+  and provenance, omitting the unsafe common fixer assembly in favor of an
+  independent MIT CodingRules RCS1016 fixer. The compiler suppressor and the
+  fixer both exclude unsafe shapes because the tested CLI bypasses suppressors.
+  No upstream source has been copied or modified.
 - **Q7 — Open; needs real examples.** The maintainer regards the illustrative
   `Report($"Saved {path}")` and `File.WriteAllText(path, $"{heading}\n{body}")`
   calls as quick debugging shortcuts rather than a maintainable design; the
@@ -282,6 +393,17 @@ in its commit history must not be treated as human authorship.
   A one-parameter Parse(string)/Parse(ReadOnlySpan<char>) pair is allowed. This
   overload rule is independent of the more-than-three grouping requirement for
   the specified contract kinds; static functions are not exempt from it.
+
+  **Approved initial overload-alternative boundary (2026-10-18).** A pair must
+  have the same declaring type, method name, staticness and generic arity;
+  equal parameter counts greater than one; and exactly one differing resolved
+  parameter type. All other parameter types and all corresponding ref-kinds,
+  params flags, optional flags and default presence must match. Parameter names
+  may differ. Differing-arity pairs and pairs with more than one parameter type
+  difference remain outside initial coverage. CR1001 implements this exact
+  pairwise boundary as a manual finding, without an automatic API rewrite or
+  required-step analysis. [Rule documentation](overload-configuration.md) records
+  generic parameter normalization, locations, configuration and regression evidence.
 - **Q20 — Resolved for the shown import flow: one shared record struct.**
   The lesson, day, time slot, groups, and alternative should travel together in
   one record struct through the importer, delegate, cohort handler, and
@@ -324,8 +446,17 @@ analyzer exists anywhere.
 
 ## Consumer agent guidance
 
-[Agent coding rules](agent-coding-rules.md) records the semantic review required
-for duplication candidates. This repository imports that guidance through its
-AGENTS.md. Shipping it with the consumer entry-point package and documenting
-how consuming agents read/import it are requirements for the package work;
-no automatic consumer-repository import has been implemented yet.
+[Agent coding rules](agent-coding-rules.md) records semantic reuse, repeated
+plumbing, builder completeness, structured reporting, exception context and the
+accepted string-construction boundaries. Slice 14 includes this self-contained
+file in each version of `Anton.CodingRules`. Its explicit
+`ExportCodingRulesAgentGuidance` target copies the rules to a consumer-selected
+directory; [consumer import instructions](consumer-agent-guidance.md) and
+`samples/AgentGuidance` show how an existing AGENTS.md directs agents to read it
+without overwriting unrelated instructions. No export runs on normal build or
+restore, and a NuGet reference alone does not make agents read the file. Focused
+tests exercise export and sample discovery from the declared package layout;
+final nupkg verification remains deferred until the stable candidate after all
+tickets. This repository continues to import the source guidance through AGENTS.md.
+Universal interpolation, blanket ordinary-instance-method grouping and RequiredStep
+analysis remain undecided/deferred; no new analyzer or downstream refactor is added.

@@ -14,6 +14,7 @@ internal sealed class OperationEvaluator
     internal const string BindingAnnotation = "StatementOperationBinding";
     internal const string ConversionAnnotation = "StatementOperationConversion";
     internal const string LinearizedAnnotation = "StatementOperationLinearized";
+    private readonly Dictionary<string, ITypeSymbol> savedValues = new();
     private readonly SemanticModel model;
     private readonly bool lowerConditionProducers;
     public EvaluationNames Names { get; }
@@ -110,6 +111,10 @@ internal sealed class OperationEvaluator
         {
             expression = cast.WithExpression(Lower(cast.Expression, statements, save: true));
         }
+        else if (expression is IsPatternExpressionSyntax pattern)
+        {
+            expression = pattern.WithExpression(Lower(pattern.Expression, statements, save: true));
+        }
         else if (expression is MemberAccessExpressionSyntax member && HasWork(member.Expression))
         {
             expression = member.WithExpression(Lower(member.Expression, statements, save: true));
@@ -194,11 +199,18 @@ internal sealed class OperationEvaluator
     public ExpressionSyntax Save(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
     {
         type ??= model.GetTypeInfo(original).Type ?? model.GetTypeInfo(original).ConvertedType!;
+        // Lower may already have staged a target-typed construction. Its
+        // construction conversion was checked there; copying that local would
+        // introduce an identity conversion, not repeat the source conversion.
+        var conversion = value is IdentifierNameSyntax identifier && savedValues.TryGetValue(identifier.Identifier.ValueText, out var savedType)
+            ? new SyntaxAnnotation(ConversionAnnotation, ConversionFingerprint(((CSharpCompilation)model.Compilation).ClassifyConversion(savedType, type)))
+            : Conversion(original, type);
         var name = Names.Fresh("operationValue");
         var declaration = SyntaxFactory.VariableDeclaration(EvaluationSyntax.Type(type), SyntaxFactory.SingletonSeparatedList(
             SyntaxFactory.VariableDeclarator(name).WithInitializer(SyntaxFactory.EqualsValueClause(value.WithoutTrivia()
-                .WithAdditionalAnnotations(Conversion(original, type), new SyntaxAnnotation(LinearizedAnnotation))))));
+                .WithAdditionalAnnotations(conversion, new SyntaxAnnotation(LinearizedAnnotation))))));
         statements.Add(SyntaxFactory.LocalDeclarationStatement(declaration));
+        savedValues.Add(name, type);
         return SyntaxFactory.IdentifierName(name);
     }
 

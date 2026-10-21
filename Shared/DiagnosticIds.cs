@@ -22,4 +22,14 @@ public static class DiagnosticIds
     public const string PrimitiveSentinelReturn = "CR0600";
     public const string UncheckedHelperSentinel = "CR0601";
     public const string TransientTextInspection = "CR0700";
+    public const string LeadingBooleanOperator = "CR0800";
+    public const string InitializerMemberLayout = "CR0801";
+    public const string SoleConstructorArgumentLayout = "CR0802";
+    public const string NamedTupleData = "CR0900";
+    public const string ContractParameterGroup = "CR1000";
+    public const string OverloadConfigurationBuilder = "CR1001";
+    public const string UnchangedAssignment = "CR1200";
+    public const string StringConcatenation = "CR1100";
+    public const string RepeatedFormattingCandidate = "CR1300";
+    public const string SealConcreteClass = "CR1400";
 }

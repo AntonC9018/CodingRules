@@ -268,6 +268,10 @@ internal sealed class ConditionEvaluator
         {
             expression = cast.WithExpression(LowerOriginal(cast.Expression, statements, saveProducer: true));
         }
+        else if (expression is IsPatternExpressionSyntax pattern && ConditionFacts.IsServiceNullTest(pattern, model))
+        {
+            expression = pattern.WithExpression(LowerOriginal(pattern.Expression, statements, saveProducer: true));
+        }
 
         if (producer && saveProducer)
         {
@@ -291,8 +295,8 @@ internal sealed class ConditionEvaluator
         return SyntaxFactory.IdentifierName(name);
     }
 
-    internal static TypeSyntax TypeSyntax(ITypeSymbol? type) => SyntaxFactory.ParseTypeName(
-        type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "bool");
+    internal static TypeSyntax TypeSyntax(ITypeSymbol? type) => type is null
+        ? SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)) : EvaluationSyntax.Type(type);
 
     internal static LocalDeclarationStatementSyntax DeclareBool(string name) => SyntaxFactory.LocalDeclarationStatement(
         SyntaxFactory.VariableDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)),

@@ -93,3 +93,55 @@ A cached individual action rechecks current callee policy when its document's
 source is unchanged. If the source changed after registration, the action leaves
 the current document untouched; requesting a fresh action replans the new source.
 Fix All observes both its context and action-execution cancellation tokens.
+
+## ScheduleLib A9: return construction
+
+[CodingRules #28](https://github.com/AntonC9018/CodingRules/issues/28) reproduces
+the reviewed [CliSettings.Writes.cs:167](https://github.com/AntonC9018/ScheduleLib/blob/12e601e7b62511bdecc44e280407fee12147b230/src/MainCli/CliSettings.Writes.cs#L167)
+call with its actual bound declaration:
+
+```csharp
+public sealed record SettingsEdit(string File, string Scope, string? Profile, string Key, bool Changed);
+
+return new(
+    File: file,
+    Scope: scope.ToString().ToLowerInvariant(),
+    Profile: arguments.Profile,
+    Key: key,
+    changed);
+```
+
+The existing analyzer and fixer already handle this target-typed return and its
+ordinary `new SettingsEdit(...)` equivalent. Both report one warning on the
+argument list. Nullable annotations do not separate `Profile` from the other
+three string roles. The unique Boolean `Changed` role stays positional. The
+saved fix preserves the constructor, expression text and source evaluation order.
+No analyzer, binding, or rule-policy extension was needed.
+
+The pinned consumer's [Directory.Build.props](https://github.com/AntonC9018/ScheduleLib/blob/12e601e7b62511bdecc44e280407fee12147b230/Directory.Build.props)
+references Anton.CodingRules 0.1.0 and keeps CR0500 visible as a warning; its
+[EditorConfig](https://github.com/AntonC9018/ScheduleLib/blob/12e601e7b62511bdecc44e280407fee12147b230/.editorconfig)
+does not disable CR0500. Its [review record](https://github.com/AntonC9018/ScheduleLib/blob/12e601e7b62511bdecc44e280407fee12147b230/docs/analyzer-review.md)
+explicitly states that the formatter does not apply CR fixes. The apparent
+detection gap is not reproducible with current source. The historical installed
+archive was not recovered, so these observations do not identify its binary
+contents or prove historical adoption. The previous package consumer exercised
+only a two-integer method call; it supplied no A9 delivery evidence.
+
+`NamedArgumentReturnConstructionTests` now loads the same source, EditorConfig
+and exact fixed output as `PackageConsumptionTests.AppliesPackagedNamedArgumentFix`.
+That consumer is restored and fixed in the package tester's isolated workspace,
+using the packaged analyzer, fixer and shipped annotation. Besides the original
+method call, it covers both return constructions and unchanged accepted cases:
+already named string roles, exact constructor annotation and encoded constructor
+configuration opt-outs (each in ordinary and target-typed returns), and the
+framework Path.Combine exception. Focused tests additionally check saved bound
+constructor/parameter correspondence, effectful argument order with a competing
+overload, error/disabled severity and generated-code exclusion.
+
+Naming the Scope argument leaves `scope.ToString().ToLowerInvariant()` intact.
+The exact parameterless chain receives no current CR03 finding in the focused
+probe. Extracting a named scope value is a separate operation-rule concern;
+neither the CR0500 fix nor a green consumer proves that extraction. No CR03
+behavior is changed here. Final validation against the common stable package
+candidate and actual downstream rollout remain separate work.

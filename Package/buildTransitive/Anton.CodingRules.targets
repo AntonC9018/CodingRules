@@ -1,0 +1,12 @@
+<Project>
+  <!-- Deliberately has no build/restore hook: exporting agent instructions is opt-in. -->
+  <Target Name="ExportCodingRulesAgentGuidance">
+    <Error Condition="'$(CodingRulesAgentGuidanceDirectory)' == ''"
+           Text="Set CodingRulesAgentGuidanceDirectory to the directory for the exported agent-coding-rules.md." />
+    <MakeDir Directories="$(CodingRulesAgentGuidanceDirectory)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)../agent-guidance/agent-coding-rules.md"
+          DestinationFiles="$(CodingRulesAgentGuidanceDirectory)/agent-coding-rules.md" />
+    <Message Importance="high"
+             Text="Exported agent-coding-rules.md to $(CodingRulesAgentGuidanceDirectory). Add an instruction to your existing AGENTS.md (or agent equivalent) to read this file; a package reference alone does not import agent guidance." />
+  </Target>
+</Project>

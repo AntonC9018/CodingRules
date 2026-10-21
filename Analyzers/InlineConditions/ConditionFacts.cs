@@ -163,6 +163,8 @@ internal sealed class ConditionFacts
             return true;
         }
 
+        if (IsServiceLookup(invocation, model)) return true;
+
         if (!IsFramework(method))
         {
             return false;
@@ -198,6 +200,16 @@ internal sealed class ConditionFacts
     private static bool IsFramework(IMethodSymbol method) =>
         method.ContainingAssembly.Identity.Name is "mscorlib" or "System.Private.CoreLib" or "System.Runtime"
             or "System.Collections" or "System.Text.Json" or "netstandard";
+
+    internal static bool IsServiceLookup(InvocationExpressionSyntax invocation, SemanticModel model) =>
+        model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "GetService", Parameters.Length: 1 } method
+        && (IsFramework(method) || method.ContainingAssembly.Name == "System.ComponentModel")
+        && SymbolEqualityComparer.Default.Equals(method.ContainingType, model.Compilation.GetTypeByMetadataName("System.IServiceProvider"));
+
+    internal static bool IsServiceNullTest(IsPatternExpressionSyntax pattern, SemanticModel model) =>
+        pattern.Pattern is ConstantPatternSyntax { Expression: LiteralExpressionSyntax literal }
+        && literal.IsKind(SyntaxKind.NullLiteralExpression)
+        && EvaluationNodes(pattern.Expression).OfType<InvocationExpressionSyntax>().Any(call => IsServiceLookup(call, model));
 
     private static bool HasProducingOperation(ExpressionSyntax leaf, SemanticModel model) =>
         EvaluationNodes(leaf).Any(node => IsProducer(node, model));
@@ -335,6 +347,11 @@ internal sealed class ConditionFacts
         expression = Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary)
         {
+            if (binary.IsKind(SyntaxKind.IsExpression) && model.GetOperation(binary) is IIsTypeOperation)
+            {
+                return Subject(binary.Left, model);
+            }
+
             if (binary.Kind() is not (SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression or SyntaxKind.LessThanExpression
                 or SyntaxKind.LessThanOrEqualExpression or SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression)) return null;
             if (model.GetOperation(binary) is not IBinaryOperation { OperatorMethod: null }) return null;
@@ -349,7 +366,7 @@ internal sealed class ConditionFacts
         if (expression is IsPatternExpressionSyntax pattern)
         {
             if (pattern.Pattern.DescendantNodesAndSelf().Any(node => node is VariableDesignationSyntax)) return null;
-            return Subject(pattern.Expression, model);
+            return ConditionSubject.CreatePropertyPattern(pattern, model) ?? Subject(pattern.Expression, model);
         }
 
         if (expression is InvocationExpressionSyntax invocation && IsPredicate(invocation, model))

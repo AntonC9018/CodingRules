@@ -55,7 +55,8 @@ multiple arguments, constructor argument lists and non-constructor expressions
 are separate policy. A comment in the gap prevents joining. Both rules skip
 syntax with errors or directives and generated code. The fixes change layout,
 retain token text and leave initializer values inline. Existing operation
-findings, including initializer false positives tracked in #19, are independent.
+findings are independent. Ordinary initializer assignments are accepted by CR0302
+after the #19 fix; combined right-hand-side operations remain analyzed.
 
 Before offering an A1 fix, CodingRules compares implicit caller-information
 argument constants throughout the original document and the final formatted,
@@ -204,9 +205,11 @@ The A1 consumer fixture includes already adjacent constructors, nested
 initializers, trailing commas, member and call comments, a simple factory value
 and the sole explicit delegate-constructor argument. It compiles and runs before
 and after formatting with the same evaluation trace, `123345667890123`. The
-fixture locally suppresses pre-existing CR0300/CR0302 findings to isolate layout;
-the A1 fixer neither extracts values nor adds operation requirements. Its bytes
+fixture locally suppresses CR0300 findings to isolate layout; CR0302 remains
+enabled to guard against initializer false positives from #19. The A1 fixer
+neither extracts values nor adds operation requirements. Its bytes
 must remain identical on the second analyzer/formatter pass.
+The consumer project suppresses unrelated CR1400 sealing-review findings.
 Separate caller-information fixtures isolate enclosing expression captures
 from constructor line numbers and a line-number argument in a later member. The CLI
 must retain three unsafe layouts, format safe sites after the last observer,

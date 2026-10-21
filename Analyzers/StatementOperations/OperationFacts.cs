@@ -137,6 +137,8 @@ internal sealed class OperationFacts
     private static bool IsConsumedMutation(ExpressionSyntax expression)
     {
         var parent = UnwrapParent(expression).Parent;
+        // Initializer members assign a value without forwarding the assignment's result.
+        if (parent.IsKind(SyntaxKind.ObjectInitializerExpression)) return false;
         return parent is not ExpressionStatementSyntax and not ForStatementSyntax and not EqualsValueClauseSyntax
             and not ReturnStatementSyntax and not ArrowExpressionClauseSyntax
             && (parent is not AssignmentExpressionSyntax assignment || assignment.Right != UnwrapParent(expression));

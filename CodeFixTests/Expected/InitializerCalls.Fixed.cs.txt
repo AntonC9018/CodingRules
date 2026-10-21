@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 
-// This fixture exercises formatting only. Existing CR0302 initializer false
-// positives remain tracked in #19; CR0300 constructor extraction is separate policy.
-#pragma warning disable CR0300, CR0302
+// This fixture exercises formatting only. CR0300 constructor extraction is separate
+// policy; keep CR0302 enabled to catch initializer false positives from #19.
+#pragma warning disable CR0300
 public sealed class InitializerCalls
 {
     public int Context;

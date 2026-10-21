@@ -264,8 +264,8 @@ public sealed partial class FormattingReuseTests
                 }
             }
             """);
-        // Existing initializer false positives belong to #19. A1 must neither
-        // add operation findings nor extract these deliberately inline values.
+        // A1 must neither add operation findings nor extract these deliberately
+        // inline values. CR0300's argument policy is independent of the #19 fix.
         var before = await OperationFindings(document);
         var changed = await FixAll(document);
         Assert.Equal(before, await OperationFindings(changed));

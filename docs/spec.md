@@ -27,8 +27,8 @@ gaps, directives, invalid syntax and other argument policies are conservative
 boundaries. These layout fixes preserve initializer values and implicit
 caller-information constants across the final formatted document; affected
 layouts remain diagnosed without an automatic fix. Fix All validates edits
-sequentially. Operation diagnostics remain independent; initializer false
-positives remain tracked in #19.
+sequentially. Operation diagnostics remain independent; ordinary initializer
+assignments are accepted as specified below for #19.
 [Packaged formatting](formatting.md) defines the precise boundaries,
 formatter and CLI configuration, license provenance and verification workflow.
 
@@ -414,6 +414,11 @@ returns/arrows and switch expressions retain the frozen return policy.
 `CR0302` reports more than one supported calculation in a standalone named value,
 or a producer consumed by another calculation/conversion/formatting stage.
 Delivery through an assignment, declaration or return is not a second operation.
+Object-initializer member assignments likewise do not consume their assignment
+results. Direct values, empty collections, parameterless factories and calls
+such as `TimeSpan.FromMinutes(90)` remain allowed, including nested initializers.
+Combined operations on initializer right-hand sides are still analyzed; there
+is no initializer-specific EditorConfig option.
 One CR03 owner selects the highest enabled feasible reason in the order
 CR0301, CR0300, CR0302. Distinct arguments remain distinct roots; safe inner roots
 remain available when an outer rewrite is unsafe. Return and condition families

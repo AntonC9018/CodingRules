@@ -114,8 +114,12 @@ Use the individual A1–A16 items in #229 as the source of acceptance fixtures.
 Do not mark a rule covered merely because an existing diagnostic appears related.
 Record both current detection and available fixes for each original example,
 with negative fixtures for the explicitly accepted chained service call, direct
-initializers, and simple factory values. Initializer false positives remain
-tracked in [CodingRules #19](https://github.com/AntonC9018/CodingRules/issues/19).
+initializers, and simple factory values. The
+[CodingRules #19](https://github.com/AntonC9018/CodingRules/issues/19) fix excludes
+object-initializer assignments from consumed mutations while preserving analysis
+of combined right-hand-side operations. Regression tests cover the original
+empty collections and lesson-time factory values, nested initializers, and
+genuine consumed mutations outside initializers.
 
 For A1–A3 and A12, first establish what existing formatters/analyzers can enforce
 and fix with their supported configuration. In particular, a formatter applying
@@ -135,8 +139,8 @@ CR0801/CR0802 for A1's multi-member initializer expansion and adjacent sole
 constructor arguments. The same consumer gate verifies exact output, accepted
 layouts, comments, nesting, unchanged runtime evaluation and a byte-identical
 second pass. Focused tests cover all four pinned A1 sites and preserve existing
-operation findings; #19 remains separate. This implementation does not establish
-coverage for other A items.
+operation findings; #19's separate fix now accepts direct initializer assignments.
+This implementation does not establish coverage for other A items.
 
 Slice 04 implements A4/Q15/Q16 as CR0900 manual findings for tuple method
 results, method inputs and catalogued stored collection data. The

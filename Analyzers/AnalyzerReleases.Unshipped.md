@@ -14,7 +14,7 @@ CR0203 | Readability | Warning | Separate producing, transforming and validating
 CR0204 | Readability | Warning | Linearize three or more repeated alternatives
 CR0300 | Readability | Warning | Calculate nested arguments in named steps, including resolved Type.GetGenericArguments metadata calculations
 CR0301 | Readability | Warning | Assign conditional values to named variables, including composed LINQ branches (ScheduleLib A7)
-CR0302 | Readability | Warning | Separate combined statement operations
+CR0302 | Readability | Warning | Separate combined statement operations, including calculations consuming resolved Type.GetGenericArguments metadata
 CR0400 | Readability | Warning | Name structurally composed delegate projection stages
 CR0401 | Readability | Warning | Extract whole delegate stages with several result-feeding temporaries or nested decisions
 CR0402 | Readability | Warning | Make materializer key and element selectors explicit

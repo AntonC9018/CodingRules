@@ -34,6 +34,7 @@ public sealed class ReviewedComputationTests
         { "static string M(string? selected) { var path = selected is { } cache ? ResolvePath(cache) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), \"ScheduleLib\", \"cache\"); return path; }", "CR0300" },
         { "static object M<T>(Node node, JsonObject action) => node.GetOrAdd(new NodeDataKey<T>(new(action[\"key\"]!.GetValue<string>().Split('.')[0])));", "CR0300" },
         { "static string[] M(string? profile, string[] parts) { var path = profile is null ? new[] { \"defaults\" }.Concat(parts).ToArray() : new[] { \"profiles\", profile }.Concat(parts).ToArray(); return path; }", "CR0301" },
+        { "static int M(Type value) => value.GetGenericArguments().Length + 1;", "CR0302" },
         { "static bool M(IServiceProvider provider, Type value, int length) { if (length != 0 && provider.GetService(typeof(IKeyEqualityComparer<>).MakeGenericType(value.GetGenericArguments()[0])) is null) { return false; } return true; }", "CR0300" },
     };
 
@@ -175,5 +176,21 @@ public sealed class ReviewedComputationTests
             + " class C { static bool M(Provider provider, System.Type type) { if (provider.GetService(type) is null) return false; return true; } }");
         await InlineConditionTestFixture.Compiles(document);
         Assert.Empty(await InlineConditionTestFixture.Diagnostics(document));
+    }
+
+    [Fact]
+    public async Task SourceImitationOfTypeMetadataRemainsAccepted()
+    {
+        const string source = """
+            namespace System { class Type { public int[] GetGenericArguments() => []; } }
+            class C
+            {
+                static int Use(int[] values) => values.Length;
+                static int M(System.Type type) => Use(type.GetGenericArguments());
+            }
+            """;
+        var document = StatementOperationTestFixture.Document(source);
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await StatementOperationTestFixture.Diagnostics(document));
     }
 }

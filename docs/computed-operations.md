@@ -1,7 +1,8 @@
 # Reviewed computed arguments and lookups
 
 ScheduleLib slice 07 implements the non-message A6/A7/A8 cases with existing
-Readability warnings CR0300, CR0301 and CR0203. No public diagnostic ID or package
+Readability warnings CR0300, CR0301 and CR0203. CR0302 retains its composition
+policy and also recognizes the new metadata producer when consumed by a calculation. No public diagnostic ID or package
 configuration default changes. Generated code, ordinary Roslyn severity options,
 EditorConfig, pragma and SuppressMessage conventions remain in force. CR0302's
 initializer correction at `7b9a4b2` and CR0001's safe-fix contract remain intact.
@@ -25,8 +26,8 @@ doubles; it does not reference or modify the downstream repository.
 The service catalogue checks the resolved System.IServiceProvider member and
 framework identity (including System.ComponentModel on .NET and netstandard
 facades). Application-owned lookalike methods and source imitations remain
-outside this addition. System.Type.GetGenericArguments is likewise a resolved
-member boundary; there is no general parameterless-call or receiver-chain ban.
+outside this addition. System.Type.GetGenericArguments likewise requires a resolved framework
+member, with a source-imitation regression; there is no general parameterless-call or receiver-chain ban.
 
 ## Evaluation and fix availability
 
@@ -80,7 +81,8 @@ existing agent-guidance/ADR policy.
 CR0203 location, compiled saved actions at every finding, runtime equivalence,
 fix convergence and accepted-case silence. Runtime tests separately check lazy
 pipeline enumeration/failure, guarded reflection queries and provider failures,
-nullable service-result naming, and handler constructor/append gating.
+nullable service-result naming, nested lookup receiver/constructor order and JSON
+failures, and handler constructor/append gating.
 
 CI registers `build/verify-computation-consumer.py artifacts/release`. The gate
 requires an existing candidate package and never repacks it. It checks all seven

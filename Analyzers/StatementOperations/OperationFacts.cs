@@ -69,6 +69,7 @@ internal sealed class OperationFacts
     // factories and business-service receiver chains retain their existing policy.
     private static bool IsGenericArgumentLookup(InvocationExpressionSyntax invocation, SemanticModel model) =>
         model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "GetGenericArguments", Parameters.Length: 0 } method
+        && method.ContainingAssembly.Name is "mscorlib" or "System.Private.CoreLib" or "System.Runtime" or "netstandard"
         && SymbolEqualityComparer.Default.Equals(method.ContainingType, model.Compilation.GetTypeByMetadataName("System.Type"));
 
     private static bool HasComposedPipelineBranch(ConditionalExpressionSyntax conditional, SemanticModel model) =>

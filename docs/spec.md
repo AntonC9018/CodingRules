@@ -181,8 +181,9 @@ producer, including its null constant pattern. It names the nullable service
 result before testing it, preserving the original short-circuited branch.
 Parameterless System.Type.GetGenericArguments is the reviewed metadata exception
 to CR0300's ordinary parameterless exemption. CR0301 also names ternaries whose
-branches compose catalogued pipeline calls. No diagnostic ID is added; CR0302
-and the original CR0001 contract stay unchanged. The
+branches compose catalogued pipeline calls. CR0302 retains its composition
+policy and also uses the shared metadata-producer fact. No diagnostic ID is
+added; the original CR0001 contract stays unchanged. The
 [computed-operation boundary](computed-operations.md) records provenance,
 same-site params helpers, safety omissions, accepted cases and shared package
 fixtures. Final candidate package execution is deferred until all tickets.

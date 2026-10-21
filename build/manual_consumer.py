@@ -67,8 +67,11 @@ dotnet_diagnostic.{diagnostic_id}.severity = {severity}
                     unresolved_errors.add(("Unresolved.cs", str(number), str(prefix.index(anchor) + 1), "error", "CS0246"))
             assert unresolved_errors, "Missing unresolved-signature expectations"
             output = run(build, consumer, environment, expected_returncode=1)
-            assert set(REPORT.findall(output)) == expected | unresolved_errors, output
-            print("PASS: unresolved signatures produce only their expected compiler errors; no extra analyzer findings.")
+            # Roslyn skips analyzers on declaration errors, so CR1000 from the accepted fixture cannot appear here.
+            # Analyzer-side skipping is covered by ContractParameterAnalyzerTests.SkipsInvalidSignatures.
+            assert set(REPORT.findall(output)) == unresolved_errors, output
+            print("PASS: unresolved signatures produce only their expected compiler errors "
+                  "(analyzers do not run on declaration errors).")
 
         print(f"PASS: {expected_count} exact {diagnostic_id} findings; accepted and generated cases; "
               "manual-only source stability, warnings-as-errors and editorconfig severity; isolated package.")

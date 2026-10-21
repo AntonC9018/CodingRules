@@ -118,8 +118,10 @@ The gate restores the exact archive using an empty package cache and local-only
 feed. It checks nine exact positive locations, no extra findings in accepted or
 generated sources, unchanged source after a CR1000 fixing pass, warnings-as-errors
 failure, and actual editorconfig error/disabled behavior. A separate failing
-compilation verifies CS0246 without extra CR1000 findings for containing generic
-types and function-pointer parameter/return types. CI runs it against the
+compilation verifies only the expected CS0246 errors for containing generic
+types and function-pointer parameter/return types; Roslyn skips analyzers when
+declaration errors exist. `ContractParameterAnalyzerTests.SkipsInvalidSignatures`
+covers the analyzer-side skip behavior. CI runs it against the
 same archive used for the other package gates. The shared manual-diagnostic
 consumer harness also runs the existing CR0900 gate with its original fixtures.
 No downstream API migration or NuGet publication is implied.

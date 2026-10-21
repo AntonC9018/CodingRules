@@ -81,3 +81,12 @@ empty cache from an Anton-only feed, proves default build diagnostics, applies
 exported CLI fixes, and checks exact output and a second formatter pass.
 Tests also load the same upstream assets on the Roslyn 4.10 floor. The existing
 test dependency audit issue above remains separate and unchanged.
+
+## Test dependency repair on 2026-10-21
+
+The analyzer and code fix test projects now explicitly pin
+`System.Security.Cryptography.Pkcs` 9.0.21, the first patched 9.x version, to
+repair the test-only Roslyn testing/NuGet.Packaging dependency graph. Ordinary
+restore succeeds with warnings-as-errors and no audit exception. This matches
+SourceGenerators' shared repair; remove these pins when SDK 1.1.1 is published
+and adopted. The 2026-10-15 validation above records the original baseline.

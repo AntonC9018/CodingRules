@@ -1,5 +1,8 @@
 <Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
   <ItemGroup>
+    <!-- Patch the test-only Roslyn testing/NuGet.Packaging transitive vulnerability;
+         remove once the shared SDK supplies the patched dependency. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.21" />
     <Compile Remove="Consumers/**/*.cs" />
     <None Include="Consumers/Computations/Findings.cs" Link="Computations/Findings.cs" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Consumers/Computations/Accepted.cs" Link="Computations/Accepted.cs" CopyToOutputDirectory="PreserveNewest" />

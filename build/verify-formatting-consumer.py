@@ -147,9 +147,10 @@ def main():
         output = run(["dotnet", "format", "analyzers", project, "--no-restore", "--diagnostics",
                       "CR0801", "CR0802", "--verify-no-changes"], consumer, environment, expected_returncode=2)
         assert set(SOURCE_WARNING.findall(output)) == caller_reports, output
-        # This CLI bypasses suppressors and reports protected manual cases even
-        # though the replacement fixer offers no action. Assert that exact set;
-        # actual idempotence is the byte comparison after the next fixing pass.
+        # This CLI bypasses suppressors, but newer SDK feature bands omit
+        # manual-only diagnostics that offer no action. The golden bytes and
+        # exact caller-information diagnostic set are the invariant; only the
+        # protected manual diagnostics below may also be reported.
         manual_reports = set()
         for filename, content in (("Consumer.cs", expected.decode()),
                                   ("TaskLike.cs", task_like_original.decode())):
@@ -158,7 +159,8 @@ def main():
                     manual_reports.add((filename, str(number), str(line.index("=>") + 1), "RCS1016"))
         assert len(manual_reports) == 8
         output = run([*command, "--verify-no-changes"], consumer, environment, expected_returncode=2)
-        assert set(SOURCE_WARNING.findall(output)) == manual_reports | caller_reports, output
+        reports = set(SOURCE_WARNING.findall(output))
+        assert caller_reports <= reports <= manual_reports | caller_reports, output
         run(command, consumer, environment)
         run(["dotnet", "format", "whitespace", project, "--no-restore", "--verify-no-changes"],
             consumer, environment)

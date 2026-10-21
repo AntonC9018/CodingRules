@@ -125,12 +125,16 @@ dotnet build Consumer.csproj --no-restore
 The explicit diagnostic filter limits this command to the selected formatting
 slice. Other CR diagnostics remain independently available. The standard
 formatter supplies indentation; it does not replace these diagnostics/fixes.
-The repeated analyzer fixing command is safe and idempotent. SDK 10.0.112's
-analyzer `--verify-no-changes` mode reports the excluded manual RCS1016 cases
-and returns exit 2 even when the fixer makes no changes. Use ordinary build
-diagnostics for the suppression-aware check; the consumer gate additionally
-compares bytes across two fixing passes and asserts the CLI's exact residual
-manual diagnostic set.
+The repeated analyzer fixing command is safe and idempotent. In the consumer
+fixture, analyzer `--verify-no-changes` returns exit 2 on both SDK 10.0.1xx and
+10.0.4xx even when the fixer makes no changes. SDK 10.0.1xx reports all eleven
+residual diagnostics: six arrow-comment, two custom task-like and three
+caller-information diagnostics. SDK 10.0.4xx reports only the three
+caller-information diagnostics, omitting manual-only diagnostics that offer no
+action. Use ordinary build diagnostics for the suppression-aware check; the
+consumer gate requires the caller set exactly and rejects diagnostics outside
+that set and the eight expected manual RCS1016 cases. Golden source and
+second-pass byte comparisons prove the manual cases stay unchanged.
 
 For an A1-only check after applying the fixes, run:
 
@@ -187,10 +191,15 @@ source with `CodeFixTests/Expected/Formatting.Fixed.cs.txt` and
 `CodeFixTests/Expected/CallerExpressions.Fixed.cs.txt`, runs whitespace
 formatting and a second idempotent pass, and builds with warnings as errors
 except for the three precisely asserted residual A1 warnings.
-The analyzer verification command is separately expected to return exit 2
-with exactly the six arrow-comment, two custom task-like and three protected
-A1 diagnostics; no safe case may remain in that set. Whitespace verification and
-the final compiler build must succeed. The A1-only analyzer verification command
+The analyzer verification command is separately expected to return exit 2.
+SDK 10.0.1xx reports all eleven diagnostics (six arrow-comment, two custom
+task-like and three protected A1 caller-information diagnostics); SDK 10.0.4xx
+reports only the three caller-information diagnostics because it omits
+manual-only diagnostics that offer no action. The gate requires the caller set
+exactly and rejects any diagnostic outside that set and the eight expected
+manual RCS1016 cases; golden source and second-pass byte comparisons prove the
+manual cases stay unchanged. Whitespace verification and the final compiler
+build must succeed. The A1-only analyzer verification command
 must return exit 2 with exactly those three A1 diagnostics. Its command-scoped
 `WarningsNotAsErrors=CR0801%3BCR0802` build exception permits these deliberate
 manual cases; the gate asserts their exact locations and rejects other warnings.

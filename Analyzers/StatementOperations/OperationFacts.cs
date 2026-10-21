@@ -24,7 +24,8 @@ internal sealed class OperationFacts
         var nodes = EvaluationNodes(expression).OfType<ExpressionSyntax>().ToArray();
         var calculations = nodes.Count(node => IsCalculation(node, model));
         facts.Conditional = nodes.OfType<ConditionalExpressionSyntax>()
-            .FirstOrDefault(conditional => !IsNamedOrDirectReturn(conditional));
+            .FirstOrDefault(conditional => !IsNamedOrDirectReturn(conditional)
+                || HasComposedPipelineBranch(conditional, model));
         facts.Combined = calculations > 1 || nodes.Any(node => IsCombination(node, model))
             || nodes.Any(node => IsMutation(node) && IsConsumedMutation(node));
         if (expression.Parent is ArgumentSyntax argument && IsOrdinaryArgument(argument, model))
@@ -54,7 +55,8 @@ internal sealed class OperationFacts
 
     public static bool IsProducer(ExpressionSyntax expression, SemanticModel model) => expression switch
     {
-        InvocationExpressionSyntax invocation => !IsNameof(invocation) && invocation.ArgumentList.Arguments.Count != 0
+        InvocationExpressionSyntax invocation => !IsNameof(invocation)
+            && (invocation.ArgumentList.Arguments.Count != 0 || IsGenericArgumentLookup(invocation, model))
             && model.GetOperation(invocation) is IInvocationOperation && !IsPipeline(invocation, model),
         BaseObjectCreationExpressionSyntax creation => creation.ArgumentList?.Arguments.Count > 0
             && model.GetOperation(creation) is IObjectCreationOperation && creation.Initializer is null,
@@ -62,6 +64,18 @@ internal sealed class OperationFacts
         InterpolatedStringExpressionSyntax interpolation => model.GetTypeInfo(interpolation).ConvertedType?.SpecialType == SpecialType.System_String,
         _ => IsMutation(expression),
     };
+
+    // Type metadata calculation is the reviewed parameterless exception. Ordinary
+    // factories and business-service receiver chains retain their existing policy.
+    private static bool IsGenericArgumentLookup(InvocationExpressionSyntax invocation, SemanticModel model) =>
+        model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "GetGenericArguments", Parameters.Length: 0 } method
+        && SymbolEqualityComparer.Default.Equals(method.ContainingType, model.Compilation.GetTypeByMetadataName("System.Type"));
+
+    private static bool HasComposedPipelineBranch(ConditionalExpressionSyntax conditional, SemanticModel model) =>
+        HasComposedPipeline(conditional.WhenTrue, model) || HasComposedPipeline(conditional.WhenFalse, model);
+
+    private static bool HasComposedPipeline(ExpressionSyntax expression, SemanticModel model) =>
+        EvaluationNodes(expression).OfType<InvocationExpressionSyntax>().Count(call => IsPipeline(call, model)) > 1;
 
     public static bool IsPipeline(InvocationExpressionSyntax invocation, SemanticModel model)
     {

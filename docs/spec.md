@@ -403,13 +403,19 @@ call/construction with at least one supplied entry is an operation, while
 reduced-extension receiver and an empty implicit params collection do not count.
 Explicit named, static extension and params entries do count. Parameterless
 Trim/ToString remain allowed here; inline-condition diagnostics stay independent.
+ScheduleLib slice 07 additionally treats resolved System.Type.GetGenericArguments
+as a metadata calculation even without source arguments; unrelated parameterless
+factories and service receivers keep their exemption.
 Direct fields, property/index selections and built-in tests remain inline,
 without a purity assumption. At most one supported built-in numeric calculation
 is allowed, including original constant-folded syntax. Supported nonidentity
 casts, ordinary string interpolation and consumed embedded mutation also qualify.
 
 `CR0301` reports an embedded ternary argument or larger consumed value. Entire
-named initializers and assignment right sides are compliant; lone direct
+named initializers and assignment right sides are compliant except when a
+branch composes more than one catalogued pipeline call (for example
+Concat/ToArray). Those branch computations receive CR0301 and become explicit
+lazy branches; ordinary linear pipelines remain allowed. Lone direct
 returns/arrows and switch expressions retain the frozen return policy.
 `CR0302` reports more than one supported calculation in a standalone named value,
 or a producer consumed by another calculation/conversion/formatting stage.

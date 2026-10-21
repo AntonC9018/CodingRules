@@ -47,6 +47,8 @@ jobs:
         run: python3 build/verify-overload-consumer.py artifacts/release
       - name: Verify packaged compound guards and status filters in a clean consumer
         run: python3 build/verify-condition-consumer.py artifacts/release
+      - name: Verify packaged computed arguments and service lookup fixes in a clean consumer
+        run: python3 build/verify-computation-consumer.py artifacts/release
       - name: Retain tested main package
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4

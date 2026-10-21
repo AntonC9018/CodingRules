@@ -173,6 +173,20 @@ API migration has no automatic fix. Required builder steps remain a manual agent
 check with runtime validation; the RequiredStep proposal stays deferred. Broader
 repeated plumbing still requires semantic review independent of overload count.
 
+## Reviewed computations (ScheduleLib slice 07)
+
+CR0300/CR0301 cover the non-message A6/A7/A8 constructions and lookup inputs;
+CR0203 additionally recognizes the exact framework IServiceProvider.GetService
+producer, including its null constant pattern. It names the nullable service
+result before testing it, preserving the original short-circuited branch.
+Parameterless System.Type.GetGenericArguments is the reviewed metadata exception
+to CR0300's ordinary parameterless exemption. CR0301 also names ternaries whose
+branches compose catalogued pipeline calls. No diagnostic ID is added; CR0302
+and the original CR0001 contract stay unchanged. The
+[computed-operation boundary](computed-operations.md) records provenance,
+same-site params helpers, safety omissions, accepted cases and shared package
+fixtures. Final candidate package execution is deferred until all tickets.
+
 ## Reviewed compound guards (ScheduleLib slice 08)
 
 CR0201/CR0202/CR0203 cover the reviewed config-result, JSON lookup,
@@ -415,7 +429,7 @@ casts, ordinary string interpolation and consumed embedded mutation also qualify
 named initializers and assignment right sides are compliant except when a
 branch composes more than one catalogued pipeline call (for example
 Concat/ToArray). Those branch computations receive CR0301 and become explicit
-lazy branches; ordinary linear pipelines remain allowed. Lone direct
+lazy branches; ordinary linear pipelines remain allowed. Simple direct
 returns/arrows and switch expressions retain the frozen return policy.
 `CR0302` reports more than one supported calculation in a standalone named value,
 or a producer consumed by another calculation/conversion/formatting stage.

@@ -163,6 +163,8 @@ internal sealed class ConditionFacts
             return true;
         }
 
+        if (IsServiceLookup(invocation, model)) return true;
+
         if (!IsFramework(method))
         {
             return false;
@@ -198,6 +200,16 @@ internal sealed class ConditionFacts
     private static bool IsFramework(IMethodSymbol method) =>
         method.ContainingAssembly.Identity.Name is "mscorlib" or "System.Private.CoreLib" or "System.Runtime"
             or "System.Collections" or "System.Text.Json" or "netstandard";
+
+    internal static bool IsServiceLookup(InvocationExpressionSyntax invocation, SemanticModel model) =>
+        model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "GetService", Parameters.Length: 1 } method
+        && (IsFramework(method) || method.ContainingAssembly.Name == "System.ComponentModel")
+        && SymbolEqualityComparer.Default.Equals(method.ContainingType, model.Compilation.GetTypeByMetadataName("System.IServiceProvider"));
+
+    internal static bool IsServiceNullTest(IsPatternExpressionSyntax pattern, SemanticModel model) =>
+        pattern.Pattern is ConstantPatternSyntax { Expression: LiteralExpressionSyntax literal }
+        && literal.IsKind(SyntaxKind.NullLiteralExpression)
+        && EvaluationNodes(pattern.Expression).OfType<InvocationExpressionSyntax>().Any(call => IsServiceLookup(call, model));
 
     private static bool HasProducingOperation(ExpressionSyntax leaf, SemanticModel model) =>
         EvaluationNodes(leaf).Any(node => IsProducer(node, model));

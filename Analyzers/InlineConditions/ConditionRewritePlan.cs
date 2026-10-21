@@ -194,7 +194,8 @@ internal sealed class ConditionRewritePlan
                     and not IPropertySymbol { ReturnsByRefReadonly: true },
                 MemberAccessExpressionSyntax => true,
                 CastExpressionSyntax => true,
-                IsPatternExpressionSyntax => ReviewedHttpStatusFilter.NamedPattern(expression, model) is not null,
+                IsPatternExpressionSyntax pattern => ConditionFacts.IsServiceNullTest(pattern, model)
+                    || ReviewedHttpStatusFilter.NamedPattern(expression, model) is not null,
                 _ => false,
             };
             if (!supported)

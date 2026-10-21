@@ -121,6 +121,17 @@ of combined right-hand-side operations. Regression tests cover the original
 empty collections and lesson-time factory values, nested initializers, and
 genuine consumed mutations outside initializers.
 
+Slice 07 now covers the non-message A6/A7/A8 computations through CR0300,
+CR0301 and the exact framework service-lookup addition to CR0203. The
+[computed-operation contract](computed-operations.md) records the pinned source,
+parameterless metadata exception, lazy composed-pipeline branches, same-site
+params boundaries and service-result naming. Shared unit/package fixtures retain
+direct initializers, factories, the allowed service receiver chain and lexer
+handler interpolation. Runtime tests verify guarded lookups, exception timing,
+lazy enumeration and handler constructor/append gating. The final candidate
+package/consumer gate remains deferred; this does not implement structured
+message or exception API redesign.
+
 For A1–A3 and A12, first establish what existing formatters/analyzers can enforce
 and fix with their supported configuration. In particular, a formatter applying
 whitespace need not apply expression-body-to-block code-style fixes. The research

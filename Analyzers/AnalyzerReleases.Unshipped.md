@@ -10,7 +10,7 @@ CR0006 | Readability | Warning | Make nested boolean return decisions explicit
 CR0200 | Readability | Warning | Make mixed Boolean conditions explicit
 CR0201 | Readability | Warning | Split long Boolean conditions
 CR0202 | Readability | Warning | Separate checks on different values, including simple type and single-constant typed property-pattern subjects
-CR0203 | Readability | Warning | Separate producing, transforming and validating operations; preserve terminal throw guards and name the reviewed HTTP status filter
+CR0203 | Readability | Warning | Separate producing, transforming and validating operations; preserve terminal throw guards, name the reviewed HTTP status filter and stage framework IServiceProvider.GetService null checks
 CR0204 | Readability | Warning | Linearize three or more repeated alternatives
 CR0300 | Readability | Warning | Calculate nested arguments in named steps, including resolved Type.GetGenericArguments metadata calculations
 CR0301 | Readability | Warning | Assign conditional values to named variables, including composed LINQ branches (ScheduleLib A7)

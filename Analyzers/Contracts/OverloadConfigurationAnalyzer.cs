@@ -44,7 +44,8 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         var parameters = EffectiveParameters(method);
         if (parameters.Length <= 1 || parameters.Any(parameter => HasErrorType(parameter.Type))) return;
         if (policy.IsBuilder(method.ContainingType)
-            || method.IsExtensionMethod && policy.IsBuilder(method.Parameters[0].Type)) return;
+            || HasReceiverParameter(method) && policy.IsBuilder(method.Parameters[0].Type)
+            || BuilderExtensionBlock(declaration, context.SemanticModel, policy)) return;
 
         foreach (var alternative in method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>())
         {
@@ -77,7 +78,8 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
             alternativeParameters = EffectiveParameters(alternative);
         }
 
-        if (method.IsExtensionMethod && !HaveEquivalentTypes(method.Parameters[0].Type, alternative.Parameters[0].Type)) return false;
+        if (HasReceiverParameter(method) && (!HasReceiverParameter(alternative)
+            || !HaveEquivalentTypes(method.Parameters[0].Type, alternative.Parameters[0].Type))) return false;
 
         var differences = 0;
         for (var index = 0; index < parameters.Length; index++)
@@ -96,9 +98,19 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         return differences == 1;
     }
 
-    private static ImmutableArray<IParameterSymbol> EffectiveParameters(IMethodSymbol method) => method.IsExtensionMethod
-        ? method.Parameters.RemoveAt(0)
-        : method.Parameters;
+    private static bool HasReceiverParameter(IMethodSymbol method) => method.Parameters.Length > 0 && method.Parameters[0].IsThis;
+
+    private static ImmutableArray<IParameterSymbol> EffectiveParameters(IMethodSymbol method) => HasReceiverParameter(method)
+        ? method.Parameters.RemoveAt(0) : method.Parameters;
+
+    private static bool BuilderExtensionBlock(MethodDeclarationSyntax declaration, SemanticModel model, BuilderPolicy policy)
+    {
+        // Keep the Roslyn 4.10 host floor. Newer hosts supply C# 14 extension
+        // blocks; inspect their syntax shape without referencing a newer API.
+        var block = declaration.Ancestors().FirstOrDefault(node => node.GetType().Name == "ExtensionBlockDeclarationSyntax");
+        var receiver = block?.ChildNodes().OfType<ParameterListSyntax>().SingleOrDefault()?.Parameters.SingleOrDefault();
+        return receiver?.Type is { } type && model.GetTypeInfo(type).Type is { } symbol && policy.IsBuilder(symbol);
+    }
 
     private static bool HaveEquivalentTypes(ITypeSymbol type, ITypeSymbol other)
     {

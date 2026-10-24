@@ -29,6 +29,20 @@ public class Marked
     public void Configure(int input, int value) { }
     public void Configure(int input, string value) { }
 }
+public class Context { }
+public static class Extensions
+{
+    extension (WidgetBuilder builder)
+    {
+        public void Apply(int input, int value) { }
+        public void Apply(int input, string value) { }
+    }
+    extension (Context context)
+    {
+        public void Single(int value) { }
+        public void Single(string value) { }
+    }
+}
 public static class Consumer
 {
     public static int Run(long pid)

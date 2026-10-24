@@ -91,7 +91,9 @@ Types can instead be marked with `[CodingRules.ConfigurationBuilder]` from
 marker. Extension receiver parameters are excluded from effective counts and
 comparisons, including generic receivers such as
 `this NodeDataBuilder<LessonTopicsConfig>`; this does not exclude ordinary
-parameters on instance methods.
+parameters on instance methods. C# 14 extension blocks also recognize their
+receiver type; the package gate exercises this on a modern compiler while the
+analyzer assembly retains its Roslyn 4.10 API floor.
 
 The reviewed serializer should use a reusable builder with Input and alternate
 Output forms, optional Hash defaulting to empty, and cancellation passed to

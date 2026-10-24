@@ -99,3 +99,14 @@ generated/accepted source stability, packaged fixing convergence, identical runt
 output, and a stable second formatting pass. Its execution is intentionally
 reserved for the single final candidate after all tickets; this slice validates
 the shared fixture in process without running that gate.
+
+## Downstream usability follow-up
+
+The 2026-10-24 ScheduleLib rollout deliberately holds the bulk CR0300/CR0301/
+CR0302 rewrite. A saved-source probe of `CliSettings.Removals.cs` verifies that
+both packaged actions run, but exposes a readability problem: extraction makes
+many generic `CalculateValue` helpers, while statement expansion can copy a
+fresh `operationValue` into another local and substantially expand short-circuit
+conditions. These are distinct from the fixed proof-annotation crash. Preserve
+the diagnostics while improving naming and eliminating unnecessary captures;
+warning convergence alone is insufficient evidence of a good downstream change.

@@ -135,22 +135,24 @@ public sealed class PolicyRefinementTests
         }
     }
 
-    [Fact]
-    public async Task ExceptionFixPreservesMessageAndExposesCapturedValues()
+    [Theory]
+    [InlineData("")]
+    [InlineData("(string) ")]
+    public async Task ExceptionFixPreservesMessageAndExposesCapturedValues(string prefix)
     {
         var document = StatementOperationTestFixture.Document("""
             class C {
                 public static string Run() {
                     string field = "teacher";
                     int count = 3;
-                    try { throw new System.NotSupportedException($"Unknown preliminary field {field}: {count:D2}"); }
+                    try { throw new System.NotSupportedException(PREFIX$"Unknown preliminary field {field}: {count:D2}"); }
                     catch (System.NotSupportedException error) {
                         var property = error.GetType().GetProperty("Field");
                         return error.Message + ":" + (property?.GetValue(error) ?? field);
                     }
                 }
             }
-            """);
+            """.Replace("PREFIX", prefix));
         Assert.Empty(await StatementOperationTestFixture.Diagnostics(document));
         var diagnostic = Assert.Single(await Analyze(document, new ExceptionContextAnalyzer()));
         var changed = await Apply(document, diagnostic, new ExceptionContextCodeFixProvider());

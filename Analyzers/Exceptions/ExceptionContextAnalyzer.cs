@@ -26,9 +26,18 @@ public sealed class ExceptionContextAnalyzer : DiagnosticAnalyzer
         if (expression.Contents.OfType<InterpolationSyntax>().Any() && IsMessage(expression, context.SemanticModel))
             context.ReportDiagnostic(Diagnostic.Create(Rule, expression.GetLocation()));
     }
+    internal static ArgumentSyntax? MessageArgument(InterpolatedStringExpressionSyntax expression, SemanticModel model)
+    {
+        SyntaxNode site = expression;
+        while (site.Parent is ParenthesizedExpressionSyntax
+            || site.Parent is CastExpressionSyntax cast && model.GetTypeInfo(cast).Type?.SpecialType == SpecialType.System_String)
+            site = site.Parent;
+        return site.Parent as ArgumentSyntax;
+    }
+
     internal static bool IsMessage(InterpolatedStringExpressionSyntax expression, SemanticModel model)
     {
-        if (expression.Parent is not ArgumentSyntax { Parent.Parent: BaseObjectCreationExpressionSyntax creation }
+        if (MessageArgument(expression, model)?.Parent?.Parent is not BaseObjectCreationExpressionSyntax creation
             || model.GetTypeInfo(expression).ConvertedType?.SpecialType != SpecialType.System_String) return false;
         var exception = model.Compilation.GetTypeByMetadataName("System.Exception");
         for (var type = model.GetTypeInfo(creation).Type as INamedTypeSymbol; type is not null; type = type.BaseType)

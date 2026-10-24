@@ -26,8 +26,9 @@ internal sealed class ExceptionContextPlan
 
     public static ExceptionContextPlan? Create(InterpolatedStringExpressionSyntax message, SemanticModel model)
     {
+        var argument = ExceptionContextAnalyzer.MessageArgument(message, model);
         if (!ExceptionContextAnalyzer.IsMessage(message, model)
-            || message.Parent?.Parent?.Parent is not BaseObjectCreationExpressionSyntax creation
+            || argument?.Parent?.Parent is not BaseObjectCreationExpressionSyntax creation
             || creation.ArgumentList?.Arguments.Count != 1 || creation.Initializer is not null
             || message.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault() is not { } container
             || model.GetSymbolInfo(creation).Symbol is not IMethodSymbol { Parameters.Length: 1 } constructor
@@ -68,7 +69,8 @@ internal sealed class ExceptionContextPlan
             }
             replacements.Add(identifier, SyntaxFactory.IdentifierName(fields[index].Parameter));
         }
-        var rendered = message.ReplaceNodes(replacements.Keys, (original, _) => replacements[original]).WithoutTrivia().ToFullString();
+        var renderedMessage = message.ReplaceNodes(replacements.Keys, (original, _) => replacements[original]);
+        var rendered = argument.Expression.ReplaceNode(message, renderedMessage).WithoutTrivia().ToFullString();
         var parameters = string.Join(", ", fields.Select(field => field.Type + " " + field.Parameter));
         var properties = string.Join("\n", fields.Select(field => "public " + field.Type + " " + field.Property + " { get; }"));
         var assignments = string.Join("\n", fields.Select(field => field.Property + " = " + field.Parameter + ";"));

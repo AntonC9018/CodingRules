@@ -98,7 +98,9 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         return differences == 1;
     }
 
-    private static bool HasReceiverParameter(IMethodSymbol method) => method.Parameters.Length > 0 && method.Parameters[0].IsThis;
+    private static bool HasReceiverParameter(IMethodSymbol method) => method.IsExtensionMethod && method.Parameters.Length > 0
+        && method.Parameters[0].DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() is ParameterSyntax parameter
+            && parameter.Modifiers.Any(SyntaxKind.ThisKeyword));
 
     private static ImmutableArray<IParameterSymbol> EffectiveParameters(IMethodSymbol method) => HasReceiverParameter(method)
         ? method.Parameters.RemoveAt(0) : method.Parameters;

@@ -32,6 +32,9 @@ internal static class NamedArgumentIdentity
         ITypeParameterSymbol parameter => "parameter:" + parameter.TypeParameterKind + ":" + parameter.Ordinal,
         INamedTypeSymbol { IsAnonymousType: true } anonymous => "anonymous(" + string.Join(";", anonymous.GetMembers().OfType<IPropertySymbol>()
             .Select(property => property.Name + ":" + Type(property.Type))) + ")",
+        // Unbound arguments are compiler placeholders without an assembly.
+        // Identify the definition while distinguishing it from a bound type.
+        INamedTypeSymbol { IsUnboundGenericType: true } unbound => "unbound(" + Type(unbound.OriginalDefinition) + ")",
         INamedTypeSymbol named => named.ContainingAssembly.Identity + "/" + DocumentationCommentId.CreateDeclarationId(named.OriginalDefinition)
             + "/outer(" + Type(named.ContainingType) + ")<" + string.Join(";", named.TypeArguments.Select(Type)) + ">",
         _ => type.TypeKind + ":" + type.SpecialType + ":" + type.MetadataName,

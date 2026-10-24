@@ -12,7 +12,7 @@ namespace CodingRules;
 public sealed class NamedArgumentReturnConstructionTests
 {
     [Theory]
-    [InlineData("error", false, 3)]
+    [InlineData("error", false, 4)]
     [InlineData("none", false, 0)]
     [InlineData("warning", true, 0)]
     public async Task SharedReturnFixtureHonorsSeverityAndGeneratedCode(string severity, bool generated, int expected)
@@ -36,7 +36,7 @@ public sealed class NamedArgumentReturnConstructionTests
         document = document.Project.WithAssemblyName("Consumer").GetDocument(document.Id)!;
         await StatementOperationTestFixture.Compiles(document);
         var diagnostics = await NamedArgumentTestFixture.Diagnostics(document);
-        Assert.Equal(3, diagnostics.Length); // Copy, target-typed return, ordinary return; all other cases are accepted.
+        Assert.Equal(4, diagnostics.Length); // Copy, open generic registration, target-typed return, ordinary return.
         Assert.All(diagnostics, diagnostic => Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity));
         var originalBindings = await ReturnBindings(document);
         Assert.Equal(2, originalBindings.Length);

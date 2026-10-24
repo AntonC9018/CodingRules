@@ -145,3 +145,15 @@ probe. Extracting a named scope value is a separate operation-rule concern;
 neither the CR0500 fix nor a green consumer proves that extraction. No CR03
 behavior is changed here. Final validation against the common stable package
 candidate and actual downstream rollout remain separate work.
+
+## Unbound generic registrations
+
+The ScheduleLib rollout exposed a fixer crash on calls such as
+`Register(typeof(List<>), typeof(List<>))`. Roslyn represents the omitted
+generic arguments as compiler placeholders without an assembly. The binding
+identity validator now identifies an unbound type by its original definition
+with an explicit unbound marker, instead of inspecting those placeholders.
+Bound and unbound types remain distinct; argument naming and detection policy
+are unchanged. Regression cases cover one/two-parameter and nested unbound
+types, a bound control, runtime equivalence and the shared packaged consumer.
+The original crash reproduces on both Roslyn 4.10 and the .NET 11 formatter host.

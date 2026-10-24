@@ -6,6 +6,33 @@ namespace CodingRules;
 public sealed class NamedArgumentSafetyTests
 {
     [Theory]
+    [InlineData("typeof(G<>)")]
+    [InlineData("typeof(G<,>)")]
+    [InlineData("typeof(Outer<>.Inner<>)")]
+    [InlineData("typeof(G<int>)")]
+    public async Task TypeArgumentsPreserveUnboundGenericDefinitions(string type)
+    {
+        var document = NamedArgumentTestFixture.Document("""
+            class G<T> {}
+            class G<T, U> {}
+            class Outer<T> { public class Inner<U> {} }
+            class C
+            {
+                static string M(System.Type first, System.Type second) =>
+                    first.ToString() + "|" + second.ToString();
+                public static string Run() => M(TYPE, typeof(string));
+            }
+            """.Replace("TYPE", type));
+        var original = await StatementOperationTestFixture.Run(document);
+        var changed = await NamedArgumentTestFixture.Fix(document,
+            Assert.Single(await NamedArgumentTestFixture.Diagnostics(document)));
+        Assert.Contains("M(first: " + type + ", second: typeof(string))",
+            (await changed.GetTextAsync()).ToString());
+        Assert.Equal(original, await StatementOperationTestFixture.Run(changed));
+        Assert.Empty(await NamedArgumentTestFixture.Diagnostics(changed));
+    }
+
+    [Theory]
     [InlineData("static void M(int x,int y,[System.Runtime.CompilerServices.CallerLineNumber] int line=0) {} static void F() { M(1,2); }")]
     [InlineData("static void Observe(int x,[System.Runtime.CompilerServices.CallerArgumentExpression(\"x\")] string? text=null) {} static int M(int x,int y) => x; static void F() { Observe(M(1,2)); }")]
     [InlineData("static void Observe([System.Runtime.CompilerServices.CallerLineNumber] int line=0) {} static void M(int x,int y) {} static void F() { M(1,2); } static void G() { Observe(); }")]

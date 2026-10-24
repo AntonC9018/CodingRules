@@ -5,6 +5,10 @@ public static class Consumer
     private static int Copy(int source, int destination) => source + destination;
     public static int Run() => Copy(source: 1, destination: 2);
 
+    // Open generic registrations must remain fixable, including in CLI hosts.
+    private static bool Register(System.Type service, System.Type implementation) => service == implementation;
+    public static bool RegisterOpenGeneric() => Register(service: typeof(System.Collections.Generic.List<>), implementation: typeof(System.Collections.Generic.List<>));
+
     // ScheduleLib 12e601e, CliSettings.Writes.cs:167 (A9), with its bound declaration below.
     public static SettingsEdit TargetTyped(string file, SettingsScope scope, SettingsArguments arguments, string key, bool changed)
     {

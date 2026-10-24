@@ -40,7 +40,7 @@ internal sealed class BuilderPolicy
     private static ImmutableArray<string> ReadSuffixes(AnalyzerConfigOptions options)
     {
         if (!options.TryGetValue(SuffixProperty, out var configured)) return DefaultSuffixes;
-        var values = configured.Split(';').Select(value => value.Trim())
+        var values = configured.Split(',').Select(value => value.Trim())
             .Where(value => value.Length != 0).Distinct(StringComparer.Ordinal).ToImmutableArray();
         return values;
     }

@@ -29,7 +29,7 @@ def main():
         assert rules == {'CR0803', 'CR0804', 'CR1001'}, output
         # Default builder and explicit marker exempt their declaring types.
         assert output.count('Use a configuration builder') == 4, output  # two source findings plus summary
-        project.write_text(text.replace('</PropertyGroup>', '<CodingRulesBuilderSuffixes>Builder;Descriptor;Configurator;Setup</CodingRulesBuilderSuffixes></PropertyGroup>'))
+        project.write_text(text.replace('</PropertyGroup>', '<CodingRulesBuilderSuffixes>Builder,Descriptor,Configurator,Setup</CodingRulesBuilderSuffixes></PropertyGroup>'))
         output = run(build, consumer, environment)
         assert 'warning CR1001:' not in output and 'warning CR0500:' not in output, output
         command = ['dotnet', 'format', 'analyzers', 'Consumer.csproj', '--no-restore', '--diagnostics', 'CR0803', 'CR0804']

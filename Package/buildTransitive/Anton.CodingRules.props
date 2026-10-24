@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <CodingRulesBuilderSuffixes Condition="'$(CodingRulesBuilderSuffixes)' == ''">Builder;Descriptor;Configurator</CodingRulesBuilderSuffixes>
+    <CodingRulesBuilderSuffixes Condition="'$(CodingRulesBuilderSuffixes)' == ''">Builder,Descriptor,Configurator</CodingRulesBuilderSuffixes>
   </PropertyGroup>
   <ItemGroup>
     <CompilerVisibleProperty Include="CodingRulesBuilderSuffixes" />

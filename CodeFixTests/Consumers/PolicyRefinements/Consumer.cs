@@ -8,6 +8,16 @@ public class WidgetBuilder
     public void Configure(int input, int value) { }
     public void Configure(int input, string value) { }
 }
+public class WidgetDescriptor
+{
+    public void Configure(int input, int value) { }
+    public void Configure(int input, string value) { }
+}
+public class WidgetConfigurator
+{
+    public void Configure(int input, int value) { }
+    public void Configure(int input, string value) { }
+}
 public class WidgetSetup
 {
     public void Configure(int input, int value) { }

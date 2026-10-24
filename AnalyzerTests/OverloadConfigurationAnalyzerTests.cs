@@ -183,7 +183,7 @@ public sealed class OverloadConfigurationAnalyzerTests
     public async Task UsesConfiguredBuilderSuffixesAsAnExactReplacement()
     {
         var source = "class WidgetSetup { void Save(int input, int output) { } void Save(int input, string output) { } }";
-        Assert.Empty(await Analyze([source], builderSuffixes: "Setup"));
+        Assert.Empty(await Analyze([source], builderSuffixes: "Builder, Setup"));
         Assert.Equal(2, (await Analyze([source], builderSuffixes: "Factory")).Length);
     }
 

@@ -77,12 +77,12 @@ does not exempt an ordinary operation. By default, names ending in `Builder`,
 comparison. Generic type arity is ignored, so
 `NodeDataBuilder<LessonTopicsConfig>` matches `Builder`. The package exposes the
 exact suffix list through the compiler-visible MSBuild property
-`CodingRulesBuilderSuffixes`, separated by semicolons; setting it replaces the
+`CodingRulesBuilderSuffixes`, separated by commas (semicolons are analyzer-config comment delimiters); setting it replaces the
 default list. For example:
 
 ```xml
 <PropertyGroup>
-  <CodingRulesBuilderSuffixes>Builder;Descriptor;Configurator;Options</CodingRulesBuilderSuffixes>
+  <CodingRulesBuilderSuffixes>Builder,Descriptor,Configurator,Options</CodingRulesBuilderSuffixes>
 </PropertyGroup>
 ```
 

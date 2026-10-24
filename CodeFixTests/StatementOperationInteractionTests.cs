@@ -107,9 +107,13 @@ public sealed class StatementOperationInteractionTests
         Assert.Empty(await DocumentOperations(changed));
         var changedOther = operation.ChangedSolution.GetDocument(other.Id)!;
         if (scope == FixAllScope.Document)
+        {
             Assert.Equal(otherSource, (await changedOther.GetTextAsync()).ToString());
+        }
         else
+        {
             Assert.Empty(await DocumentOperations(await StatementOperationTestFixture.Reparse(changedOther)));
+        }
         Assert.Equal((await helpers.GetTextAsync()).ToString(), (await operation.ChangedSolution.GetDocument(helpers.Id)!.GetTextAsync()).ToString());
     }
 

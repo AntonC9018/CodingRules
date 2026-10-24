@@ -29,12 +29,20 @@ static async Task<object> Measure(int documentCount, int edits, int unrelatedSit
     var target = project.AddDocument("Target.cs", Source("Target", edits), filePath: "/Target.cs");
     project = target.Project;
     for (var index = 1; index < documentCount; index++)
+    {
         project = project.AddDocument("Unrelated" + index + ".cs", Source("Unrelated" + index, unrelatedSites), filePath: "/Unrelated" + index + ".cs").Project;
+    }
     target = project.GetDocument(target.Id)!;
     var compilation = await project.GetCompilationAsync(token);
-    if (compilation!.GetDiagnostics(token).Any(d => d.Severity == DiagnosticSeverity.Error)) throw new InvalidOperationException("Invalid benchmark source");
+    if (compilation!.GetDiagnostics(token).Any(d => d.Severity == DiagnosticSeverity.Error))
+    {
+        throw new InvalidOperationException("Invalid benchmark source");
+    }
     var initial = await Diagnostics.Read(target, token);
-    if (initial.Length != edits) throw new InvalidOperationException("Unexpected initial diagnostic count");
+    if (initial.Length != edits)
+    {
+        throw new InvalidOperationException("Unexpected initial diagnostic count");
+    }
     var provider = new StatementOperationCodeFixProvider();
     var context = new FixAllContext(target, provider, FixAllScope.Document, StatementOperationCodeFixProvider.ExtractKey,
         provider.FixableDiagnosticIds, new Diagnostics(), token);
@@ -43,12 +51,22 @@ static async Task<object> Measure(int documentCount, int edits, int unrelatedSit
     var applied = (await action!.GetOperationsAsync(token)).OfType<ApplyChangesOperation>().Single();
     watch.Stop();
     var changed = applied.ChangedSolution.GetDocument(target.Id)!;
-    if (!(await Diagnostics.Read(changed, token)).IsEmpty) throw new InvalidOperationException("Fix All did not converge");
+    if (!(await Diagnostics.Read(changed, token)).IsEmpty)
+    {
+        throw new InvalidOperationException("Fix All did not converge");
+    }
     var changedCompilation = await changed.Project.GetCompilationAsync(token);
-    if (changedCompilation!.GetDiagnostics(token).Any(d => d.Severity == DiagnosticSeverity.Error)) throw new InvalidOperationException("Fixed source does not compile");
+    if (changedCompilation!.GetDiagnostics(token).Any(d => d.Severity == DiagnosticSeverity.Error))
+    {
+        throw new InvalidOperationException("Fixed source does not compile");
+    }
     foreach (var other in project.Documents.Where(d => d.Id != target.Id))
+    {
         if (!(await other.GetTextAsync(token)).ContentEquals(await applied.ChangedSolution.GetDocument(other.Id)!.GetTextAsync(token)))
+        {
             throw new InvalidOperationException("Document-scope fix changed another document");
+        }
+    }
     var output = (await changed.GetTextAsync(token)).ToString();
     return new { documentCount, edits, unrelatedSites, elapsedMs = watch.Elapsed.TotalMilliseconds,
         outputSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(output))) };
@@ -70,7 +88,10 @@ sealed class Diagnostics : FixAllContext.DiagnosticProvider
     public override async Task<IEnumerable<Diagnostic>> GetAllDiagnosticsAsync(Project project, CancellationToken cancellationToken)
     {
         var result = new List<Diagnostic>();
-        foreach (var document in project.Documents) result.AddRange(await Read(document, cancellationToken));
+        foreach (var document in project.Documents)
+        {
+            result.AddRange(await Read(document, cancellationToken));
+        }
         return result;
     }
 }

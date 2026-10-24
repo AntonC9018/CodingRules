@@ -60,7 +60,8 @@ internal sealed class OperationFacts
             && model.GetOperation(invocation) is IInvocationOperation && !IsPipeline(invocation, model),
         BaseObjectCreationExpressionSyntax creation => creation.ArgumentList?.Arguments.Count > 0
             && model.GetOperation(creation) is IObjectCreationOperation && creation.Initializer is null,
-        CastExpressionSyntax cast => IsSupportedCast(cast, model),
+        // A cast alone is an accepted argument; computations inside it remain visible.
+        CastExpressionSyntax => false,
         InterpolatedStringExpressionSyntax interpolation => model.GetTypeInfo(interpolation).ConvertedType?.SpecialType == SpecialType.System_String,
         _ => IsMutation(expression),
     };

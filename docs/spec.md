@@ -598,3 +598,25 @@ ScheduleLib slice 09 adds shared unit/consumer evidence for the pinned A9
 target-typed return and ordinary construction, using the existing rule unchanged.
 The four string roles receive their bound names; the unique Boolean remains
 positional. Scope-expression extraction remains a separate operation concern.
+
+## Follow-up API and formatting decisions (2026-10-24)
+
+- CR1500 requires explicit implementation of non-generic IEnumerable/ICollection/
+  IList members when a type implements generic IEnumerable<T>. Members shared
+  with a generic interface (such as Count or Clear) retain their generic API.
+  Caller migration is manual; merely changing accessibility can break callers.
+- CR0803 requires braces for embedded if/else/loop/using/lock/fixed statements,
+  preserving else-if chains. CR0804 requires separation after a cast; package
+  formatting specifies `csharp_space_after_cast = true`.
+- CR1001 accepts builder declaring types and extension receivers, recognizes
+  configurable suffixes and `[ConfigurationBuilder]`, excludes the extension
+  receiver from the count, and permits one effective parameter. See
+  [builder configuration](overload-configuration.md).
+- CR0500 accepts Boolean Equals/EqualsN operations and supports exact external
+  registrations via assembly attributes or MSBuild. See [named arguments](named-arguments.md).
+- CR1600 requests typed read-only exception context. Its opt-in fixer generates
+  an internal sealed subtype of the original framework exception, captures simple
+  immutable local/parameter values and eagerly renders the original template
+  (including alignment/format strings). It changes exact runtime exception type;
+  individual API review is required. No Fix All is offered. Custom exception
+  types, side-effecting holes and mutable formatting objects remain manual.

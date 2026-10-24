@@ -157,3 +157,24 @@ Bound and unbound types remain distinct; argument naming and detection policy
 are unchanged. Regression cases cover one/two-parameter and nested unbound
 types, a bound control, runtime equivalence and the shared packaged consumer.
 The original crash reproduces on both Roslyn 4.10 and the .NET 11 formatter host.
+
+## Equality and consumer registrations
+
+Boolean-returning methods named exactly `Equals` or `Equals` followed solely by
+ASCII digits (for example `Equals1`) accept positional arguments. Names such as
+`EqualsIgnoreCase` retain normal role checks. The existing method/constructor
+`[AllowPositionalArguments]` marker remains supported.
+
+Consumers can register an exact external method without modifying its assembly:
+
+```csharp
+[assembly: CodingRules.AllowExternalPositionalArguments(
+    assemblyName: "ExternalLibrary",
+    declarationId: "M:External.Compare(System.String,System.String)~System.Boolean")]
+```
+
+The MSBuild property `CodingRulesAllowPositionalArguments` carries the same
+assembly-qualified, encoded declaration-ID list as the existing analyzer-config
+option (`Assembly::M:Type.Method(...)`, entries separated by `|`). File/global
+analyzer-config values take precedence over this property; assembly registrations
+are additive. Both transports resolve the exact symbol, never a wildcard name.

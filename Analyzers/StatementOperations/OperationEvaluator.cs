@@ -38,8 +38,9 @@ internal sealed class OperationEvaluator
         {
             var condition = Lower(conditional.Condition, statements);
             var type = model.GetTypeInfo(conditional).Type ?? model.GetTypeInfo(conditional).ConvertedType!;
-            var name = Names.Fresh("operationValue");
+            var name = Names.Fresh(OperationValueNames.Stem(expression, model));
             statements.Add(Declare(type, name));
+            savedValues.Add(name, type);
             var whenTrue = Branch(conditional.WhenTrue, name, type);
             var whenFalse = Branch(conditional.WhenFalse, name, type);
             statements.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(whenTrue), SyntaxFactory.ElseClause(SyntaxFactory.Block(whenFalse))));
@@ -49,8 +50,9 @@ internal sealed class OperationEvaluator
         if (expression is BinaryExpressionSyntax lazy && lazy.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
             var left = Lower(lazy.Left, statements);
-            var name = Names.Fresh("operationValue");
+            var name = Names.Fresh(OperationValueNames.Stem(expression, model));
             statements.Add(Declare(model.GetTypeInfo(lazy).Type!, name));
+            savedValues.Add(name, model.GetTypeInfo(lazy).Type!);
             var rightStatements = new List<StatementSyntax>();
             var right = Lower(lazy.Right, rightStatements);
             rightStatements.Add(Assign(name, right));
@@ -199,13 +201,15 @@ internal sealed class OperationEvaluator
     public ExpressionSyntax Save(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
     {
         type ??= model.GetTypeInfo(original).Type ?? model.GetTypeInfo(original).ConvertedType!;
+        if (value is IdentifierNameSyntax saved && savedValues.TryGetValue(saved.Identifier.ValueText, out var existingType)
+            && SymbolEqualityComparer.IncludeNullability.Equals(existingType, type)) return value;
         // Lower may already have staged a target-typed construction. Its
         // construction conversion was checked there; copying that local would
         // introduce an identity conversion, not repeat the source conversion.
         var conversion = value is IdentifierNameSyntax identifier && savedValues.TryGetValue(identifier.Identifier.ValueText, out var savedType)
             ? new SyntaxAnnotation(ConversionAnnotation, ConversionFingerprint(((CSharpCompilation)model.Compilation).ClassifyConversion(savedType, type)))
             : Conversion(original, type);
-        var name = Names.Fresh("operationValue");
+        var name = Names.Fresh(OperationValueNames.Stem(original, model));
         var declaration = SyntaxFactory.VariableDeclaration(EvaluationSyntax.Type(type), SyntaxFactory.SingletonSeparatedList(
             SyntaxFactory.VariableDeclarator(name).WithInitializer(SyntaxFactory.EqualsValueClause(value.WithoutTrivia()
                 .WithAdditionalAnnotations(conversion, new SyntaxAnnotation(LinearizedAnnotation))))));

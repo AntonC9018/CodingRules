@@ -5,18 +5,17 @@ public static class Consumer
     {
         int CalculateValue()
         {
-            int operationValue;
+            int value;
             if (flag)
             {
-                operationValue = 1;
+                value = 1;
             }
             else
             {
-                operationValue = 2;
+                value = 2;
             }
 
-            int operationValue2 = operationValue;
-            return operationValue2;
+            return value;
         }
 
         return Use(CalculateValue());

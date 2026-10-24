@@ -168,38 +168,21 @@ public sealed class OverloadConfigurationAnalyzerTests
         Assert.All(diagnostics, item => Assert.Equal("Save", Text(item)));
     }
 
-    [Fact]
-    public async Task RecognizesDefaultBuilderSuffixesAndAllowsTheirUseInOverloads()
+    [Theory]
+    [InlineData("WidgetBuilder")]
+    [InlineData("WidgetDescriptor")]
+    [InlineData("WidgetConfigurator")]
+    [InlineData("NodeDataBuilder<T>")]
+    public async Task RecognizesDefaultBuilderSuffixes(string type)
     {
-        var diagnostics = await Analyze(["""
-            class C
-            {
-                public void Save(int input, WidgetBuilder configuration) { }
-                public void Save(string input, WidgetBuilder configuration) { }
-                public void Store(int input, WidgetDescriptor configuration) { }
-                public void Store(string input, WidgetDescriptor configuration) { }
-                public void Configure(int input, WidgetConfigurator configuration) { }
-                public void Configure(string input, WidgetConfigurator configuration) { }
-                public void Apply(int input, NodeDataBuilder<LessonTopicsConfig> configuration) { }
-                public void Apply(string input, NodeDataBuilder<LessonTopicsConfig> configuration) { }
-                public void Ordinary(int input, Widget inputValue) { }
-                public void Ordinary(string input, Widget inputValue) { }
-            }
-            class WidgetBuilder { }
-            class WidgetDescriptor { }
-            class WidgetConfigurator { }
-            class LessonTopicsConfig { }
-            class NodeDataBuilder<T> { }
-            class Widget { }
-            """]);
-        Assert.Equal(2, diagnostics.Length);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("Ordinary", Text(diagnostic)));
+        Assert.Empty(await Analyze(["class " + type + " { void Save(int input, int output) {} void Save(int input, string output) {} }"]));
+        Assert.Equal(2, (await Analyze(["class C { void Save(WidgetBuilder context, int input) {} void Save(WidgetBuilder context, string input) {} } class WidgetBuilder {} "])).Length);
     }
 
     [Fact]
     public async Task UsesConfiguredBuilderSuffixesAsAnExactReplacement()
     {
-        var source = "class C { void Save(int input, WidgetSetup configuration) { } void Save(string input, WidgetSetup configuration) { } class WidgetSetup { } }";
+        var source = "class WidgetSetup { void Save(int input, int output) { } void Save(int input, string output) { } }";
         Assert.Empty(await Analyze([source], builderSuffixes: "Setup"));
         Assert.Equal(2, (await Analyze([source], builderSuffixes: "Factory")).Length);
     }
@@ -208,10 +191,10 @@ public sealed class OverloadConfigurationAnalyzerTests
     public async Task RecognizesMarkedTypesButNotSourceDefinedSpoofs()
     {
         var markerReference = CreateBuilderMarkerReference();
-        var marked = "using CodingRules; [ConfigurationBuilder] class Marked { } class C { void Save(int input, Marked configuration) { } void Save(string input, Marked configuration) { } }";
+        var marked = "using CodingRules; [ConfigurationBuilder] class Marked { void Save(int input, int output) { } void Save(int input, string output) { } }";
         Assert.Empty(await Analyze([marked], additionalReferences: [markerReference]));
 
-        var spoof = "namespace CodingRules { [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=false, Inherited=false)] public sealed class ConfigurationBuilderAttribute : System.Attribute { } } [CodingRules.ConfigurationBuilder] class Marked { } class C { void Save(int input, Marked configuration) { } void Save(string input, Marked configuration) { } }";
+        var spoof = "namespace CodingRules { [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=false, Inherited=false)] public sealed class ConfigurationBuilderAttribute : System.Attribute { } } [CodingRules.ConfigurationBuilder] class Marked { void Save(int input, int output) { } void Save(int input, string output) { } }";
         Assert.Equal(2, (await Analyze([spoof])).Length);
     }
 
@@ -234,7 +217,7 @@ public sealed class OverloadConfigurationAnalyzerTests
                 public void Save(object receiver, string input) { }
             }
             """]);
-        Assert.Equal(4, diagnostics.Length);
+        Assert.Equal(2, diagnostics.Length);
         Assert.All(diagnostics, diagnostic => Assert.Equal("Save", Text(diagnostic)));
     }
 

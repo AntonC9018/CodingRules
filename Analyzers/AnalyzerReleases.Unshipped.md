@@ -42,3 +42,8 @@ Rule ID | Category | Severity | Notes
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|------
+
+CR1500 | Readability | Warning | Implement non-generic collection members explicitly on generic collections
+CR1600 | Readability | Warning | Expose interpolated exception context through typed properties
+CR0803 | Readability | Warning | Require braces around embedded statements
+CR0804 | Readability | Warning | Require spacing after casts

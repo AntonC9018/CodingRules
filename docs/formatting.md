@@ -321,3 +321,9 @@ matched the pinned 5.0.1 NuGet assets byte for byte. No third-party code was cop
 or modified; existing MIT/Apache-2.0 licensing and provenance remain accurate.
 The command-scoped NU1902/NU1903 exception still covers the pre-existing Pkcs
 9.0.6 test-dependency advisories only.
+
+The 2026-10-24 follow-up adds CodingRules CR0803 for all embedded-statement
+braces (including a single-line condition followed by a single statement) and
+CR0804 for separation after casts. These are independent of Roslynator's
+multiline-only RCS1001. The package sets `csharp_space_after_cast = true`;
+comments and existing line breaks between the cast and operand remain intact.

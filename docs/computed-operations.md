@@ -110,3 +110,14 @@ fresh `operationValue` into another local and substantially expand short-circuit
 conditions. These are distinct from the fixed proof-annotation crash. Preserve
 the diagnostics while improving naming and eliminating unnecessary captures;
 warning convergence alone is insufficient evidence of a good downstream change.
+
+## Follow-up policy decisions
+
+A simple explicit cast such as `(int) pid` is accepted in an argument. A factory
+such as `TimeSpan.FromSeconds(2)` passed to `WaitForExitBounded` still requires a
+named local or helper. Nested work inside a cast remains independently visible.
+Generated names prefer the bound argument parameter, then the operation name,
+then its result type. Names are collision-safe; captured values with the same
+resolved type are reused rather than copied into another generated local.
+Exception interpolation belongs to CR1600, and does not receive a CR03 string
+extraction action.

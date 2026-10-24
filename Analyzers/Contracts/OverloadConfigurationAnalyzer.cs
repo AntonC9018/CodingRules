@@ -25,10 +25,14 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.MethodDeclaration);
+        context.RegisterCompilationStartAction(start =>
+        {
+            var policy = BuilderPolicy.For(start.Compilation, start.Options.AnalyzerConfigOptionsProvider, start.CancellationToken);
+            start.RegisterSyntaxNodeAction(context => Analyze(context, policy), SyntaxKind.MethodDeclaration);
+        });
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context)
+    private static void Analyze(SyntaxNodeAnalysisContext context, BuilderPolicy policy)
     {
         var declaration = (MethodDeclarationSyntax)context.Node;
         if (declaration.ContainsDiagnostics) return;
@@ -37,10 +41,10 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         if (method.ExplicitInterfaceImplementations.Length != 0) return;
         // A partial implementation is the same method, not another overload site.
         if (method.PartialDefinitionPart is not null) return;
-        var policy = BuilderPolicy.For(context.Compilation, context.Options, context.CancellationToken);
         var parameters = EffectiveParameters(method);
         if (parameters.Length <= 1 || parameters.Any(parameter => HasErrorType(parameter.Type))) return;
-        if (parameters.Any(parameter => policy.IsBuilder(parameter.Type))) return;
+        if (policy.IsBuilder(method.ContainingType)
+            || method.IsExtensionMethod && policy.IsBuilder(method.Parameters[0].Type)) return;
 
         foreach (var alternative in method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>())
         {
@@ -49,13 +53,13 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
             if (alternative.PartialDefinitionPart is not null) continue;
             if (alternative.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax(context.CancellationToken).ContainsDiagnostics)) continue;
             if (alternative.ExplicitInterfaceImplementations.Length != 0) continue;
-            if (!IsAlternative(method, alternative, parameters, policy)) continue;
+            if (!IsAlternative(method, alternative, parameters)) continue;
             context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), method.Name));
             return;
         }
     }
 
-    private static bool IsAlternative(IMethodSymbol method, IMethodSymbol alternative, ImmutableArray<IParameterSymbol> parameters, BuilderPolicy policy)
+    private static bool IsAlternative(IMethodSymbol method, IMethodSymbol alternative, ImmutableArray<IParameterSymbol> parameters)
     {
         if (method.IsStatic != alternative.IsStatic) return false;
         if (method.IsExtensionMethod != alternative.IsExtensionMethod) return false;
@@ -63,7 +67,6 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         var alternativeParameters = EffectiveParameters(alternative);
         if (parameters.Length != alternativeParameters.Length) return false;
         if (alternativeParameters.Any(parameter => HasErrorType(parameter.Type))) return false;
-        if (alternativeParameters.Any(parameter => policy.IsBuilder(parameter.Type))) return false;
 
         // Type parameters from distinct methods have distinct symbol identities.
         // Substitute by ordinal so M<T>(T, Stream) and M<U>(U, string) compare
@@ -73,6 +76,8 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
             alternative = alternative.Construct(method.TypeParameters.Cast<ITypeSymbol>().ToArray());
             alternativeParameters = EffectiveParameters(alternative);
         }
+
+        if (method.IsExtensionMethod && !HaveEquivalentTypes(method.Parameters[0].Type, alternative.Parameters[0].Type)) return false;
 
         var differences = 0;
         for (var index = 0; index < parameters.Length; index++)

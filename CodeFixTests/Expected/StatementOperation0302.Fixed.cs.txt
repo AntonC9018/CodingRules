@@ -2,13 +2,13 @@ public static class Consumer
 {
     public static int Compute(int first, int second, int third)
     {
-        int CalculateValue()
+        int CalculateInt32()
         {
-            int operationValue = first + second;
-            int operationValue2 = operationValue + third;
-            return operationValue2;
+            int int32 = first + second;
+            int int322 = int32 + third;
+            return int322;
         }
 
-        return CalculateValue();
+        return CalculateInt32();
     }
 }

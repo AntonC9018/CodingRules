@@ -25,11 +25,15 @@ public static class DiagnosticIds
     public const string LeadingBooleanOperator = "CR0800";
     public const string InitializerMemberLayout = "CR0801";
     public const string SoleConstructorArgumentLayout = "CR0802";
+    public const string RequiredBraces = "CR0803";
+    public const string CastSpacing = "CR0804";
     public const string NamedTupleData = "CR0900";
     public const string ContractParameterGroup = "CR1000";
     public const string OverloadConfigurationBuilder = "CR1001";
     public const string UnchangedAssignment = "CR1200";
     public const string StringConcatenation = "CR1100";
     public const string RepeatedFormattingCandidate = "CR1300";
+    public const string ExplicitCollectionImplementation = "CR1500";
+    public const string ExceptionContext = "CR1600";
     public const string SealConcreteClass = "CR1400";
 }

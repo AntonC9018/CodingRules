@@ -19,7 +19,8 @@ Two methods form an alternative pair only when all of these hold:
 - They have the same declaring type, method name, staticness and generic arity.
 - They have equal effective parameter counts, greater than one. For extension
   methods the leading `this` receiver is excluded from both counts and from
-  pairwise comparison. Ordinary method parameters are all counted.
+  pairwise comparison, but the receiver types must match. Ordinary method
+  parameters are all counted.
 - Exactly one resolved parameter type differs. Every other parameter type matches.
 - All corresponding parameter ref-kinds (`ref`/`out`/`in`, including ref readonly),
   `params` flags, optional flags and explicit-default presence match, including
@@ -69,8 +70,9 @@ count. Different effective counts, staticness, generic arities, two differing
 types, or mismatched ref/params/default presence remain outside this initial
 detection boundary.
 
-A method is treated as already using a configuration builder when any effective
-parameter has a recognized builder type. By default, names ending in `Builder`,
+A method is treated as a builder operation when its declaring type or extension
+receiver is a recognized builder type. An unrelated builder-valued parameter
+does not exempt an ordinary operation. By default, names ending in `Builder`,
 `Descriptor` or `Configurator` match using ordinal, case-sensitive suffix
 comparison. Generic type arity is ignored, so
 `NodeDataBuilder<LessonTopicsConfig>` matches `Builder`. The package exposes the

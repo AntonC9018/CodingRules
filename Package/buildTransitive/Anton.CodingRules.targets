@@ -1,4 +1,7 @@
 <Project>
+  <ItemGroup>
+    <CompilerVisibleProperty Include="CodingRulesAllowPositionalArguments" />
+  </ItemGroup>
   <!-- Deliberately has no build/restore hook: exporting agent instructions is opt-in. -->
   <Target Name="ExportCodingRulesAgentGuidance">
     <Error Condition="'$(CodingRulesAgentGuidanceDirectory)' == ''"

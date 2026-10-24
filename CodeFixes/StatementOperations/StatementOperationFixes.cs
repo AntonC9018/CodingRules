@@ -88,6 +88,8 @@ internal static class StatementOperationFixes
     private static string Binding(SyntaxNode node, SemanticModel model)
     {
         var operation = model.GetOperation(node);
+        if (operation is INameOfOperation nameOf)
+            return "nameof:" + nameOf.ConstantValue.Value;
         var method = operation switch { IInvocationOperation call => call.TargetMethod, IObjectCreationOperation creation => creation.Constructor, _ => null };
         var arguments = operation switch { IInvocationOperation call => call.Arguments, IObjectCreationOperation creation => creation.Arguments, _ => default };
         var instance = operation is IInvocationOperation invocation ? invocation.Instance?.Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) : null;

@@ -1,5 +1,9 @@
 <Project>
+  <PropertyGroup>
+    <CodingRulesBuilderSuffixes Condition="'$(CodingRulesBuilderSuffixes)' == ''">Builder;Descriptor;Configurator</CodingRulesBuilderSuffixes>
+  </PropertyGroup>
   <ItemGroup>
+    <CompilerVisibleProperty Include="CodingRulesBuilderSuffixes" />
     <!-- Explicitly include the file for both compiler and design-time hosts.
          Some hosts disable filesystem discovery of GlobalAnalyzerConfigFiles. -->
     <EditorConfigFiles Include="$(MSBuildThisFileDirectory)../config/CodingRules.globalconfig" />

@@ -1,7 +1,7 @@
 # Configuration builders for overload alternatives (CR1001)
 
-CR1001 is a Readability warning for a method with **more than one parameter**
-and a resolved overload alternative. This implements
+CR1001 is a Readability warning for a method with **more than one effective
+parameter** and a resolved overload alternative. This implements
 [CodingRules #25](https://github.com/AntonC9018/CodingRules/issues/25) and
 [Q19](schedulelib-follow-up.md#overload-scope-and-usage-context-q19q20).
 Two parameters already trigger it, including on static methods. The separate
@@ -17,7 +17,9 @@ review. There is no automatic code fix or Fix All action.
 Two methods form an alternative pair only when all of these hold:
 
 - They have the same declaring type, method name, staticness and generic arity.
-- They have equal parameter counts, greater than one.
+- They have equal effective parameter counts, greater than one. For extension
+  methods the leading `this` receiver is excluded from both counts and from
+  pairwise comparison. Ordinary method parameters are all counted.
 - Exactly one resolved parameter type differs. Every other parameter type matches.
 - All corresponding parameter ref-kinds (`ref`/`out`/`in`, including ref readonly),
   `params` flags, optional flags and explicit-default presence match, including
@@ -43,10 +45,11 @@ static void Save(object source, string path) { }  // CR1001
 ```
 
 The analyzer examines method declarations in the current compilation, including
-private, interface and implementation methods. Partial types share their resolved
-declaring type; partial method implementation parts do not repeat their definition's
-finding. A base/derived pair or same names on unrelated types never qualifies.
-Inherited and referenced methods are not added to a type's declared overloads.
+private, interface and implementation methods. Explicit interface implementations
+are skipped. Partial types share their resolved declaring type; partial method
+implementation parts do not repeat their definition's finding. A base/derived pair
+or same names on unrelated types never qualifies. Inherited and referenced methods
+are not added to a type's declared overloads.
 Constructors, operators, indexers, accessors, local functions and lambdas are outside
 this method-declaration boundary.
 
@@ -59,11 +62,34 @@ of a hand-written declaration, just as a suppressed peer remains part of its typ
 
 ## Accepted cases and independent manual review
 
-One-parameter `Parse(string)` / `Parse(ReadOnlySpan<char>)` alternatives and
-builder `Output(Stream)` / `Output(string)` alternatives remain allowed. A method
-with no alternative receives no CR1001 finding regardless of its parameter count.
-Different counts, staticness, generic arities, two differing types, or mismatched
-ref/params/default presence remain outside this initial detection boundary.
+One-effective-parameter `Parse(string)` / `Parse(ReadOnlySpan<char>)` alternatives
+and builder `Output(Stream)` / `Output(string)` alternatives remain allowed. A
+method with no alternative receives no CR1001 finding regardless of its parameter
+count. Different effective counts, staticness, generic arities, two differing
+types, or mismatched ref/params/default presence remain outside this initial
+detection boundary.
+
+A method is treated as already using a configuration builder when any effective
+parameter has a recognized builder type. By default, names ending in `Builder`,
+`Descriptor` or `Configurator` match using ordinal, case-sensitive suffix
+comparison. Generic type arity is ignored, so
+`NodeDataBuilder<LessonTopicsConfig>` matches `Builder`. The package exposes the
+exact suffix list through the compiler-visible MSBuild property
+`CodingRulesBuilderSuffixes`, separated by semicolons; setting it replaces the
+default list. For example:
+
+```xml
+<PropertyGroup>
+  <CodingRulesBuilderSuffixes>Builder;Descriptor;Configurator;Options</CodingRulesBuilderSuffixes>
+</PropertyGroup>
+```
+
+Types can instead be marked with `[CodingRules.ConfigurationBuilder]` from
+`CodingRules.Shared`. A same-named source-defined attribute is not accepted as a
+marker. Extension receiver parameters are excluded from effective counts and
+comparisons, including generic receivers such as
+`this NodeDataBuilder<LessonTopicsConfig>`; this does not exclude ordinary
+parameters on instance methods.
 
 The reviewed serializer should use a reusable builder with Input and alternate
 Output forms, optional Hash defaulting to empty, and cancellation passed to
@@ -103,9 +129,11 @@ Output methods, runtime builder validation, unrelated/base/derived types, dynami
 and framework calls, and the accepted signature mismatches listed above.
 
 `AnalyzerTests/OverloadConfigurationAnalyzerTests.cs` adds exact locations,
-generic ordinal substitution, partial declarations, interfaces/implementations,
-ref/out/in/params and default-presence comparisons, generated code, unresolved
-signatures, severity, scoped suppressions and independent CR1000 configuration.
+generic ordinal substitution, partial declarations, interface/implementation
+boundaries and explicit-implementation skips, ref/out/in/params and
+default-presence comparisons, builder suffix configuration and marker validation,
+extension receiver counting, generated code, unresolved signatures, severity,
+scoped suppressions and independent CR1000 configuration.
 All normal fixtures must compile before analyzer expectations are checked.
 
 ```sh

@@ -33,10 +33,14 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         var declaration = (MethodDeclarationSyntax)context.Node;
         if (declaration.ContainsDiagnostics) return;
         var method = context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken);
-        if (method is not { Parameters.Length: > 1 }) return;
+        if (method is null) return;
+        if (method.ExplicitInterfaceImplementations.Length != 0) return;
         // A partial implementation is the same method, not another overload site.
         if (method.PartialDefinitionPart is not null) return;
-        if (method.Parameters.Any(parameter => HasErrorType(parameter.Type))) return;
+        var policy = BuilderPolicy.For(context.Compilation, context.Options, context.CancellationToken);
+        var parameters = EffectiveParameters(method);
+        if (parameters.Length <= 1 || parameters.Any(parameter => HasErrorType(parameter.Type))) return;
+        if (parameters.Any(parameter => policy.IsBuilder(parameter.Type))) return;
 
         foreach (var alternative in method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>())
         {
@@ -44,18 +48,22 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
             if (SymbolEqualityComparer.Default.Equals(method, alternative)) continue;
             if (alternative.PartialDefinitionPart is not null) continue;
             if (alternative.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax(context.CancellationToken).ContainsDiagnostics)) continue;
-            if (!IsAlternative(method, alternative)) continue;
+            if (alternative.ExplicitInterfaceImplementations.Length != 0) continue;
+            if (!IsAlternative(method, alternative, parameters, policy)) continue;
             context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), method.Name));
             return;
         }
     }
 
-    private static bool IsAlternative(IMethodSymbol method, IMethodSymbol alternative)
+    private static bool IsAlternative(IMethodSymbol method, IMethodSymbol alternative, ImmutableArray<IParameterSymbol> parameters, BuilderPolicy policy)
     {
         if (method.IsStatic != alternative.IsStatic) return false;
+        if (method.IsExtensionMethod != alternative.IsExtensionMethod) return false;
         if (method.Arity != alternative.Arity) return false;
-        if (method.Parameters.Length != alternative.Parameters.Length) return false;
-        if (alternative.Parameters.Any(parameter => HasErrorType(parameter.Type))) return false;
+        var alternativeParameters = EffectiveParameters(alternative);
+        if (parameters.Length != alternativeParameters.Length) return false;
+        if (alternativeParameters.Any(parameter => HasErrorType(parameter.Type))) return false;
+        if (alternativeParameters.Any(parameter => policy.IsBuilder(parameter.Type))) return false;
 
         // Type parameters from distinct methods have distinct symbol identities.
         // Substitute by ordinal so M<T>(T, Stream) and M<U>(U, string) compare
@@ -63,13 +71,14 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         if (method.Arity > 0)
         {
             alternative = alternative.Construct(method.TypeParameters.Cast<ITypeSymbol>().ToArray());
+            alternativeParameters = EffectiveParameters(alternative);
         }
 
         var differences = 0;
-        for (var index = 0; index < method.Parameters.Length; index++)
+        for (var index = 0; index < parameters.Length; index++)
         {
-            var parameter = method.Parameters[index];
-            var other = alternative.Parameters[index];
+            var parameter = parameters[index];
+            var other = alternativeParameters[index];
             if (parameter.RefKind != other.RefKind) return false;
             if (parameter.IsParams != other.IsParams) return false;
             if (parameter.IsOptional != other.IsOptional) return false;
@@ -81,6 +90,10 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
 
         return differences == 1;
     }
+
+    private static ImmutableArray<IParameterSymbol> EffectiveParameters(IMethodSymbol method) => method.IsExtensionMethod
+        ? method.Parameters.RemoveAt(0)
+        : method.Parameters;
 
     private static bool HaveEquivalentTypes(ITypeSymbol type, ITypeSymbol other)
     {

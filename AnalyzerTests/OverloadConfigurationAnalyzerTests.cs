@@ -164,8 +164,78 @@ public sealed class OverloadConfigurationAnalyzerTests
                 void I.Save(int input, string path) { }
             }
             """]);
-        Assert.Equal(6, diagnostics.Length);
+        Assert.Equal(4, diagnostics.Length);
         Assert.All(diagnostics, item => Assert.Equal("Save", Text(item)));
+    }
+
+    [Fact]
+    public async Task RecognizesDefaultBuilderSuffixesAndAllowsTheirUseInOverloads()
+    {
+        var diagnostics = await Analyze(["""
+            class C
+            {
+                public void Save(int input, WidgetBuilder configuration) { }
+                public void Save(string input, WidgetBuilder configuration) { }
+                public void Store(int input, WidgetDescriptor configuration) { }
+                public void Store(string input, WidgetDescriptor configuration) { }
+                public void Configure(int input, WidgetConfigurator configuration) { }
+                public void Configure(string input, WidgetConfigurator configuration) { }
+                public void Apply(int input, NodeDataBuilder<LessonTopicsConfig> configuration) { }
+                public void Apply(string input, NodeDataBuilder<LessonTopicsConfig> configuration) { }
+                public void Ordinary(int input, Widget inputValue) { }
+                public void Ordinary(string input, Widget inputValue) { }
+            }
+            class WidgetBuilder { }
+            class WidgetDescriptor { }
+            class WidgetConfigurator { }
+            class LessonTopicsConfig { }
+            class NodeDataBuilder<T> { }
+            class Widget { }
+            """]);
+        Assert.Equal(2, diagnostics.Length);
+        Assert.All(diagnostics, diagnostic => Assert.Equal("Ordinary", Text(diagnostic)));
+    }
+
+    [Fact]
+    public async Task UsesConfiguredBuilderSuffixesAsAnExactReplacement()
+    {
+        var source = "class C { void Save(int input, WidgetSetup configuration) { } void Save(string input, WidgetSetup configuration) { } class WidgetSetup { } }";
+        Assert.Empty(await Analyze([source], builderSuffixes: "Setup"));
+        Assert.Equal(2, (await Analyze([source], builderSuffixes: "Factory")).Length);
+    }
+
+    [Fact]
+    public async Task RecognizesMarkedTypesButNotSourceDefinedSpoofs()
+    {
+        var markerReference = CreateBuilderMarkerReference();
+        var marked = "using CodingRules; [ConfigurationBuilder] class Marked { } class C { void Save(int input, Marked configuration) { } void Save(string input, Marked configuration) { } }";
+        Assert.Empty(await Analyze([marked], additionalReferences: [markerReference]));
+
+        var spoof = "namespace CodingRules { [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple=false, Inherited=false)] public sealed class ConfigurationBuilderAttribute : System.Attribute { } } [CodingRules.ConfigurationBuilder] class Marked { } class C { void Save(int input, Marked configuration) { } void Save(string input, Marked configuration) { } }";
+        Assert.Equal(2, (await Analyze([spoof])).Length);
+    }
+
+    [Fact]
+    public async Task ExcludesExtensionReceiversButKeepsOrdinaryParameterCounting()
+    {
+        var diagnostics = await Analyze(["""
+            class LessonTopicsConfig { }
+            class NodeDataBuilder<T> { }
+            static class Extensions
+            {
+                public static void Configure(this NodeDataBuilder<LessonTopicsConfig> builder, int value) { }
+                public static void Configure(this NodeDataBuilder<LessonTopicsConfig> builder, string value) { }
+                public static void Save(this NodeDataBuilder<LessonTopicsConfig> builder, int input, int output) { }
+                public static void Save(this NodeDataBuilder<LessonTopicsConfig> builder, int input, string output) { }
+            }
+            class C
+            {
+                public void Save(object receiver, int input) { }
+                public void Save(object receiver, string input) { }
+            }
+            """]);
+        Assert.Equal(4, diagnostics.Length);
+        Assert.All(diagnostics, diagnostic => Assert.Equal("Save", Text(diagnostic)));
     }
 
     [Fact]
@@ -249,7 +319,8 @@ public sealed class OverloadConfigurationAnalyzerTests
     private static string Text(Diagnostic diagnostic) => diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan);
 
     private static async Task<ImmutableArray<Diagnostic>> Analyze(string[] sources, string? path = null,
-        ReportDiagnostic severity = ReportDiagnostic.Default, bool requireCompilation = true, bool includeCountAnalyzer = false)
+        ReportDiagnostic severity = ReportDiagnostic.Default, bool requireCompilation = true, bool includeCountAnalyzer = false,
+        string? builderSuffixes = null, ImmutableArray<MetadataReference> additionalReferences = default)
     {
         var trees = sources.Select((source, index) => CSharpSyntaxTree.ParseText(source,
             new CSharpParseOptions(LanguageVersion.CSharp12), path: path ?? $"Test{index}.cs"));
@@ -258,12 +329,54 @@ public sealed class OverloadConfigurationAnalyzerTests
             specificDiagnosticOptions: ImmutableDictionary<string, ReportDiagnostic>.Empty
                 .Add(DiagnosticIds.OverloadConfigurationBuilder, severity)
                 .Add(DiagnosticIds.ContractParameterGroup, ReportDiagnostic.Suppress));
-        var compilation = CSharpCompilation.Create("OverloadTests", trees, References, options);
+        var references = additionalReferences.IsDefault ? References : References.AddRange(additionalReferences);
+        var compilation = CSharpCompilation.Create("OverloadTests", trees, references, options);
         if (requireCompilation) Assert.Empty(compilation.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
         var analyzers = ImmutableArray.Create<DiagnosticAnalyzer>(new OverloadConfigurationAnalyzer());
         if (includeCountAnalyzer) analyzers = analyzers.Add(new ContractParameterAnalyzer());
-        var diagnostics = await compilation.WithAnalyzers(analyzers).GetAnalyzerDiagnosticsAsync();
+        var analyzerOptions = new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty,
+            new TestAnalyzerConfigOptionsProvider(builderSuffixes));
+        var diagnostics = await compilation.WithAnalyzers(analyzers, new CompilationWithAnalyzersOptions(analyzerOptions,
+            onAnalyzerException: null, concurrentAnalysis: true, logAnalyzerExecutionTime: false, reportSuppressedDiagnostics: false))
+            .GetAnalyzerDiagnosticsAsync();
         Assert.All(diagnostics, item => Assert.Equal(DiagnosticIds.OverloadConfigurationBuilder, item.Id));
         return diagnostics.OrderBy(item => item.Location.SourceTree!.FilePath).ThenBy(item => item.Location.SourceSpan.Start).ToImmutableArray();
+    }
+
+    private static PortableExecutableReference CreateBuilderMarkerReference()
+    {
+        var source = "using System; [assembly: System.Reflection.AssemblyVersion(\"1.0.0.0\")] namespace CodingRules { [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = false)] public sealed class ConfigurationBuilderAttribute : Attribute { public ConfigurationBuilderAttribute() { } } }";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("CodingRules.Shared", [tree], References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        Assert.True(compilation.Emit(image).Success);
+        return MetadataReference.CreateFromImage(image.ToArray());
+    }
+
+    private sealed class TestAnalyzerConfigOptionsProvider(string? suffixes) : AnalyzerConfigOptionsProvider
+    {
+        private readonly AnalyzerConfigOptions global = new TestAnalyzerConfigOptions(suffixes is null
+            ? ImmutableDictionary<string, string>.Empty
+            : ImmutableDictionary<string, string>.Empty.Add("build_property.CodingRulesBuilderSuffixes", suffixes));
+
+        public override AnalyzerConfigOptions GlobalOptions => global;
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => EmptyAnalyzerConfigOptions.Instance;
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => EmptyAnalyzerConfigOptions.Instance;
+    }
+
+    private sealed class TestAnalyzerConfigOptions(ImmutableDictionary<string, string> values) : AnalyzerConfigOptions
+    {
+        public override bool TryGetValue(string key, out string value) => values.TryGetValue(key, out value!);
+    }
+
+    private sealed class EmptyAnalyzerConfigOptions : AnalyzerConfigOptions
+    {
+        public static readonly EmptyAnalyzerConfigOptions Instance = new();
+        public override bool TryGetValue(string key, out string value)
+        {
+            value = "";
+            return false;
+        }
     }
 }

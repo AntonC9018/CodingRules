@@ -460,3 +460,28 @@ final nupkg verification remains deferred until the stable candidate after all
 tickets. This repository continues to import the source guidance through AGENTS.md.
 Universal interpolation, blanket ordinary-instance-method grouping and RequiredStep
 analysis remain undecided/deferred; no new analyzer or downstream refactor is added.
+
+## ScheduleLib rollout refinements — 2026-10-24
+
+The reviewed legacy collection overloads should be explicit interface members;
+CR1500 diagnoses public non-generic-only collection APIs. Shared generic members
+remain public. CR1001 excludes explicit implementations, allows one effective
+parameter and recognizes builder types/extension receivers. Default suffixes
+Builder, Descriptor and Configurator can be replaced with the comma-separated
+`CodingRulesBuilderSuffixes` property, or a type can use `[ConfigurationBuilder]`.
+See [overload configuration](overload-configuration.md).
+
+Boolean Equals/EqualsN calls allow positional arguments; exact external-method
+registrations use assembly attributes or MSBuild. CR0803 requires braces for
+single statements; CR0804 requires a space after casts. A cast itself is an
+accepted CR03 argument, while `TimeSpan.FromSeconds` remains an operation.
+Computation names prefer the destination parameter, then operation/type.
+Exception interpolation is excluded from CR03 extraction and uses CR1600's
+[opt-in context-preserving subtype action](exception-context.md).
+
+ScheduleLib's two exception bases become abstract with sealed general concrete
+subtypes. CalendarCommands retains a local suppression pending
+[audit #247](https://github.com/AntonC9018/ScheduleLib/issues/247). The existing
+test failures are tracked in [audit #248](https://github.com/AntonC9018/ScheduleLib/issues/248).
+The measured [Fix All performance correction](fix-all-performance.md) retains
+sequential semantic validation while avoiding repeated scans of unrelated files.

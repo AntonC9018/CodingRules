@@ -83,6 +83,36 @@ public sealed class StatementOperationInteractionTests
         Assert.Equal((await changed.GetTextAsync()).ToString(), (await repeated.GetTextAsync()).ToString());
     }
 
+    [Theory]
+    [InlineData(FixAllScope.Document, StatementOperationCodeFixProvider.ExtractKey)]
+    [InlineData(FixAllScope.Project, StatementOperationCodeFixProvider.ExtractKey)]
+    [InlineData(FixAllScope.Solution, StatementOperationCodeFixProvider.ExtractKey)]
+    [InlineData(FixAllScope.Document, StatementOperationCodeFixProvider.ExpandKey)]
+    [InlineData(FixAllScope.Project, StatementOperationCodeFixProvider.ExpandKey)]
+    [InlineData(FixAllScope.Solution, StatementOperationCodeFixProvider.ExpandKey)]
+    public async Task FixAllRespectsScopeAndCrossFileBindings(FixAllScope scope, string key)
+    {
+        var target = StatementOperationTestFixture.Document("class C { static int M(int input) => Helper.Use(Helper.Get(input)); }");
+        const string otherSource = "class D { static int M(int input) => Helper.Use(Helper.Get(input)); }";
+        var other = target.Project.AddDocument("Other.cs", otherSource);
+        var helpers = other.Project.AddDocument("Helper.cs", "static class Helper { public static int Get(int input) => input + 1; public static int Use(int input) => input; }");
+        target = helpers.Project.GetDocument(target.Id)!;
+        var provider = new StatementOperationCodeFixProvider();
+        using var timeout = new CancellationTokenSource(System.TimeSpan.FromSeconds(20));
+        var context = new FixAllContext(target, provider, scope, key, provider.FixableDiagnosticIds, new Diagnostics(), timeout.Token);
+        var action = await provider.GetFixAllProvider().GetFixAsync(context);
+        var operation = Assert.Single((await action!.GetOperationsAsync(timeout.Token)).OfType<ApplyChangesOperation>());
+        var changed = await StatementOperationTestFixture.Reparse(operation.ChangedSolution.GetDocument(target.Id)!);
+        await StatementOperationTestFixture.Compiles(changed);
+        Assert.Empty(await DocumentOperations(changed));
+        var changedOther = operation.ChangedSolution.GetDocument(other.Id)!;
+        if (scope == FixAllScope.Document)
+            Assert.Equal(otherSource, (await changedOther.GetTextAsync()).ToString());
+        else
+            Assert.Empty(await DocumentOperations(await StatementOperationTestFixture.Reparse(changedOther)));
+        Assert.Equal((await helpers.GetTextAsync()).ToString(), (await operation.ChangedSolution.GetDocument(helpers.Id)!.GetTextAsync()).ToString());
+    }
+
     internal static async Task<ImmutableArray<Diagnostic>> All(Document document)
     {
         var compilation = await document.Project.GetCompilationAsync();
@@ -102,7 +132,7 @@ public sealed class StatementOperationInteractionTests
 
     private sealed class Diagnostics : FixAllContext.DiagnosticProvider
     {
-        public override async Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(Document document, CancellationToken cancellationToken) => await StatementOperationTestFixture.Diagnostics(document);
+        public override async Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(Document document, CancellationToken cancellationToken) => await DocumentOperations(document);
         public override Task<IEnumerable<Diagnostic>> GetProjectDiagnosticsAsync(Project project, CancellationToken cancellationToken) => Task.FromResult(Enumerable.Empty<Diagnostic>());
         public override async Task<IEnumerable<Diagnostic>> GetAllDiagnosticsAsync(Project project, CancellationToken cancellationToken)
         {
@@ -110,5 +140,11 @@ public sealed class StatementOperationInteractionTests
             foreach (var document in project.Documents) diagnostics.AddRange(await StatementOperationTestFixture.Diagnostics(document));
             return diagnostics;
         }
+    }
+
+    private static async Task<ImmutableArray<Diagnostic>> DocumentOperations(Document document)
+    {
+        var tree = await document.GetSyntaxTreeAsync();
+        return (await StatementOperationTestFixture.Diagnostics(document)).Where(diagnostic => diagnostic.Location.SourceTree == tree).ToImmutableArray();
     }
 }

@@ -33,3 +33,7 @@ Six regression cases cover document/project/solution scopes with both actions
 and cross-file bindings. Existing interaction tests also verify saved-source
 idempotence and replanning. Timing thresholds are deliberately excluded from
 unit tests because machine contention changes wall-clock results.
+
+All 1,401 analyzer/code-fix/package tests and ten consumer gates passed on AWS
+with the production change at `0f02bab`. The single stable candidate has SHA-256
+`e0268e2bc377add6b2f5265fcb4fcc162c8ea4f276511a2ffb071690b978caca`.

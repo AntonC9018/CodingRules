@@ -12,7 +12,7 @@ public static class C
     public static void Desired(int index, Event ev)
     {
         Report(
-            (string)$"desired-{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            (string) $"desired-{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             "completed",
             new
             {
@@ -33,7 +33,7 @@ public static class C
     public static async Task<string> Lock(string? file, CancellationToken cancellationToken)
     {
         await using var lease = await LocalFileLock.Acquire(
-            (string)$"{file}.lock",
+            (string) $"{file}.lock",
             cancellationToken,
             wait: true);
         return lease.Path;

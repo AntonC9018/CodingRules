@@ -46,7 +46,8 @@ internal static class StatementOperationFixes
         var seen = new HashSet<string>();
         foreach (var node in formatted.GetAnnotatedNodes(OperationEvaluator.BindingAnnotation))
         {
-            var original = node.GetAnnotations(OperationEvaluator.BindingAnnotation).Single().Data!;
+            var original = UniqueAnnotationData(node, OperationEvaluator.BindingAnnotation);
+            if (original is null) return false;
             if (!originalCalls.TryGetValue(original, out var binding)) continue;
             if (!seen.Add(original) || Binding(parsed.FindNode(node.Span, getInnermostNodeForTie: true), model) != binding) return false;
         }
@@ -55,7 +56,7 @@ internal static class StatementOperationFixes
         {
             var value = parsed.FindNode(node.Span, getInnermostNodeForTie: true) as ExpressionSyntax;
             if (value is null || OperationEvaluator.ConversionFingerprint(model.GetConversion(value))
-                    != node.GetAnnotations(OperationEvaluator.ConversionAnnotation).Single().Data) return false;
+                    != UniqueAnnotationData(node, OperationEvaluator.ConversionAnnotation)) return false;
         }
         foreach (var node in formatted.GetAnnotatedNodes(OperationEvaluator.LinearizedAnnotation)
                      .Concat(formatted.GetAnnotatedNodes(OperationSiteRewrites.Selected)))
@@ -66,6 +67,14 @@ internal static class StatementOperationFixes
         // Annotations locate occurrences only for validation. The saved tree is
         // classified from scratch and has no annotation-based exemptions.
         return Violations(parsed, model) < Violations(plan.Owner.SyntaxTree.GetRoot(token), plan.Model);
+    }
+
+    private static string? UniqueAnnotationData(SyntaxNode node, string kind)
+    {
+        // Transparent wrappers can attach the same proof more than once.
+        // Conflicting proof values still prevent the rewrite.
+        var values = node.GetAnnotations(kind).Select(annotation => annotation.Data).Distinct().ToArray();
+        return values.Length == 1 ? values[0] : null;
     }
 
     private static int Violations(SyntaxNode root, SemanticModel model) => root.DescendantNodes()

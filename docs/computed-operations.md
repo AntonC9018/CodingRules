@@ -55,6 +55,14 @@ No new manual-only diagnostic is introduced. In particular, comments and span
 lifetimes are preserved by leaving unproved sites unchanged; silence at such a
 site does not claim style approval.
 
+The downstream rollout also exposed repeated proof annotations on a call inside
+a null-forgiving expression, such as `Use(Path.GetDirectoryName(file)!)`.
+The validator treats identical annotation data as one proof instead of throwing
+on its cardinality. Conflicting data still declines the action, and call
+occurrence counts, binding, conversion and saved-source progress checks remain
+required. Runtime regressions verify extraction with both null and non-null
+results; other actions remain conditional on their existing safety proofs.
+
 ## Accepted cases and message scope
 
 The shared accepted fixture preserves direct/nested initializer assignments,

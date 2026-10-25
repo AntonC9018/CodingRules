@@ -534,3 +534,17 @@ predicate combined with another content predicate must also use control flow.
 These changes await AWS builds/tests; the prior candidate's validation does not
 cover them. The broader fluent-chain dot layout and subgroup-remapping overload
 boundary remain under review rather than inferred as blanket exemptions.
+
+## Final overload and chain-layout decisions — 2026-10-25
+
+The subgroup alias receiver holds the shared key in a readonly struct returned
+by ForAlias(string). It exposes overloaded To(Specialization) / To(Alternative)
+methods with one effective input each. This is a deliberate receiver design,
+not an exemption whenever one parameter position differs.
+
+Every invocation after the first in a fluent chain starts on a new line, even
+when the entire chain fits on one line. CR0805 implements that boundary. The
+first method may remain adjacent to its ordinary receiver; property/namespace
+qualification by itself is not a chain. Subsequent null-conditional calls move
+as an intact ?. boundary. Automatic fixes retain comments and decline edits
+that would change implicit caller information or interpolated-string layout.

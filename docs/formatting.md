@@ -327,3 +327,19 @@ braces (including a single-line condition followed by a single statement) and
 CR0804 for separation after casts. These are independent of Roslynator's
 multiline-only RCS1001. The package sets `csharp_space_after_cast = true`;
 comments and existing line breaks between the cast and operand remain intact.
+
+## Subsequent fluent calls (CR0805)
+
+Start each invocation after the first on a new continuation line, including
+chains that fit on one line:
+
+```csharp
+historical.Where(Matches)
+    .ToArray();
+```
+
+A plain receiver, namespace or property qualification is not itself a method
+call. Null-conditional boundaries remain intact (?.). The whitespace-only fixer
+preserves the existing newline convention and never relocates comments. It
+leaves findings manual where comments, directives, interpolated-string layout
+or implicit caller-information observations prevent a safe automatic edit.

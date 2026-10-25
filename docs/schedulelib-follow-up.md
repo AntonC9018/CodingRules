@@ -485,3 +485,31 @@ subtypes. CalendarCommands retains a local suppression pending
 test failures are tracked in [audit #248](https://github.com/AntonC9018/ScheduleLib/issues/248).
 The measured [Fix All performance correction](fix-all-performance.md) retains
 sequential semantic validation while avoiding repeated scans of unrelated files.
+
+## Next review decisions — 2026-10-25
+
+These decisions are approved for the next implementation pass, after the open
+overload cases below are settled. They are not claims about the current package.
+
+- Accept record `with` initializer member assignments as value construction,
+  while retaining independent checks on computations in member values. Format
+  the initializer block on new lines with a trailing comma, including one-member
+  updates such as the DFS frame state change.
+- Accept the reviewed `(IHtmlInputElement) page.QuerySelector(...)!` expression;
+  the lookup followed by a cast does not require an additional named step.
+- Extract the reviewed study-year conditional into a local function, with an
+  explicit early return for `start.Month >= 8` and a final `start.Year - 1` return.
+- Accept comparer Equals representation overloads for CR1001, independently
+  of the previously approved CR0500 positional-argument exemption.
+- Expand composite matching predicates into control flow, preferably early
+  returns; pattern matching is another accepted form. Do not introduce a blanket
+  exemption for composite identity comparisons.
+- Exclude a trailing framework CancellationToken from CR1000's grouping count.
+- Audit the six command inheritance seams together, following the earlier
+  CalendarCommands audit decision.
+
+Open cases require concrete declarations and caller review before implementation:
+raw-index/typed-ID accessor factories (including static interface requirements),
+SelectionHelper selector representations, subgroup alias destination overloads,
+and the Google Login / registry-history Save overload pairs. No blanket adapter
+exemption or accessibility change is approved by these examples alone.

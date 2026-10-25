@@ -585,3 +585,28 @@ blanket delegate exemption has been inferred.
 
 The consumer's `docs/analyzer-review-2026-10-25.md` records the grouped review
 cases, test outcomes, candidate provenance and measured unchanged-run costs.
+
+## Exception context and guard follow-up — 2026-10-25
+
+The maintainer approved completing the CR1600 migration and rewriting the
+remaining CR0200–CR0203 findings. Validation chains use separate guards;
+predicate lambdas use explicit early returns, and catch filters use local
+functions inside the filter. Tuple data, CR0303 decision functions, CR0805
+layout, owned CR1000 contracts and CR1300 formatting candidates remain for
+concrete source review. CR1400 inheritance is explicitly deferred.
+
+`7fda0eb` adds the approved per-delegate `ExternalSignature` marker for
+ScheduleLib's reflected QuestPDF border operation. The attribute names an
+external metadata owner and member; it does not verify reflection compatibility
+or exempt other contract declarations. That candidate passes all 1,446
+analyzer/code-fix/package tests and all 11 consumer gates on AWS. Its archive
+SHA-256 is `79029420d6889484b8eb4f0dc5f243813941e52ee5d0df5a4dcdf99f363468a2`.
+
+The consumer migration preserves the sealed `InvalidDataException` type for
+ZIP-content and pre-defense member-name errors, attaching named immutable
+context records through `Exception.Data` with narrow CR1600 suppressions at
+those two factory constructions. Other migrated failures use meaningful
+subtypes with typed read-only properties and eager constructor templates.
+Formatting is a final cleanup step after edits stabilize; no persistent semantic
+result cache is implemented. Downstream validation is recorded in
+ScheduleLib's `docs/analyzer-context-cleanup-2026-10-25.md`.

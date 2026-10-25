@@ -167,3 +167,18 @@ methods remains undecided; the concrete PDF/Word sharing decision above is
 settled independently. Static parameter-count exemptions do not exempt overload
 configuration or repeated plumbing. RequiredStep analysis remains deferred:
 do not introduce its annotations, an analyzer or a staged-builder generator.
+
+## Keep generated steps readable and shared APIs purposeful
+
+Use the shortest type name that binds unambiguously at the insertion point, or
+var when suitable. Prefer a local variable for a one-off computed value. Use a
+local function with explicit returns for a branching decision. Preserve captures
+needed for evaluation order, but do not copy an unchanged, uncaptured local just
+to pass it to the next call. A function chosen by an automatic refactoring is
+not evidence that the function improves readability.
+
+Do not add shared API members solely for tests unless they are intended consumer
+APIs or planned production capabilities. Change tests to exercise the actual API
+and keep fixture construction inside tests. This extends the existing constructor
+policy; referenced-assembly consumers cannot be inferred from an absence of local
+call sites alone.

@@ -32,9 +32,11 @@ internal sealed class EvaluationNames
 
 internal static class EvaluationSyntax
 {
+    internal const string GeneratedType = "CodingRulesEvaluationType";
     public static TypeSyntax Type(ITypeSymbol type) => type.SpecialType == SpecialType.System_Void
         ? SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword))
         : SyntaxFactory.ParseTypeName(type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat
             .WithMiscellaneousOptions(SymbolDisplayFormat.FullyQualifiedFormat.MiscellaneousOptions
-                | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier)));
+                | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier)))
+            .WithAdditionalAnnotations(new SyntaxAnnotation(GeneratedType));
 }

@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Operations;
+using Microsoft.CodeAnalysis.Simplification;
 
 namespace CodingRules;
 
@@ -17,7 +18,10 @@ internal static class StatementOperationFixes
         var root = OperationSiteRewrites.Rewrite(plan, extract);
         root = root.ReplaceNodes(root.GetAnnotatedNodes(OperationSiteRewrites.Generated)
             .Concat(root.GetAnnotatedNodes(ConditionSiteRewrites.Generated)), (_, node) => node.WithAdditionalAnnotations(Formatter.Annotation));
+        root = root.ReplaceNodes(root.GetAnnotatedNodes(EvaluationSyntax.GeneratedType),
+            (_, node) => node.WithAdditionalAnnotations(Simplifier.Annotation));
         var changed = document.WithSyntaxRoot(root);
+        changed = await Simplifier.ReduceAsync(changed, Simplifier.Annotation, cancellationToken: token).ConfigureAwait(false);
         var options = await changed.GetOptionsAsync(token).ConfigureAwait(false);
         var text = (await document.GetTextAsync(token).ConfigureAwait(false)).ToString();
         var first = text.IndexOf('\n');

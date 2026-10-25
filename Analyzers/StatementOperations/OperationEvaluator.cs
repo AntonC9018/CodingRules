@@ -17,6 +17,8 @@ internal sealed class OperationEvaluator
     private readonly Dictionary<string, ITypeSymbol> savedValues = new();
     private readonly SemanticModel model;
     private readonly bool lowerConditionProducers;
+    private readonly HashSet<ISymbol> changingValues;
+    private readonly bool canReuseValues;
     public EvaluationNames Names { get; }
 
     public OperationEvaluator(OperationPlan plan, ExpressionSyntax expression)
@@ -24,6 +26,18 @@ internal sealed class OperationEvaluator
         model = plan.Model;
         Names = new EvaluationNames(plan.DeclarationSpace, model);
         lowerConditionProducers = OperationPlan.HasConditionReason(expression, model);
+        changingValues = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var flow = model.AnalyzeDataFlow(expression);
+        canReuseValues = flow is { Succeeded: true };
+        if (flow is { Succeeded: true }) changingValues.UnionWith(flow.WrittenInside);
+        foreach (var closure in plan.DeclarationSpace.DescendantNodes()
+                     .Where(node => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+        {
+            foreach (var identifier in closure.DescendantNodes().OfType<IdentifierNameSyntax>())
+            {
+                if (model.GetSymbolInfo(identifier).Symbol is { } symbol) changingValues.Add(symbol);
+            }
+        }
     }
 
     public ExpressionSyntax Lower(ExpressionSyntax expression, List<StatementSyntax> statements, bool save = false)
@@ -201,6 +215,14 @@ internal sealed class OperationEvaluator
     public ExpressionSyntax Save(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
     {
         type ??= model.GetTypeInfo(original).Type ?? model.GetTypeInfo(original).ConvertedType!;
+        if (canReuseValues && original is IdentifierNameSyntax source && value is IdentifierNameSyntax same
+            && same.Identifier.ValueText == source.Identifier.ValueText)
+        {
+            var symbol = model.GetSymbolInfo(original).Symbol;
+            if (symbol is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None }
+                && !changingValues.Contains(symbol)
+                && SymbolEqualityComparer.IncludeNullability.Equals(OperationPlan.SymbolType(symbol), type)) return value;
+        }
         if (value is IdentifierNameSyntax saved && savedValues.TryGetValue(saved.Identifier.ValueText, out var existingType)
             && SymbolEqualityComparer.IncludeNullability.Equals(existingType, type)) return value;
         // Lower may already have staged a target-typed construction. Its
@@ -221,19 +243,25 @@ internal sealed class OperationEvaluator
     public BlockSyntax ReturnBody(ExpressionSyntax expression, bool discard = false)
     {
         var statements = new List<StatementSyntax>();
-        var value = Lower(expression, statements);
         var type = model.GetTypeInfo(expression).Type ?? model.GetTypeInfo(expression).ConvertedType!;
-        if (discard || type.SpecialType == SpecialType.System_Void) statements.Add(SyntaxFactory.ExpressionStatement(value));
+        if (!discard && expression is ConditionalExpressionSyntax conditional)
+        {
+            var condition = Lower(conditional.Condition, statements);
+            statements.Add(SyntaxFactory.IfStatement(condition, ReturnBranch(conditional.WhenTrue, type)));
+            statements.AddRange(ReturnBranch(conditional.WhenFalse, type).Statements);
+        }
         else
         {
-            value = Save(expression, value, statements, type);
-            if (type.SpecialType == SpecialType.System_Boolean)
+            var value = Lower(expression, statements);
+            if (discard || type.SpecialType == SpecialType.System_Void) statements.Add(SyntaxFactory.ExpressionStatement(value));
+            else if (type.SpecialType == SpecialType.System_Boolean)
             {
+                value = Save(expression, value, statements, type);
                 statements.Add(SyntaxFactory.IfStatement(value, SyntaxFactory.Block(SyntaxFactory.ReturnStatement(
                     SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)))));
                 statements.Add(SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
             }
-            else statements.Add(SyntaxFactory.ReturnStatement(value));
+            else statements.Add(SyntaxFactory.ReturnStatement(Save(expression, value, statements, type)));
         }
         var body = SyntaxFactory.Block(statements);
         var checkedContext = expression.Ancestors().FirstOrDefault(node => node is CheckedExpressionSyntax or CheckedStatementSyntax);
@@ -244,6 +272,15 @@ internal sealed class OperationEvaluator
             body = SyntaxFactory.Block(SyntaxFactory.CheckedStatement(kind, body));
         }
         return ConditionSiteRewrites.AddElasticLineBreaks(body);
+    }
+
+    private BlockSyntax ReturnBranch(ExpressionSyntax expression, ITypeSymbol type)
+    {
+        if (expression is ConditionalExpressionSyntax) return ReturnBody(expression);
+        var statements = new List<StatementSyntax>();
+        var value = Lower(expression, statements);
+        statements.Add(SyntaxFactory.ReturnStatement(value.WithAdditionalAnnotations(Conversion(expression, type))));
+        return SyntaxFactory.Block(statements);
     }
 
     private static LocalDeclarationStatementSyntax Declare(ITypeSymbol type, string name) => SyntaxFactory.LocalDeclarationStatement(

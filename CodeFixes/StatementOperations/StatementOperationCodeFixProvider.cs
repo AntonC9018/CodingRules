@@ -25,11 +25,16 @@ public sealed class StatementOperationCodeFixProvider : CodeFixProvider
         if (root.FindNode(context.Diagnostics[0].Location.SourceSpan, getInnermostNodeForTie: true) is not ExpressionSyntax expression) return;
         var plan = OperationPlan.Create(expression, model, context.CancellationToken);
         if (plan is null) return;
-        if (plan.CanExtract && await StatementOperationFixes.IsValidAsync(context.Document, plan, true, context.CancellationToken).ConfigureAwait(false))
-            context.RegisterCodeFix(CodeAction.Create(plan.MemberInitializer is not null ? "Extract value to private helper" : "Extract value to local function",
-                token => StatementOperationFixes.ApplyAsync(context.Document, plan, true, token), ExtractKey), context.Diagnostics);
+        // Prefer a local value for ordinary computations. Conditional decisions
+        // retain the local-function action first, so their branches use returns.
+        var preferHelper = plan.ExtractionRoot is ConditionalExpressionSyntax;
+        var extraction = plan.CanExtract && await StatementOperationFixes.IsValidAsync(context.Document, plan, true, context.CancellationToken).ConfigureAwait(false)
+            ? CodeAction.Create(plan.MemberInitializer is not null ? "Extract value to private helper" : "Extract value to local function",
+                token => StatementOperationFixes.ApplyAsync(context.Document, plan, true, token), ExtractKey) : null;
+        if (preferHelper && extraction is not null) context.RegisterCodeFix(extraction, context.Diagnostics);
         if (plan.CanExpand && await StatementOperationFixes.IsValidAsync(context.Document, plan, false, context.CancellationToken).ConfigureAwait(false))
             context.RegisterCodeFix(CodeAction.Create("Expand value into statements",
                 token => StatementOperationFixes.ApplyAsync(context.Document, plan, false, token), ExpandKey), context.Diagnostics);
+        if (!preferHelper && extraction is not null) context.RegisterCodeFix(extraction, context.Diagnostics);
     }
 }

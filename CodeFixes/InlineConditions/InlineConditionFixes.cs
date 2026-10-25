@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Simplification;
 
 namespace CodingRules;
 
@@ -101,7 +102,10 @@ internal static class InlineConditionFixes
         var root = ConditionSiteRewrites.Rewrite(plan, extract);
         root = root.ReplaceNodes(root.GetAnnotatedNodes(ConditionSiteRewrites.Generated),
             (_, node) => node.WithAdditionalAnnotations(Formatter.Annotation));
+        root = root.ReplaceNodes(root.GetAnnotatedNodes(EvaluationSyntax.GeneratedType),
+            (_, node) => node.WithAdditionalAnnotations(Simplifier.Annotation));
         var changed = document.WithSyntaxRoot(root);
+        changed = await Simplifier.ReduceAsync(changed, Simplifier.Annotation, cancellationToken: token).ConfigureAwait(false);
         var options = await changed.GetOptionsAsync(token).ConfigureAwait(false);
         var language = document.Project.Language;
         var configured = options.GetOption(FormattingOptions.NewLine, language);

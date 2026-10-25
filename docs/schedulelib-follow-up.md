@@ -513,3 +513,24 @@ raw-index/typed-ID accessor factories (including static interface requirements),
 SelectionHelper selector representations, subgroup alias destination overloads,
 and the Google Login / registry-history Save overload pairs. No blanket adapter
 exemption or accessibility change is approved by these examples alone.
+
+## Follow-up implementation refinement — pending validation
+
+The maintainer accepts the explicit static accessor enumeration contract and
+FromId/FromIndex names, but requests unqualified types or var and removal of
+redundant receiver copies. SelectionHelper needs a builder redesign; CR1001 is
+temporarily disabled in Desktop only, with a comment requiring re-enablement
+after that rewrite. Google Login uses a builder with shared teacher/services
+and overloaded single-input credential configuration. History-topic output uses
+a validated directory abstraction and one production analysis input; test-only
+selection convenience APIs are removed. Export rows are named record structs,
+course identity uses a shared comparer, directory permissions use a helper, and
+CSV quoting is named explicitly.
+
+CR0303 is a manual finding for an uninitialized Boolean local immediately
+followed by an exhaustive if/else tree whose leaves only assign that local. Such
+a decision belongs in a local function with explicit returns. A whitespace
+predicate combined with another content predicate must also use control flow.
+These changes await AWS builds/tests; the prior candidate's validation does not
+cover them. The broader fluent-chain dot layout and subgroup-remapping overload
+boundary remain under review rather than inferred as blanket exemptions.

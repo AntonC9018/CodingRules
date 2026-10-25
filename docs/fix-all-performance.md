@@ -61,6 +61,13 @@ guarantees. All four outputs have SHA-256
 `3BD4EA31C4E14D99EFE0708EE769C815657D5D217ED345284565C84A070153C3`.
 The 256-document sample improves about 15.6 times.
 
+The stable candidate at `9d24f23` passed all **1,444 tests** (262 analyzer and
+1,182 code-fix/package tests) and all **11 packaged consumer gates** on AWS.
+The package SHA-256 is
+`c3291f06d0dd381455e1328f552c10d01a88c2a31191d48de09453376702eeb5`.
+It includes the Boolean decision-value fixer and fluent-chain layout rule.
+These checks reuse one candidate archive; they do not publish it.
+
 ```sh
 dotnet run --project build/performance/FixAllBenchmark.csproj -c Release \
   -p:AnalyzerDirectory=/absolute/path/to/analyzers/dotnet/cs -- 256 12 20 conditions

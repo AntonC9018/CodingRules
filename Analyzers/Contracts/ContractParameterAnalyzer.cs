@@ -67,9 +67,17 @@ public sealed class ContractParameterAnalyzer : DiagnosticAnalyzer
         }
 
         if (contract is null) return;
-        if (contract.Parameters.Length <= 3) return;
+        var count = contract.Parameters.Length;
+        var cancellationType = model.Compilation.GetTypeByMetadataName("System.Threading.CancellationToken");
+        if (count > 0 && cancellationType?.DeclaringSyntaxReferences.IsEmpty == true
+            && contract.Parameters[count - 1].RefKind == RefKind.None
+            && SymbolEqualityComparer.Default.Equals(contract.Parameters[count - 1].Type, cancellationType))
+        {
+            count--;
+        }
+        if (count <= 3) return;
         if (contract.Parameters.Any(parameter => HasErrorType(parameter.Type))) return;
-        context.ReportDiagnostic(Diagnostic.Create(Rule, location, contract.Parameters.Length));
+        context.ReportDiagnostic(Diagnostic.Create(Rule, location, count));
     }
 
     private static bool OwnsMethodContract(IMethodSymbol method)

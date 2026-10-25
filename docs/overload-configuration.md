@@ -151,3 +151,11 @@ and generated sources with no findings, unchanged source after a CR1001 fixer
 pass, warnings-as-errors failure, and actual editorconfig error/disabled behavior.
 CI runs this gate against the same archive as all existing consumer gates.
 Publishing and downstream API migration are separate work.
+
+## Comparer representation overloads
+
+Boolean two-parameter instance Equals overloads on types implementing the actual
+framework IEqualityComparer or IAlternateEqualityComparer contract are accepted.
+They adapt comparison inputs between string/span representations; ordinary
+unrelated Equals overloads retain CR1001. This exception is independent of the
+CR0500 positional-argument exception.

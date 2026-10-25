@@ -38,7 +38,7 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         if (declaration.ContainsDiagnostics) return;
         var method = context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken);
         if (method is null) return;
-        if (method.ExplicitInterfaceImplementations.Length != 0) return;
+        if (method.ExplicitInterfaceImplementations.Length != 0 || IsComparerEquals(method, context.Compilation)) return;
         // A partial implementation is the same method, not another overload site.
         if (method.PartialDefinitionPart is not null) return;
         var parameters = EffectiveParameters(method);
@@ -96,6 +96,16 @@ public sealed class OverloadConfigurationAnalyzer : DiagnosticAnalyzer
         }
 
         return differences == 1;
+    }
+
+    private static bool IsComparerEquals(IMethodSymbol method, Compilation compilation)
+    {
+        if (method.Name != "Equals" || method.IsStatic || method.ReturnType.SpecialType != SpecialType.System_Boolean
+            || method.Parameters.Length != 2) return false;
+        return method.ContainingType.AllInterfaces.Any(contract =>
+            contract.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty &&
+            new[] { "System.Collections.Generic.IEqualityComparer`1", "System.Collections.Generic.IAlternateEqualityComparer`2" }
+                .Any(name => SymbolEqualityComparer.Default.Equals(contract.OriginalDefinition, compilation.GetTypeByMetadataName(name))));
     }
 
     private static bool HasReceiverParameter(IMethodSymbol method) => method.IsExtensionMethod && method.Parameters.Length > 0

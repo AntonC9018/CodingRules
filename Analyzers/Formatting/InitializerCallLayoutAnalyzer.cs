@@ -24,7 +24,7 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ObjectInitializerExpression, SyntaxKind.ArgumentList);
+        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ObjectInitializerExpression, SyntaxKind.WithInitializerExpression, SyntaxKind.ArgumentList);
     }
 
     private static void Analyze(SyntaxNodeAnalysisContext context)
@@ -39,14 +39,20 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
     {
         if (node.ContainsDiagnostics || node.ContainsDirectives) return ImmutableArray<TextChange>.Empty;
         if (node is ArgumentListSyntax arguments) return ArgumentChanges(arguments, text);
-        if (node is not InitializerExpressionSyntax initializer
-            || !initializer.IsKind(SyntaxKind.ObjectInitializerExpression) || initializer.Expressions.Count < 2)
+        if (node is not InitializerExpressionSyntax initializer)
             return ImmutableArray<TextChange>.Empty;
+        var recordUpdate = initializer.IsKind(SyntaxKind.WithInitializerExpression);
+        if ((!recordUpdate && !initializer.IsKind(SyntaxKind.ObjectInitializerExpression))
+            || initializer.Expressions.Count < (recordUpdate ? 1 : 2)) return ImmutableArray<TextChange>.Empty;
 
         var changes = ImmutableArray.CreateBuilder<TextChange>();
         var newline = text.Lines.Select(line => text.ToString(TextSpan.FromBounds(line.End, line.EndIncludingLineBreak)))
             .FirstOrDefault(value => value.Length > 0) ?? "\n";
         var previous = initializer.OpenBraceToken;
+        if (recordUpdate && initializer.Parent is WithExpressionSyntax update)
+        {
+            AddLineBreak(update.WithKeyword, initializer.OpenBraceToken, text, newline, changes);
+        }
         // Only separators and brace/member boundaries change; values and comments retain their text.
         for (var index = 0; index < initializer.Expressions.Count; index++)
         {
@@ -55,7 +61,20 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
             previous = member.GetLastToken();
             if (index < initializer.Expressions.SeparatorCount) previous = initializer.Expressions.GetSeparator(index);
         }
+        var closingChange = changes.Count;
         AddLineBreak(previous, initializer.CloseBraceToken, text, newline, changes);
+        if (recordUpdate && initializer.Expressions.SeparatorCount < initializer.Expressions.Count)
+        {
+            if (changes.Count > closingChange && changes[closingChange].Span.Start == previous.Span.End)
+            {
+                var gap = changes[closingChange];
+                changes[closingChange] = new TextChange(gap.Span, "," + gap.NewText);
+            }
+            else
+            {
+                changes.Add(new TextChange(new TextSpan(previous.Span.End, 0), ","));
+            }
+        }
         return changes.ToImmutable();
     }
 

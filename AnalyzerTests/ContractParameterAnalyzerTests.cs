@@ -16,7 +16,7 @@ public sealed class ContractParameterAnalyzerTests
     {
         var sources = new[] { Fixture("Findings.cs"), Fixture("Accepted.cs") };
         var diagnostics = await Analyze(sources);
-        Assert.Equal(9, diagnostics.Length);
+        Assert.Equal(4, diagnostics.Length);
         var expected = sources[0].Split('\n').Select((line, index) => (line, index))
             .Where(item => item.line.Contains("// CR1000: "))
             .Select(item => (item.index, item.line.IndexOf(item.line.Split("// CR1000: ")[1].Trim(), StringComparison.Ordinal)));
@@ -32,13 +32,18 @@ public sealed class ContractParameterAnalyzerTests
             Assert.Equal("Test0.cs", diagnostic.Location.GetLineSpan().Path);
             Assert.Contains("cohesive inputs", diagnostic.GetMessage());
         });
-        Assert.Equal(new[] { "Execute", "Default", "Create", "ImportBase", "Visit", "Merge", "PrimaryImport", "ImportRecord", "ImportedLessonHandler" },
+        Assert.Equal(new[] { "Create", "Visit", "Merge", "ImportedLessonHandler" },
             diagnostics.Select(Text));
     }
 
     [Theory]
     [InlineData("interface C { void M(int a, int b, int c); }", 0)]
-    [InlineData("interface C { void M(int a, int b, int c, System.Threading.CancellationToken cancellation); }", 1)]
+    [InlineData("interface C { void M(int a, int b, int c, System.Threading.CancellationToken cancellation); }", 0)]
+    [InlineData("interface C { void M(int a, int b, int c, int d, System.Threading.CancellationToken cancellation); }", 1)]
+    [InlineData("interface C { void M(System.Threading.CancellationToken cancellation, int a, int b, int c); }", 1)]
+    [InlineData("interface C { void M(int a, int b, int c, ref System.Threading.CancellationToken cancellation); }", 1)]
+    [InlineData("interface C { void M(int a, int b, int c, System.Threading.CancellationToken? cancellation); }", 1)]
+    [InlineData("namespace Other { public struct CancellationToken { } } interface C { void M(int a, int b, int c, Other.CancellationToken cancellation); }", 1)]
     [InlineData("interface C { void M(int a, int b, int c, int d = 0); }", 1)]
     [InlineData("interface C { void M(int a, int b, int c, params int[] values); }", 1)]
     [InlineData("interface C { void M(int a, int b, params int[] values); }", 0)]

@@ -139,8 +139,11 @@ internal sealed class OperationFacts
 
     private static bool IsCombination(ExpressionSyntax expression, SemanticModel model)
     {
-        if (!IsCalculation(expression, model) && expression is not CastExpressionSyntax and not InterpolatedStringExpressionSyntax) return false;
-        if (expression is CastExpressionSyntax cast && !IsSupportedCast(cast, model)) return false;
+        // A lookup followed by a cast still expresses one lookup. Work inside
+        // its arguments is classified independently rather than charging for
+        // the cast as another producer/consumer pair.
+        if (expression is CastExpressionSyntax) return false;
+        if (!IsCalculation(expression, model) && expression is not InterpolatedStringExpressionSyntax) return false;
         if (expression is InterpolatedStringExpressionSyntax interpolation
             && model.GetTypeInfo(interpolation).ConvertedType?.SpecialType != SpecialType.System_String) return false;
         return EvaluationNodes(expression).Skip(1).OfType<ExpressionSyntax>().Any(node => IsProducer(node, model));
@@ -154,7 +157,7 @@ internal sealed class OperationFacts
     {
         var parent = UnwrapParent(expression).Parent;
         // Initializer members assign a value without forwarding the assignment's result.
-        if (parent.IsKind(SyntaxKind.ObjectInitializerExpression)) return false;
+        if (parent.IsKind(SyntaxKind.ObjectInitializerExpression) || parent.IsKind(SyntaxKind.WithInitializerExpression)) return false;
         return parent is not ExpressionStatementSyntax and not ForStatementSyntax and not EqualsValueClauseSyntax
             and not ReturnStatementSyntax and not ArrowExpressionClauseSyntax
             && (parent is not AssignmentExpressionSyntax assignment || assignment.Right != UnwrapParent(expression));

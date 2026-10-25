@@ -55,6 +55,11 @@ internal sealed class ConditionFacts
             facts.Reasons.Add(DiagnosticIds.CombinedConditionOperations);
         }
 
+        if (facts.Leaves.Count == 2 && facts.Leaves.Any(leaf => IsWhitespaceTest(leaf, model))
+            && facts.Leaves.All(leaf => UnwrapNegation(leaf) is InvocationExpressionSyntax))
+        {
+            facts.Reasons.Add(DiagnosticIds.CombinedConditionOperations);
+        }
         if (facts.Leaves.Count == 2 && !facts.IsInvariant(model))
         {
             var first = Subject(facts.Leaves[0], model);
@@ -67,6 +72,14 @@ internal sealed class ConditionFacts
 
         return facts;
     }
+
+    private static ExpressionSyntax UnwrapNegation(ExpressionSyntax expression) =>
+        Unwrap(expression) is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression)
+            ? Unwrap(unary.Operand) : Unwrap(expression);
+
+    private static bool IsWhitespaceTest(ExpressionSyntax expression, SemanticModel model) =>
+        UnwrapNegation(expression) is InvocationExpressionSyntax call
+        && model.GetSymbolInfo(call).Symbol is IMethodSymbol { Name: "IsNullOrWhiteSpace", ContainingType.SpecialType: SpecialType.System_String };
 
     private bool Collect(ExpressionSyntax expression, SemanticModel model, CancellationToken token)
     {

@@ -1,9 +1,10 @@
 # Cohesive inputs for owned contracts (CR1000)
 
 CR1000 is a Readability warning for locally owned contracts with **more than
-three declared parameters**. Four triggers the rule; the earlier five-parameter
-proposal was rejected. Every declared slot counts, including CancellationToken,
-optional/default parameters, ref/in/out parameters and a params array (one slot).
+three configuration parameters**. Four triggers the rule; the earlier five-parameter
+proposal was rejected. A trailing framework CancellationToken passed by value is
+execution control and does not count. Other slots count, including optional/default
+parameters, ref/in/out parameters and a params array (one slot).
 Generic type parameters and implicit receivers are not parameter slots.
 
 This implements [CodingRules #24](https://github.com/AntonC9018/CodingRules/issues/24)
@@ -60,10 +61,12 @@ standard Roslyn driver.
 `CodeFixTests/Consumers/ContractParameters/Findings.cs` and `Accepted.cs` compile
 together and are reused by the analyzer tests and the package gate:
 
-- Exactly four parameters including CancellationToken report on the local
-  interface, default method, virtual method and abstract constructor; five
-  parameters report on the abstract method and PDF/Word-style import delegate.
-  Static abstract interface methods and abstract primary constructors also report.
+- Four configuration parameters report on owned contracts. A signature with
+  three configuration parameters plus a trailing CancellationToken is accepted,
+  including interface methods, abstract constructors and primary constructors.
+  The abstract Merge method and PDF/Word-style import delegate retain five
+  configuration parameters and report. Static abstract Create and virtual Visit
+  retain four configuration parameters and report.
 - Ordinary concrete implementations, virtual implementations of local
   interfaces, explicit implementations, and overrides receive no duplicate.
 - The reviewed static `Finish<T>(context, exit, errors, data, verb)` and ten-slot
@@ -115,7 +118,7 @@ python3 build/verify-contract-consumer.py artifacts/contract-parameters
 ```
 
 The gate restores the exact archive using an empty package cache and local-only
-feed. It checks nine exact positive locations, no extra findings in accepted or
+feed. It checks four exact positive locations, no extra findings in accepted or
 generated sources, unchanged source after a CR1000 fixing pass, warnings-as-errors
 failure, and actual editorconfig error/disabled behavior. A separate failing
 compilation verifies only the expected CS0246 errors for containing generic

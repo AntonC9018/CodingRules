@@ -93,3 +93,12 @@ Document-scoped reanalysis reduces work after each accepted edit; it does not
 remove workspace loading, initial analysis or the retained semantic checks.
 Routine formatting should use the consumer's project/path-scoped wrapper;
 the broad semantic cleanup is not intended to run on each compilation.
+
+
+A measured one-file consumer wrapper invocation (`--project` plus `--path`,
+`--style --check`) took 19.5 seconds after normalization and changed no source
+bytes. The initial check found a line wrap in `OwnedConversionDirectory` and
+took 44.5 seconds; applying it took 39.3 seconds. The clean repeat stabilized
+in one pass. It includes tool restore and temporary-workspace setup, so this
+is not a measurement of analyzer execution alone. The formatting-only result
+is covered by 35 passing focused Microsoft/conversion tests.

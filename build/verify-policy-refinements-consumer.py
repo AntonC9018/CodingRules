@@ -22,24 +22,27 @@ def main():
         text = text.replace('</PropertyGroup>', '<CodingRulesAllowPositionalArguments>External::M:External.Api.Same(System.Int32,System.Int32)~System.Boolean</CodingRulesAllowPositionalArguments></PropertyGroup>')
         project.write_text(text)
         (consumer / '.editorconfig').write_text('root=true\n[*.cs]\ndotnet_analyzer_diagnostic.severity=none\n'
-            + ''.join(f'dotnet_diagnostic.{rule}.severity=warning\n' for rule in ['CR0500','CR0803','CR0804','CR1001']))
+            + ''.join(f'dotnet_diagnostic.{rule}.severity=warning\n' for rule in ['CR0500','CR0801','CR0803','CR0804','CR0805','CR1001']))
         build = ['dotnet', 'build', 'Consumer.csproj', '-t:Rebuild', '-v:minimal']
         output = run(build, consumer, environment)
         rules = {match[4] for match in REPORT.findall(output)}
-        assert rules == {'CR0803', 'CR0804', 'CR1001'}, output
+        assert rules == {'CR0801', 'CR0803', 'CR0804', 'CR0805', 'CR1001'}, output
         # Default builder and explicit marker exempt their declaring types.
         assert output.count('Use a configuration builder') == 4, output  # two source findings plus summary
         project.write_text(text.replace('</PropertyGroup>', '<CodingRulesBuilderSuffixes>Builder,Descriptor,Configurator,Setup</CodingRulesBuilderSuffixes></PropertyGroup>'))
         output = run(build, consumer, environment)
         assert 'warning CR1001:' not in output and 'warning CR0500:' not in output, output
-        command = ['dotnet', 'format', 'analyzers', 'Consumer.csproj', '--no-restore', '--diagnostics', 'CR0803', 'CR0804']
+        command = ['dotnet', 'format', 'analyzers', 'Consumer.csproj', '--no-restore', '--diagnostics', 'CR0801', 'CR0803', 'CR0804', 'CR0805']
         run(command, consumer, environment)
         fixed = (consumer / 'Consumer.cs').read_bytes()
         assert '(int) pid' in fixed.decode(), fixed
-        assert 'warning CR0803:' not in run(build, consumer, environment)
+        assert 'State = 1,' in fixed.decode(), fixed
+        assert '.Where(value => value > 0).ToArray()' not in fixed.decode(), fixed
+        output = run(build, consumer, environment)
+        assert not any('warning ' + rule + ':' in output for rule in ['CR0801','CR0803','CR0804','CR0805']), output
         run(command, consumer, environment)
         assert (consumer / 'Consumer.cs').read_bytes() == fixed
-        print('PASS: exact external assembly/MSBuild registrations; builder suffix property and marker; saved braces/cast fixes.')
+        print('PASS: exact external assembly/MSBuild registrations; builder suffix property and marker; saved record-update/braces/cast/chain fixes.')
 
 
 if __name__ == '__main__':

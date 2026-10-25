@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -53,4 +54,11 @@ public static class Consumer
             return (int)pid;
         return 0;
     }
+}
+
+public sealed record Frame(int State);
+public static class NewLayoutCases
+{
+    public static int[] Chain(int[] values) => values.Where(value => value > 0).ToArray();
+    public static Frame Update(Frame frame) => frame with { State = 1 };
 }

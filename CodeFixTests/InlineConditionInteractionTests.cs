@@ -105,10 +105,52 @@ public sealed class InlineConditionInteractionTests
         Assert.Contains(key == InlineConditionCodeFixProvider.ExtractKey ? "CheckCondition2" : "conditionResult2", fixedText);
     }
 
+    [Theory]
+    [InlineData(FixAllScope.Document, InlineConditionCodeFixProvider.ExtractKey)]
+    [InlineData(FixAllScope.Project, InlineConditionCodeFixProvider.ExtractKey)]
+    [InlineData(FixAllScope.Solution, InlineConditionCodeFixProvider.ExtractKey)]
+    [InlineData(FixAllScope.Document, InlineConditionCodeFixProvider.ExpandKey)]
+    [InlineData(FixAllScope.Project, InlineConditionCodeFixProvider.ExpandKey)]
+    [InlineData(FixAllScope.Solution, InlineConditionCodeFixProvider.ExpandKey)]
+    public async Task FixAllRespectsScopeAndCrossFileBindings(FixAllScope scope, string key)
+    {
+        var target = InlineConditionTestFixture.Document("class C { static bool M(bool a, bool b, bool c) { if (a && b && Helper.Check(c)) { return true; } return false; } }");
+        const string otherSource = "class D { static bool M(bool a, bool b, bool c) { if (a && b && Helper.Check(c)) { return true; } return false; } }";
+        var other = target.Project.AddDocument("Other.cs", otherSource);
+        var helpers = other.Project.AddDocument("Helper.cs", "static class Helper { public static bool Check(bool value) => value; }");
+        target = helpers.Project.GetDocument(target.Id)!;
+        var provider = new InlineConditionCodeFixProvider();
+        using var timeout = new CancellationTokenSource(System.TimeSpan.FromSeconds(20));
+        var context = new FixAllContext(target, provider, scope, key, provider.FixableDiagnosticIds,
+            new DiagnosticProvider(), timeout.Token);
+        var action = await provider.GetFixAllProvider().GetFixAsync(context);
+        var operation = Assert.Single((await action!.GetOperationsAsync(timeout.Token)).OfType<ApplyChangesOperation>());
+        var changed = await InlineConditionTestFixture.Reparse(operation.ChangedSolution.GetDocument(target.Id)!);
+        await InlineConditionTestFixture.Compiles(changed);
+        Assert.Empty(await DocumentDiagnostics(changed));
+        var changedOther = operation.ChangedSolution.GetDocument(other.Id)!;
+        if (scope == FixAllScope.Document)
+        {
+            Assert.Equal(otherSource, (await changedOther.GetTextAsync()).ToString());
+        }
+        else
+        {
+            Assert.Empty(await DocumentDiagnostics(await InlineConditionTestFixture.Reparse(changedOther)));
+        }
+        Assert.Equal((await helpers.GetTextAsync()).ToString(), (await operation.ChangedSolution.GetDocument(helpers.Id)!.GetTextAsync()).ToString());
+    }
+
+    private static async Task<IEnumerable<Diagnostic>> DocumentDiagnostics(Document document)
+    {
+        var tree = await document.GetSyntaxTreeAsync();
+        return (await InlineConditionTestFixture.Diagnostics(document))
+            .Where(diagnostic => diagnostic.Location.SourceTree == tree);
+    }
+
     private sealed class DiagnosticProvider : FixAllContext.DiagnosticProvider
     {
         public override async Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(Document document, CancellationToken cancellationToken) =>
-            await InlineConditionTestFixture.Diagnostics(document);
+            await DocumentDiagnostics(document);
 
         public override Task<IEnumerable<Diagnostic>> GetProjectDiagnosticsAsync(Project project, CancellationToken cancellationToken) =>
             Task.FromResult(Enumerable.Empty<Diagnostic>());
@@ -118,7 +160,7 @@ public sealed class InlineConditionInteractionTests
             var diagnostics = new List<Diagnostic>();
             foreach (var document in project.Documents)
             {
-                diagnostics.AddRange(await InlineConditionTestFixture.Diagnostics(document));
+                diagnostics.AddRange(await DocumentDiagnostics(document));
             }
 
             return diagnostics;

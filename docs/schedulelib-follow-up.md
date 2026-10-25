@@ -550,3 +550,38 @@ first method may remain adjacent to its ordinary receiver; property/namespace
 qualification by itself is not a chain. Subsequent null-conditional calls move
 as an intact ?. boundary. Automatic fixes retain comments and decline edits
 that would change implicit caller information or interpolated-string layout.
+
+
+## Validated rollout result — 2026-10-25
+
+The `9d24f23` candidate passed all 1,444 analyzer/code-fix/package tests and
+all 11 consumer gates on AWS. Its archive SHA-256 is
+`c3291f06d0dd381455e1328f552c10d01a88c2a31191d48de09453376702eeb5`.
+This validates the decision-function and fluent-chain implementations described
+above, rather than leaving their earlier pending-validation note current.
+
+ScheduleLib `d0b7d55` applies the tested source snapshot: both Release rebuilds
+pass with zero errors. A completion pass also applies CR0003–CR0006, which were
+missing from the initial bulk command; it clears the 111 nested-return findings
+exposed by decision extraction. No CR1001 findings remain under the approved
+Desktop suppression and implemented API redesigns.
+
+The combined inventory retains 370 source findings (162 exception context,
+94 tuple data, 27 conditions, 32 computation steps, 21 decision functions,
+22 fluent layout, four contract groups, seven inheritance reviews and one
+repeated-formatting candidate), plus 55 dependency-advisory rows. Automatic
+passes converge by saved-source hash. Unfiltered ScheduleLib suites reproduce
+the same 14 known failures: 712 solution cases and 769 CLI cases; there are
+no new failures. The earlier baseline count was 709 / 767, before the new
+follow-up coverage. No diagnostics were broadly disabled to obtain these counts.
+
+The 21 remaining decision-function findings include ref-like readers and `in`
+parameters that cannot be captured by the naive local-function rewrite. The
+22 chain-layout findings split into 13 caller-expression-sensitive Debug.Assert
+sites and nine interpolated-string sites. They remain manual findings, not
+newly accepted exceptions. A reflected private QuestPDF delegate with five
+arguments is a concrete candidate for the external-signature rationale; no
+blanket delegate exemption has been inferred.
+
+The consumer's `docs/analyzer-review-2026-10-25.md` records the grouped review
+cases, test outcomes, candidate provenance and measured unchanged-run costs.

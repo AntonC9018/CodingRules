@@ -72,3 +72,24 @@ These checks reuse one candidate archive; they do not publish it.
 dotnet run --project build/performance/FixAllBenchmark.csproj -c Release \
   -p:AnalyzerDirectory=/absolute/path/to/analyzers/dotnet/cs -- 256 12 20 conditions
 ```
+
+
+## Real-project unchanged invocations
+
+The stable `9d24f23` package converged on both ScheduleLib targets. An unchanged
+broad invocation still took 237 seconds for the solution and 104 seconds for
+the CLI test project on the 2-vCPU / 8-GiB worker. After whitespace normalization,
+the unchanged invocations took 211 and 104 seconds. Source hashes, rather than
+formatter messages, establish that each invocation left the C# files unchanged.
+Some hosts log files as formatted even when their final bytes are unchanged.
+
+A subsequent completion pass included CR0003–CR0006, omitted from the original
+command. It removed 111 nested-return findings exposed by decision extraction.
+Its final unchanged invocations, restricted to the affected files, took 196
+seconds for the solution and 80 seconds for CLI tests. These runs use different
+source sets and are not a controlled speedup comparison.
+
+Document-scoped reanalysis reduces work after each accepted edit; it does not
+remove workspace loading, initial analysis or the retained semantic checks.
+Routine formatting should use the consumer's project/path-scoped wrapper;
+the broad semantic cleanup is not intended to run on each compilation.

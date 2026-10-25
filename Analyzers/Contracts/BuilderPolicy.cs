@@ -47,13 +47,8 @@ internal sealed class BuilderPolicy
 
     private static INamedTypeSymbol? ResolveMarker(Compilation compilation)
     {
-        var assemblies = compilation.SourceModule.ReferencedAssemblySymbols
-            .Where(assembly => assembly.Name == "CodingRules.Shared").ToArray();
-        if (assemblies.Length != 1 || assemblies[0].Identity.Version != new Version(1, 0, 0, 0)
-            || assemblies[0].Identity.PublicKeyToken.Length != 0) return null;
-        var type = assemblies[0].GetTypeByMetadataName("CodingRules.ConfigurationBuilderAttribute");
-        if (type is not { IsSealed: true, DeclaredAccessibility: Accessibility.Public }
-            || !SymbolEqualityComparer.Default.Equals(type.BaseType, compilation.GetTypeByMetadataName("System.Attribute"))
+        var type = PolicyAttributeIdentity.Resolve(compilation, "CodingRules.ConfigurationBuilderAttribute");
+        if (type is null
             || !type.InstanceConstructors.Any(ctor => ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public)) return null;
         var usages = type.GetAttributes().Where(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass,
             compilation.GetTypeByMetadataName("System.AttributeUsageAttribute"))).ToArray();

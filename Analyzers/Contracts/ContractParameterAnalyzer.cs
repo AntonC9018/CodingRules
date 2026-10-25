@@ -51,7 +51,9 @@ public sealed class ContractParameterAnalyzer : DiagnosticAnalyzer
                 location = constructor.Identifier.GetLocation();
                 break;
             case DelegateDeclarationSyntax declaration:
-                contract = model.GetDeclaredSymbol(declaration, cancellation)?.DelegateInvokeMethod;
+                var delegateType = model.GetDeclaredSymbol(declaration, cancellation);
+                if (HasExternalSignature(delegateType, model.Compilation)) return;
+                contract = delegateType?.DelegateInvokeMethod;
                 location = declaration.Identifier.GetLocation();
                 break;
             case TypeDeclarationSyntax { ParameterList.Parameters.Count: > 3 } declaration:
@@ -78,6 +80,21 @@ public sealed class ContractParameterAnalyzer : DiagnosticAnalyzer
         if (count <= 3) return;
         if (contract.Parameters.Any(parameter => HasErrorType(parameter.Type))) return;
         context.ReportDiagnostic(Diagnostic.Create(Rule, location, count));
+    }
+
+    private static bool HasExternalSignature(INamedTypeSymbol? type, Compilation compilation)
+    {
+        var marker = PolicyAttributeIdentity.Resolve(compilation, "CodingRules.ExternalSignatureAttribute");
+        if (type is null || marker is null) return false;
+        return type.GetAttributes().Any(attribute =>
+            SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, marker)
+            && attribute.ConstructorArguments.Length == 2
+            && attribute.ConstructorArguments[0].Value is INamedTypeSymbol externalType
+            && externalType.TypeKind != TypeKind.Error
+            && externalType.DeclaringSyntaxReferences.IsEmpty
+            && !SymbolEqualityComparer.Default.Equals(externalType.ContainingAssembly, compilation.Assembly)
+            && attribute.ConstructorArguments[1].Value is string memberName
+            && !string.IsNullOrWhiteSpace(memberName));
     }
 
     private static bool OwnsMethodContract(IMethodSymbol method)

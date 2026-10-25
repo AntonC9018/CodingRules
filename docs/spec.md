@@ -623,3 +623,13 @@ positional. Scope-expression extraction remains a separate operation concern.
   (including alignment/format strings). It changes exact runtime exception type;
   individual API review is required. No Fix All is offered. Custom exception
   types, side-effecting holes and mutable formatting objects remain manual.
+
+
+### Explicit external reflection signatures
+
+A delegate whose parameter list is imposed by an external member can use
+`[ExternalSignature(typeof(ExternalType), "MemberName")]` from CodingRules.Shared.
+CR1000 retains ordinary owned-contract findings and accepts only a named
+external metadata owner through this marker. Reflection compatibility and the
+reason for retaining the signature remain a manual review; the attribute does
+not provide a blanket exemption for delegates or multi-parameter adapters.

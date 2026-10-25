@@ -103,3 +103,7 @@ public abstract class CompactBase
 public delegate void CompactHandler(int first, int second, CancellationToken cancellation);
 public readonly record struct LessonInput(string Lesson, DayOfWeek Day, TimeSpan Time, IReadOnlyList<int> Groups, string? Alternative);
 public delegate void GroupedLessonHandler(LessonInput input);
+
+// A reflection adapter keeps the argument list of the externally owned member.
+[CodingRules.ExternalSignature(typeof(System.Array), nameof(System.Array.Copy))]
+public delegate void ReflectedCopy(System.Array source, int sourceIndex, System.Array destination, int destinationIndex, int length);

@@ -128,3 +128,21 @@ covers the analyzer-side skip behavior. CI runs it against the
 same archive used for the other package gates. The shared manual-diagnostic
 consumer harness also runs the existing CR0900 gate with its original fixtures.
 No downstream API migration or NuGet publication is implied.
+
+
+## Explicit reflection adapters
+
+A delegate can declare `[CodingRules.ExternalSignature(typeof(ExternalType),
+"MemberName")]` when its argument list is imposed by a reflected external
+member. This is a deliberate per-delegate declaration, not a general adapter or
+delegate exemption. The marker names the external owner and member; its use must
+be reviewed with the actual reflection binding. CR1000 accepts only the marker
+from `CodingRules.Shared`, an external metadata type and a nonblank member name.
+A local type, source-defined lookalike attribute or unnamed member does not
+remove the finding. The marker does not validate reflective overload selection
+or runtime delegate compatibility. It applies only to delegates and has no
+effect on ordinary owned interfaces or methods.
+
+ScheduleLib's private QuestPDF `BorderDelegate` is the motivating case: grouping
+its five arguments would break `CreateDelegate` against the external border
+method. The existing external-interface/override exemptions remain independent.

@@ -212,6 +212,42 @@ public sealed class ContractParameterAnalyzerTests
 
     private static string Fixture(string name) => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "ContractParameters", name));
 
+    [Fact]
+    public async Task ExplicitExternalDelegateMarkerDoesNotExemptOrdinaryOrLocallyOwnedContracts()
+    {
+        var diagnostics = await Analyze(["""
+            using CodingRules;
+            class Local { }
+            [ExternalSignature(typeof(System.Console), nameof(System.Console.WriteLine))]
+            delegate void External(int a, int b, int c, int d);
+            [ExternalSignature(typeof(Local), "M")]
+            delegate void LocallyOwned(int a, int b, int c, int d);
+            [ExternalSignature(typeof(System.Console), " ")]
+            delegate void MissingMember(int a, int b, int c, int d);
+            delegate void Ordinary(int a, int b, int c, int d);
+            interface I { void Own(int a, int b, int c, int d); }
+            """], additionalReference: MetadataReference.CreateFromFile(typeof(ExternalSignatureAttribute).Assembly.Location));
+        Assert.Equal(new[] { "LocallyOwned", "MissingMember", "Ordinary", "Own" }, diagnostics.Select(Text));
+    }
+
+    [Fact]
+    public async Task SourceDeclaredExternalSignatureLookalikeDoesNotSuppressContractReview()
+    {
+        var diagnostics = await Analyze(["""
+            namespace CodingRules
+            {
+                [System.AttributeUsage(System.AttributeTargets.Delegate)]
+                public sealed class ExternalSignatureAttribute : System.Attribute
+                {
+                    public ExternalSignatureAttribute(System.Type type, string name) { }
+                }
+            }
+            [CodingRules.ExternalSignature(typeof(System.Console), "WriteLine")]
+            delegate void StillOwned(int a, int b, int c, int d);
+            """], additionalReference: MetadataReference.CreateFromFile(typeof(ExternalSignatureAttribute).Assembly.Location));
+        Assert.Equal("StillOwned", Text(Assert.Single(diagnostics)));
+    }
+
     private static string Text(Diagnostic diagnostic) => diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan);
 
     private static async Task<ImmutableArray<Diagnostic>> Analyze(string[] sources, string? path = null,

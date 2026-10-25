@@ -49,3 +49,5 @@ CR1500 | Readability | Warning | Implement non-generic collection members explic
 CR1600 | Readability | Warning | Expose interpolated exception context through typed properties
 CR0803 | Readability | Warning | Require braces around embedded statements
 CR0804 | Readability | Warning | Require spacing after casts
+
+CR1000 | Readability | Warning | Accept explicitly marked reflection delegates whose signatures are imposed by external members

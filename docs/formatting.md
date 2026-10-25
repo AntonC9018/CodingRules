@@ -45,8 +45,10 @@ is wrapped or split merely to enforce placement.
 **CR0801 / A1** expands object initializers with at least two members so each
 member and the closing brace start on separate lines. It handles compact and
 partly wrapped layouts, trailing commas, nested object initializers and comments.
-Empty and single-member initializers remain accepted; collection, array,
-anonymous-object and `with` initializers are outside this rule.
+Empty and single-member ordinary object initializers remain accepted. Record
+`with` initializers with one or more members require the opening block on a new
+line, one member per line, and a trailing comma. Collection, array and
+anonymous-object initializers remain outside this rule.
 
 **CR0802 / A1** removes an existing line break between an invocation's opening
 parenthesis and its sole positional explicit or target-typed constructor

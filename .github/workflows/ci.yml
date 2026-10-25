@@ -43,7 +43,7 @@ jobs:
         run: python3 build/verify-tuple-consumer.py artifacts/release
       - name: Verify packaged owned-contract findings and accepted signatures in a clean consumer
         run: python3 build/verify-contract-consumer.py artifacts/release
-      - name: Verify manual decision-value consumer
+      - name: Verify decision-value extraction consumer
         run: python3 build/verify-decision-value-consumer.py artifacts/release
       - name: Verify packaged overload configuration findings and accepted families in a clean consumer
         run: python3 build/verify-overload-consumer.py artifacts/release

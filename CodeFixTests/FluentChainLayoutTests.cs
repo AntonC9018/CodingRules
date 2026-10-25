@@ -16,6 +16,8 @@ public sealed class FluentChainLayoutTests
     [InlineData("using System.Linq; class C { int[] M(int[] values) => values.ToArray(); }", 0)]
     [InlineData("class C { C Next()=>this; C M(C c) => c.Next()?.Next(); }", 1)]
     [InlineData("class C { C Next()=>this; C M(C c) => c?.Next().Next(); }", 1)]
+    [InlineData("class C { static object Get()=>new C(); C Next()=>this; C M() => ((C)Get()).Next(); }", 1)]
+    [InlineData("class C { static C[] Get()=>new C[1]; C Next()=>this; C M() => Get()[0].Next(); }", 1)]
     public async Task CountsOnlyCallsAfterTheFirst(string source, int count)
     {
         var document = StatementOperationTestFixture.Document(source);

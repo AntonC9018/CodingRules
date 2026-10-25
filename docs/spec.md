@@ -21,8 +21,10 @@ bypass diagnostic suppressors.
 Other upstream rules and broader binary-operator policies remain disabled.
 Slice 03 adds CR0801 for object initializers with at least two members on
 separate lines and CR0802 for a sole positional constructor argument adjacent
-to an invocation's opening parenthesis. Empty/single-member initializers and
-already adjacent constructors remain accepted. Comment-separated argument
+to an invocation's opening parenthesis. Record `with` initializers also require
+a new-line block and trailing comma, including a single member. Empty and
+single-member ordinary object initializers and already adjacent constructors
+remain accepted. Comment-separated argument
 gaps, directives, invalid syntax and other argument policies are conservative
 boundaries. These layout fixes preserve initializer values and implicit
 caller-information constants across the final formatted document; affected
@@ -147,7 +149,8 @@ manual review; CR0900 provides no automatic fix.
 
 CR1000 is a manual Readability warning on locally owned interface methods,
 virtual/abstract methods, delegate types and abstract-class constructors with
-more than three parameters, counting context and cancellation. It reports at the
+more than three configuration parameters, counting context but excluding a
+trailing framework CancellationToken passed by value. It reports at the
 owned declaration; implementations and overrides do not repeat the finding.
 Abstract primary constructors are included. Externally imposed signatures are
 exempt; ordinary concrete constructors and nonvirtual instance methods remain

@@ -78,6 +78,10 @@ public sealed class FluentChainLayoutAnalyzer : DiagnosticAnalyzer
     {
         InvocationExpressionSyntax => true,
         ParenthesizedExpressionSyntax parentheses => HasCallResult(parentheses.Expression),
+        CastExpressionSyntax cast => HasCallResult(cast.Expression),
+        AwaitExpressionSyntax awaitExpression => HasCallResult(awaitExpression.Expression),
+        CheckedExpressionSyntax checkedExpression => HasCallResult(checkedExpression.Expression),
+        ElementAccessExpressionSyntax element => HasCallResult(element.Expression),
         PostfixUnaryExpressionSyntax suppression when suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression) => HasCallResult(suppression.Operand),
         MemberAccessExpressionSyntax member => HasCallResult(member.Expression),
         ConditionalAccessExpressionSyntax conditional => conditional.WhenNotNull is InvocationExpressionSyntax

@@ -14,7 +14,7 @@ public sealed class DecisionValueAnalyzer : DiagnosticAnalyzer
         "Name a branching decision with a local function",
         "Calculate '{0}' in a local function with explicit returns",
         "Readability", DiagnosticSeverity.Warning, isEnabledByDefault: true,
-        description: "A Boolean local assigned by every branch of an immediately following decision should be a named local function. Choosing the domain name and migrating the decision requires manual review.");
+        description: "A Boolean local assigned by every branch of an immediately following decision should be a named local function. Safe cases have a validated extraction; other cases remain manual findings.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
@@ -28,16 +28,28 @@ public sealed class DecisionValueAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
+        if (!TryGetDecision(declaration, context.SemanticModel, out var symbol, out _)) return;
+        var variable = declaration.Declaration.Variables[0];
+        context.ReportDiagnostic(Diagnostic.Create(Rule, variable.Identifier.GetLocation(), symbol.Name));
+    }
+
+    public static bool TryGetDecision(LocalDeclarationStatementSyntax declaration, SemanticModel model,
+        out ILocalSymbol symbol, out IfStatementSyntax decision)
+    {
+        symbol = null!;
+        decision = null!;
         if (declaration.ContainsDiagnostics || declaration.ContainsDirectives
-            || declaration.Parent is not BlockSyntax block || declaration.Declaration.Variables.Count != 1) return;
+            || declaration.Parent is not BlockSyntax block || declaration.Declaration.Variables.Count != 1) return false;
         var variable = declaration.Declaration.Variables[0];
         if (variable.Initializer is not null
-            || context.SemanticModel.GetDeclaredSymbol(variable) is not ILocalSymbol { Type.SpecialType: SpecialType.System_Boolean } symbol) return;
+            || model.GetDeclaredSymbol(variable) is not ILocalSymbol { Type.SpecialType: SpecialType.System_Boolean } local) return false;
         var index = block.Statements.IndexOf(declaration);
-        if (index + 1 >= block.Statements.Count || block.Statements[index + 1] is not IfStatementSyntax decision
-            || decision.ContainsDiagnostics || decision.ContainsDirectives) return;
-        if (!AssignsEveryBranch(decision, symbol, context.SemanticModel)) return;
-        context.ReportDiagnostic(Diagnostic.Create(Rule, variable.Identifier.GetLocation(), variable.Identifier.ValueText));
+        if (index + 1 >= block.Statements.Count || block.Statements[index + 1] is not IfStatementSyntax next
+            || next.ContainsDiagnostics || next.ContainsDirectives) return false;
+        if (!AssignsEveryBranch(next, local, model)) return false;
+        symbol = local;
+        decision = next;
+        return true;
     }
 
     private static bool AssignsEveryBranch(StatementSyntax statement, ILocalSymbol symbol, SemanticModel model)

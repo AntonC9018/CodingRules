@@ -610,3 +610,12 @@ subtypes with typed read-only properties and eager constructor templates.
 Formatting is a final cleanup step after edits stabilize; no persistent semantic
 result cache is implemented. Downstream validation is recorded in
 ScheduleLib's `docs/analyzer-context-cleanup-2026-10-25.md`.
+
+The final ScheduleLib source snapshot is `7d235fe`, validated on AWS on
+2026-10-26. Both Release rebuilds pass. CR1600, CR0200–CR0203 and CR0500 are
+clear; 180 unique source findings remain, with 55 dependency-advisory rows.
+The solution's 715 cases and CLI suite's 770 cases retain exactly the same
+11 and three baseline failures, and both suites pass when those known cases
+are excluded. The verified source was retrieved and byte-compared before the
+consumer commits. The grouped examples are in the consumer's
+`docs/analyzer-manual-examples-2026-10-25.md`; the package is still unpublished.

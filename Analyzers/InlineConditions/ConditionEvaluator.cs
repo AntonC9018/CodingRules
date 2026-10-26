@@ -184,6 +184,12 @@ internal sealed class ConditionEvaluator
             return SyntaxFactory.BinaryExpression(equal ? SyntaxKind.NotEqualsExpression : SyntaxKind.EqualsExpression,
                 rewritten.Left, rewritten.Right);
         }
+        if (unwrapped is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression)
+            && model.GetOperation(unary) is Microsoft.CodeAnalysis.Operations.IUnaryOperation { OperatorMethod: not null })
+        {
+            return SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                SyntaxFactory.ParenthesizedExpression(lowered));
+        }
         return Negate(lowered);
     }
 

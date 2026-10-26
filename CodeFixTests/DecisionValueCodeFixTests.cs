@@ -67,6 +67,34 @@ public sealed class DecisionValueCodeFixTests
                 child => child is Microsoft.CodeAnalysis.CSharp.Syntax.IfStatementSyntax));
     }
 
+    [Fact]
+    public async Task DecisionExtractionPreservesOverloadedNegation()
+    {
+        var document = StatementOperationTestFixture.Document("""
+            public struct Flag
+            {
+                public static bool operator !(Flag value) => false;
+                public static implicit operator bool(Flag value) => false;
+            }
+            public class C
+            {
+                public static string Run()
+                {
+                    bool result;
+                    if (!new Flag()) { result = true; }
+                    else { result = false; }
+                    return result.ToString();
+                }
+            }
+            """);
+        var before = await StatementOperationTestFixture.Run(document);
+        var action = Assert.Single(await Actions(document, Assert.Single(await Diagnostics(document))));
+        var operation = Assert.Single((await action.GetOperationsAsync(default)).OfType<ApplyChangesOperation>());
+        var changed = await StatementOperationTestFixture.Reparse(operation.ChangedSolution.GetDocument(document.Id)!);
+        Assert.Equal("False", before);
+        Assert.Equal(before, await StatementOperationTestFixture.Run(changed));
+    }
+
     [Theory]
     [InlineData("using System.Runtime.CompilerServices; class C { static bool Check([CallerMemberName] string name=\"\") => true; bool M() { bool value; if(Check()) { value=true; } else { value=false; } return value; } }")]
     [InlineData("struct C { bool flag; bool M() { bool value; if(flag) { value=true; } else { value=false; } return value; } }")]

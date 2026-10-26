@@ -25,7 +25,9 @@ public sealed class FluentChainLayoutCodeFixProvider : CodeFixProvider
             || CallerInformation.AffectedDefaults(call, call, model)) return;
         var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
         if (!FluentChainLayoutAnalyzer.TryGetChange(call, text, out var change)) return;
+        var changes = FluentChainLayoutAnalyzer.TryGetArgumentChange(call, text, out var argumentChange)
+            ? new[] { argumentChange, change } : new[] { change };
         context.RegisterCodeFix(CodeAction.Create("Put the chained call on a new line",
-            _ => Task.FromResult(context.Document.WithText(text.WithChanges(change))), DiagnosticIds.FluentChainLayout), context.Diagnostics);
+            _ => Task.FromResult(context.Document.WithText(text.WithChanges(changes))), DiagnosticIds.FluentChainLayout), context.Diagnostics);
     }
 }

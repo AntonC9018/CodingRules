@@ -43,12 +43,19 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
             return ImmutableArray<TextChange>.Empty;
         var recordUpdate = initializer.IsKind(SyntaxKind.WithInitializerExpression);
         if ((!recordUpdate && !initializer.IsKind(SyntaxKind.ObjectInitializerExpression))
-            || initializer.Expressions.Count < (recordUpdate ? 1 : 2)) return ImmutableArray<TextChange>.Empty;
+            || initializer.Expressions.Count < 1) return ImmutableArray<TextChange>.Empty;
 
         var changes = ImmutableArray.CreateBuilder<TextChange>();
         var newline = text.Lines.Select(line => text.ToString(TextSpan.FromBounds(line.End, line.EndIncludingLineBreak)))
             .FirstOrDefault(value => value.Length > 0) ?? "\n";
         var previous = initializer.OpenBraceToken;
+        if (initializer.Parent is BaseObjectCreationExpressionSyntax creation)
+        {
+            var previousToken = creation.ArgumentList?.CloseParenToken ?? creation.GetFirstToken();
+            if (creation is ObjectCreationExpressionSyntax explicitCreation && explicitCreation.ArgumentList is null)
+                previousToken = explicitCreation.Type.GetLastToken();
+            AddLineBreak(previousToken, initializer.OpenBraceToken, text, newline, changes);
+        }
         if (recordUpdate && initializer.Parent is WithExpressionSyntax update)
         {
             AddLineBreak(update.WithKeyword, initializer.OpenBraceToken, text, newline, changes);

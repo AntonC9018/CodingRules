@@ -2,6 +2,8 @@ namespace CodingRules;
 
 public static class DiagnosticIds
 {
+    public const string ElseAfterExit = "CR0205";
+
     public const string ExplicitReturnDecision = "CR0001";
     public const string NestedTernaryReturn = "CR0003";
     public const string NestedCoalesceReturn = "CR0004";

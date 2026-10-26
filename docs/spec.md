@@ -633,3 +633,16 @@ CR1000 retains ordinary owned-contract findings and accepts only a named
 external metadata owner through this marker. Reflection compatibility and the
 reason for retaining the signature remain a manual review; the attribute does
 not provide a blanket exemption for delegates or multi-parameter adapters.
+
+## Review refinements — 2026-10-26
+
+- All nonempty object initializers expand, including a single member.
+- A fluent chain of at most two calls may remain on one line when the full line
+  is at most 90 columns. Longer chains wrap. Invocation argument layout should
+  keep a wrapped expression below the enclosing opening parenthesis.
+- Return ternaries require explicit if statements even without an earlier guard.
+- CR0205 reports else after a terminating return/throw branch. Fixes preserve
+  declaration scopes and decline caller-expression-sensitive edits.
+- Boolean predicate extraction emits early returns, retaining short-circuit
+  evaluation and built-in operator meaning; it does not introduce a mutable
+  scratch-variable tree. CR0303 extraction removes redundant else branches.

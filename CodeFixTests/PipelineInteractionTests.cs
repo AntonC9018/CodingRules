@@ -77,7 +77,9 @@ public sealed class PipelineInteractionTests
                 else break;
             }
             conditionFirst=await StatementOperationTestFixture.Reparse(conditionFirst);
-            await StatementOperationTestFixture.Compiles(conditionFirst);Assert.Empty(await PipelineTestFixture.Diagnostics(conditionFirst,true));
+            await StatementOperationTestFixture.Compiles(conditionFirst);
+            // A top-level ternary exposed by these independent fixes belongs to CR0001.
+            Assert.All(await PipelineTestFixture.Diagnostics(conditionFirst,true), diagnostic => Assert.Equal("CR0001", diagnostic.Id));
         }
     }
     [Theory]

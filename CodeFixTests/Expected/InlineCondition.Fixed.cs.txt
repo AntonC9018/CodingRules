@@ -4,17 +4,17 @@ public static class Consumer
     {
         bool CheckCondition()
         {
-            if (!(first))
+            if (!first)
             {
                 return false;
             }
 
-            if (!(second))
+            if (!second)
             {
                 return false;
             }
 
-            if (!(third))
+            if (!third)
             {
                 return false;
             }

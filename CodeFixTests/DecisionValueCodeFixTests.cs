@@ -39,6 +39,17 @@ public sealed class DecisionValueCodeFixTests
         Assert.Contains("bool CalculateResult()", (await changed.GetTextAsync()).ToString());
     }
 
+    [Fact]
+    public async Task DecisionExtractionUsesEarlyReturnsWithoutElse()
+    {
+        var document = StatementOperationTestFixture.Document("class C { static bool M(bool a, bool b) { bool result; if(a) { result=true; } else { if(b) { result=true; } else { result=false; } } return result; } }");
+        var action = Assert.Single(await Actions(document, Assert.Single(await Diagnostics(document))));
+        var operation = Assert.Single((await action.GetOperationsAsync(default)).OfType<ApplyChangesOperation>());
+        var changed = operation.ChangedSolution.GetDocument(document.Id)!;
+        await StatementOperationTestFixture.Compiles(changed);
+        Assert.DoesNotContain("else", (await changed.GetTextAsync()).ToString());
+    }
+
     [Theory]
     [InlineData("using System.Runtime.CompilerServices; class C { static bool Check([CallerMemberName] string name=\"\") => true; bool M() { bool value; if(Check()) { value=true; } else { value=false; } return value; } }")]
     [InlineData("struct C { bool flag; bool M() { bool value; if(flag) { value=true; } else { value=false; } return value; } }")]
@@ -63,6 +74,21 @@ public sealed class DecisionValueCodeFixTests
         await StatementOperationTestFixture.Compiles(changed);
         Assert.Empty(await Diagnostics(changed));
         Assert.Contains("CalculateV2", (await changed.GetTextAsync()).ToString());
+    }
+
+    [Fact]
+    public async Task ReportsElseAfterExitAndPreservesBranchRuntime()
+    {
+        var document = StatementOperationTestFixture.Document("class C { public static string Run() { if(false) { return \"bad\"; } else { return \"good\"; } } }");
+        var compilation = await document.Project.GetCompilationAsync();
+        var diagnostics = await compilation!.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new EarlyReturnLayoutAnalyzer())).GetAnalyzerDiagnosticsAsync();
+        var actions = new List<CodeAction>();
+        await new EarlyReturnLayoutCodeFixProvider().RegisterCodeFixesAsync(new CodeFixContext(document,
+            Assert.Single(diagnostics), (action, _) => actions.Add(action), default));
+        var operation = Assert.Single((await Assert.Single(actions).GetOperationsAsync(default)).OfType<ApplyChangesOperation>());
+        var changed = operation.ChangedSolution.GetDocument(document.Id)!;
+        Assert.DoesNotContain("else", (await changed.GetTextAsync()).ToString());
+        Assert.Equal("good", await StatementOperationTestFixture.Run(changed));
     }
 
     private static async Task<ImmutableArray<Diagnostic>> Diagnostics(Document document)

@@ -109,39 +109,82 @@ internal sealed class ConditionEvaluator
 
     public BlockSyntax ReturnBody(ExpressionSyntax expression)
     {
-        var leaves = new List<ExpressionSyntax>();
-        var unwrapped = ConditionFacts.Unwrap(expression);
-        if (unwrapped is BinaryExpressionSyntax binary
-            && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression
-            && CollectGuards(unwrapped, binary.Kind(), leaves)
-            && !leaves.Any(leaf => model.GetConstantValue(leaf).HasValue))
-        {
-            var guards = new List<StatementSyntax>();
-            var isAnd = binary.IsKind(SyntaxKind.LogicalAndExpression);
-            foreach (var leaf in leaves)
-            {
-                var condition = LowerLeaf(leaf, guards, saveProducer: false);
-                if (isAnd)
-                {
-                    condition = Negate(condition);
-                }
-
-                guards.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(SyntaxFactory.ReturnStatement(
-                    SyntaxFactory.LiteralExpression(isAnd ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)))));
-            }
-
-            guards.Add(SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(
-                isAnd ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression)));
-            return SyntaxFactory.Block(guards);
-        }
-
-        var result = FreshName("conditionResult");
-        var statements = new List<StatementSyntax> { DeclareBool(result) };
-        statements.AddRange(Evaluate(expression, result));
-        statements.Add(SyntaxFactory.IfStatement(SyntaxFactory.IdentifierName(result), SyntaxFactory.Block(
-            SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)))));
-        statements.Add(SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
+        var statements = Guard(expression, exitWhenTrue: false, result: false);
+        statements.Add(SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)));
         return SyntaxFactory.Block(statements);
+    }
+
+    // Preserve the original short-circuit tree. Only literal terminal returns
+    // are repeated; producers are still evaluated once, at their original point.
+    private List<StatementSyntax> Guard(ExpressionSyntax expression, bool exitWhenTrue, bool result)
+    {
+        expression = ConditionFacts.Unwrap(expression);
+        if (expression is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
+        {
+            return Guard(unary.Operand, !exitWhenTrue, result);
+        }
+        if (expression is BinaryExpressionSyntax binary
+            && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
+        {
+            var disjunction = binary.IsKind(SyntaxKind.LogicalOrExpression);
+            if (exitWhenTrue == disjunction)
+            {
+                var statements = Guard(binary.Left, exitWhenTrue, result);
+                statements.AddRange(Guard(binary.Right, exitWhenTrue, result));
+                return statements;
+            }
+            // To reject A || B, inspect B only if A was false. To accept
+            // A && B, inspect B only if A was true.
+            return Gate(binary.Left, !disjunction, Guard(binary.Right, exitWhenTrue, result));
+        }
+        var prefixes = new List<StatementSyntax>();
+        var condition = LowerLeaf(expression, prefixes, saveProducer: false);
+        if (model.GetConstantValue(expression).HasValue) condition = Save(expression, condition, prefixes);
+        if (!exitWhenTrue) condition = NegateCondition(expression, condition);
+        prefixes.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(SyntaxFactory.ReturnStatement(
+            SyntaxFactory.LiteralExpression(result ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression)))));
+        return prefixes;
+    }
+
+    private List<StatementSyntax> Gate(ExpressionSyntax expression, bool whenTrue, List<StatementSyntax> body)
+    {
+        expression = ConditionFacts.Unwrap(expression);
+        if (expression is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
+            return Gate(unary.Operand, !whenTrue, body);
+        if (expression is BinaryExpressionSyntax binary
+            && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
+        {
+            // A gate with a mixed left subtree must not duplicate its body.
+            // A local function owns that decision and retains lazy evaluation.
+            var name = FreshName("CheckCondition");
+            var helper = SyntaxFactory.LocalFunctionStatement(
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)), name)
+                .WithBody(ReturnBody(expression));
+            var condition = (ExpressionSyntax)SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name));
+            if (!whenTrue) condition = Negate(condition);
+            return new List<StatementSyntax> { helper, SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(body)) };
+        }
+        var prefixes = new List<StatementSyntax>();
+        var leaf = LowerLeaf(expression, prefixes, saveProducer: false);
+        if (model.GetConstantValue(expression).HasValue) leaf = Save(expression, leaf, prefixes);
+        if (!whenTrue) leaf = NegateCondition(expression, leaf);
+        prefixes.Add(SyntaxFactory.IfStatement(leaf, SyntaxFactory.Block(body)));
+        return prefixes;
+    }
+
+    private ExpressionSyntax NegateCondition(ExpressionSyntax original, ExpressionSyntax lowered)
+    {
+        var unwrapped = ConditionFacts.Unwrap(original);
+        var value = ConditionFacts.Unwrap(lowered);
+        if (unwrapped is BinaryExpressionSyntax binary && value is BinaryExpressionSyntax rewritten
+            && binary.Kind() is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression
+            && model.GetOperation(binary) is Microsoft.CodeAnalysis.Operations.IBinaryOperation { OperatorMethod: null })
+        {
+            var equal = binary.IsKind(SyntaxKind.EqualsExpression);
+            return SyntaxFactory.BinaryExpression(equal ? SyntaxKind.NotEqualsExpression : SyntaxKind.EqualsExpression,
+                rewritten.Left, rewritten.Right);
+        }
+        return Negate(lowered);
     }
 
     private static bool CollectGuards(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
@@ -288,7 +331,8 @@ internal sealed class ConditionEvaluator
     {
         var name = FreshName("conditionValue");
         type ??= model.GetTypeInfo(original).Type;
-        var declaration = SyntaxFactory.VariableDeclaration(TypeSyntax(type), SyntaxFactory.SingletonSeparatedList(
+        var declaration = SyntaxFactory.VariableDeclaration(type is null ? TypeSyntax(type)
+            : EvaluationSyntax.Type(type, model, original.SpanStart), SyntaxFactory.SingletonSeparatedList(
             SyntaxFactory.VariableDeclarator(name).WithInitializer(SyntaxFactory.EqualsValueClause(
                 value.WithoutTrivia().WithAdditionalAnnotations(Linearized)))));
         statements.Add(SyntaxFactory.LocalDeclarationStatement(declaration));
@@ -306,6 +350,13 @@ internal sealed class ConditionEvaluator
         SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName(name),
             expression.WithAdditionalAnnotations(Linearized)));
 
-    internal static ExpressionSyntax Negate(ExpressionSyntax expression) => SyntaxFactory.PrefixUnaryExpression(
-        SyntaxKind.LogicalNotExpression, SyntaxFactory.ParenthesizedExpression(expression));
+    internal static ExpressionSyntax Negate(ExpressionSyntax expression)
+    {
+        var value = ConditionFacts.Unwrap(expression);
+        if (value is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
+            return ConditionFacts.Unwrap(unary.Operand);
+        var operand = value is IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax
+            ? value : SyntaxFactory.ParenthesizedExpression(value);
+        return SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand);
+    }
 }

@@ -51,3 +51,5 @@ CR0803 | Readability | Warning | Require braces around embedded statements
 CR0804 | Readability | Warning | Require spacing after casts
 
 CR1000 | Readability | Warning | Accept explicitly marked reflection delegates whose signatures are imposed by external members
+
+CR0205 | Readability | Warning | Remove else after a terminating return or throw branch

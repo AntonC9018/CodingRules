@@ -45,7 +45,9 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
     {
         var model = await document.GetSemanticModelAsync(token).ConfigureAwait(false);
         if (model is null || !DecisionValueAnalyzer.TryGetDecision(declaration, model, out var symbol, out var decision)
-            || CallerInformation.AffectedDefaults(decision, declaration, model)) return document;
+            || CallerInformation.AffectedDefaults(decision, declaration, model)
+            || decision.DescendantTrivia().Any(trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
+                || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia))) return document;
         var block = (BlockSyntax)declaration.Parent!;
         var space = declaration.Ancestors().FirstOrDefault(node => node is BaseMethodDeclarationSyntax
             or LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax or AccessorDeclarationSyntax) ?? block;
@@ -55,7 +57,7 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
         var marker = new SyntaxAnnotation(Generated);
         var helper = SyntaxFactory.LocalFunctionStatement(
                 SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)), name)
-            .WithBody(SyntaxFactory.Block(WithReturns(decision).WithoutTrailingTrivia()))
+            .WithBody(SyntaxFactory.Block(WithReturns(decision)))
             .WithLeadingTrivia(declaration.GetLeadingTrivia())
             .WithAdditionalAnnotations(marker, Formatter.Annotation);
         var variable = declaration.Declaration.Variables[0].WithInitializer(SyntaxFactory.EqualsValueClause(
@@ -81,15 +83,21 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
         return changed;
     }
 
-    private static StatementSyntax WithReturns(StatementSyntax statement) => statement switch
+    private static IEnumerable<StatementSyntax> WithReturns(StatementSyntax statement)
     {
-        BlockSyntax block => block.WithStatements(SyntaxFactory.SingletonList(WithReturns(block.Statements[0]))),
-        IfStatementSyntax decision => decision.WithStatement(WithReturns(decision.Statement))
-            .WithElse(decision.Else!.WithStatement(WithReturns(decision.Else.Statement))),
-        ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment } value =>
-            SyntaxFactory.ReturnStatement(assignment.Right).WithTriviaFrom(value),
-        _ => throw new InvalidOperationException("The decision shape must be validated before rewriting."),
-    };
+        switch (statement)
+        {
+            case BlockSyntax block:
+                return WithReturns(block.Statements[0]);
+            case IfStatementSyntax decision:
+                return new StatementSyntax[] { decision.WithStatement(SyntaxFactory.Block(WithReturns(decision.Statement)))
+                    .WithElse(null) }.Concat(WithReturns(decision.Else!.Statement));
+            case ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment } value:
+                return new[] { SyntaxFactory.ReturnStatement(assignment.Right).WithTriviaFrom(value) };
+            default:
+                throw new InvalidOperationException("The decision shape must be validated before rewriting.");
+        }
+    }
 
     private static Dictionary<string, int> CompilerMessages(SemanticModel model, CancellationToken token) =>
         model.GetDiagnostics(cancellationToken: token)

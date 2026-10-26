@@ -182,3 +182,25 @@ APIs or planned production capabilities. Change tests to exercise the actual API
 and keep fixture construction inside tests. This extends the existing constructor
 policy; referenced-assembly consumers cannot be inferred from an absence of local
 call sites alone.
+
+## Prefer early exits and compact safe expressions
+
+Do not retain an else branch after a branch that unconditionally returns or
+throws. Express Boolean decisions with early returns; avoid nested constant
+true/false branches and reassigned Boolean scratch variables for one predicate.
+Negate built-in equality comparisons by using their opposite operator, and
+remove redundant Boolean negation parentheses. Do not invert user-defined
+operators or floating-point relational comparisons without proving equivalence.
+
+Use a record struct for the approved tuple data concepts, with domain-specific
+names and unchanged ownership and representation semantics. Method-local
+transient grouping does not establish that unrelated concepts share a record.
+
+Object initializers expand onto new lines even with one member. Up to two
+receiver-chain calls may stay on one line only when the full line is at most
+90 characters. Longer chains wrap; when a wrapped call is an argument, prefer
+placing the argument below its enclosing call's opening parenthesis. Debug
+assertions should supply a meaningful explicit message rather than depending
+on incidental caller-expression source text. Replacing public API assertions
+with configurable safe-by-default checks is tracked separately in ScheduleLib
+issue #249; that migration is not a formatting action.

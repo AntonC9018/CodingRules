@@ -654,3 +654,14 @@ runtime regression proves overloaded negation is preserved: the prior rewrite
 changed False to True for a custom operator; the corrected rewrite retains the
 operator call. The mixed-condition regression covers all 16 input combinations
 and their lazy call traces. The candidate remains unpublished.
+
+ScheduleLib source `b1c9aed` adopts that candidate and passes both Release
+rebuilds and final formatting checks. The full 715-case solution and 770-case
+CLI runs retain exactly their 11 and three baseline failures; both filtered
+suites pass. The final inventory contains 142 source findings and 55 unchanged
+dependency-advisory rows. All 94 tuple sites are migrated; new record
+constructions expose additional computation-step findings. Global qualifiers,
+owned Google contract findings and the shared timestamp-formatting finding are
+clear. The tested 538-file archive was retrieved and byte-compared before
+committing. ScheduleLib's `docs/analyzer-readability-cleanup-2026-10-27.md`
+records the remaining rule counts and provenance.

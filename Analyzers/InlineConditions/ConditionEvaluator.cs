@@ -172,7 +172,7 @@ internal sealed class ConditionEvaluator
         return prefixes;
     }
 
-    private ExpressionSyntax NegateCondition(ExpressionSyntax original, ExpressionSyntax lowered)
+    internal ExpressionSyntax NegateCondition(ExpressionSyntax original, ExpressionSyntax lowered)
     {
         var unwrapped = ConditionFacts.Unwrap(original);
         var value = ConditionFacts.Unwrap(lowered);

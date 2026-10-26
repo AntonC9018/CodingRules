@@ -54,10 +54,11 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
         var names = new EvaluationNames(space, model);
         var stem = "Calculate" + char.ToUpperInvariant(symbol.Name[0]) + symbol.Name.Substring(1);
         var name = names.Fresh(stem);
+        var evaluator = new ConditionEvaluator(model, space);
         var marker = new SyntaxAnnotation(Generated);
         var helper = SyntaxFactory.LocalFunctionStatement(
                 SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)), name)
-            .WithBody(SyntaxFactory.Block(WithReturns(decision)))
+            .WithBody(SyntaxFactory.Block(WithReturns(decision, model, evaluator)))
             .WithLeadingTrivia(declaration.GetLeadingTrivia())
             .WithAdditionalAnnotations(marker, Formatter.Annotation);
         var variable = declaration.Declaration.Variables[0].WithInitializer(SyntaxFactory.EqualsValueClause(
@@ -83,15 +84,26 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
         return changed;
     }
 
-    private static IEnumerable<StatementSyntax> WithReturns(StatementSyntax statement)
+    private static IEnumerable<StatementSyntax> WithReturns(StatementSyntax statement, SemanticModel model, ConditionEvaluator evaluator)
     {
         switch (statement)
         {
             case BlockSyntax block:
-                return WithReturns(block.Statements[0]);
+                return WithReturns(block.Statements[0], model, evaluator);
             case IfStatementSyntax decision:
-                return new StatementSyntax[] { decision.WithStatement(SyntaxFactory.Block(WithReturns(decision.Statement)))
-                    .WithElse(null) }.Concat(WithReturns(decision.Else!.Statement));
+                var whenTrue = WithReturns(decision.Statement, model, evaluator).ToArray();
+                var whenFalse = WithReturns(decision.Else!.Statement, model, evaluator).ToArray();
+                // Put the terminal fallback first so an AND-shaped tree does
+                // not remain a staircase after extraction.
+                if (whenFalse.Length == 1 && whenFalse[0] is ReturnStatementSyntax
+                    && model.GetTypeInfo(decision.Condition).Type?.SpecialType == SpecialType.System_Boolean)
+                {
+                    var guard = decision.WithCondition(evaluator.NegateCondition(decision.Condition, decision.Condition))
+                        .WithStatement(SyntaxFactory.Block(whenFalse)).WithElse(null);
+                    return new StatementSyntax[] { guard }.Concat(whenTrue);
+                }
+                return new StatementSyntax[] { decision.WithStatement(SyntaxFactory.Block(whenTrue))
+                    .WithElse(null) }.Concat(whenFalse);
             case ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment } value:
                 return new[] { SyntaxFactory.ReturnStatement(assignment.Right).WithTriviaFrom(value) };
             default:

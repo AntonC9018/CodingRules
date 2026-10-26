@@ -50,6 +50,23 @@ public sealed class DecisionValueCodeFixTests
         Assert.DoesNotContain("else", (await changed.GetTextAsync()).ToString());
     }
 
+    [Fact]
+    public async Task NestedConjunctionExtractionUsesFlatEarlyReturns()
+    {
+        var document = StatementOperationTestFixture.Document("class C { static bool M(bool a,bool b) { bool result; if(a) { if(b) {result=true;} else {result=false;} } else {result=false;} return result; } }");
+        var action = Assert.Single(await Actions(document, Assert.Single(await Diagnostics(document))));
+        var operation = Assert.Single((await action.GetOperationsAsync(default)).OfType<ApplyChangesOperation>());
+        var changed = operation.ChangedSolution.GetDocument(document.Id)!;
+        await StatementOperationTestFixture.Compiles(changed);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("if (!a)", text);
+        Assert.DoesNotContain("else", text);
+        var root = (await changed.GetSyntaxRootAsync())!;
+        Assert.All(root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.IfStatementSyntax>(),
+            decision => Assert.DoesNotContain(decision.Statement.DescendantNodes(),
+                child => child is Microsoft.CodeAnalysis.CSharp.Syntax.IfStatementSyntax));
+    }
+
     [Theory]
     [InlineData("using System.Runtime.CompilerServices; class C { static bool Check([CallerMemberName] string name=\"\") => true; bool M() { bool value; if(Check()) { value=true; } else { value=false; } return value; } }")]
     [InlineData("struct C { bool flag; bool M() { bool value; if(flag) { value=true; } else { value=false; } return value; } }")]

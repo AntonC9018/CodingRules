@@ -19,6 +19,18 @@ public sealed partial class FormattingReuseTests
         await AssertStableLayout(document, changed);
     }
 
+    [Fact]
+    public async Task LeadingCommentDoesNotPushSingleMemberInitializerAcrossTheLine()
+    {
+        var document = Document("class C { public int Value; void Use(C x) {} void M() { Use(\n    /* keep */ new C { Value = 1 }); } }");
+        var changed = await Formatter.FormatAsync(await FixAll(document));
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("/* keep */", text);
+        Assert.DoesNotContain("/* keep */ new", text);
+        Assert.DoesNotContain(new string(' ', 30) + "{", text);
+        await AssertStableLayout(document, changed);
+    }
+
     [Theory]
     [InlineData("new()", "new()")]
     [InlineData("new Payload()", "new Payload()")]

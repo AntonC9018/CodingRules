@@ -55,6 +55,17 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
             if (creation is ObjectCreationExpressionSyntax explicitCreation && explicitCreation.ArgumentList is null)
                 previousToken = explicitCreation.Type.GetLastToken();
             AddLineBreak(previousToken, initializer.OpenBraceToken, text, newline, changes);
+            // A block comment immediately before new otherwise becomes the
+            // formatter's alignment anchor, pushing the initializer far right.
+            var first = creation.GetFirstToken();
+            if (first.LeadingTrivia.Any(trivia => trivia.IsKind(SyntaxKind.MultiLineCommentTrivia)
+                && text.Lines.GetLineFromPosition(trivia.Span.End).LineNumber
+                    == text.Lines.GetLineFromPosition(first.SpanStart).LineNumber))
+            {
+                var line = text.Lines.GetLineFromPosition(first.SpanStart);
+                var indentation = new string(text.ToString(line.Span).TakeWhile(c => c is ' ' or '\t').ToArray());
+                changes.Add(new TextChange(new TextSpan(first.SpanStart, 0), newline + indentation));
+            }
         }
         if (recordUpdate && initializer.Parent is WithExpressionSyntax update)
         {

@@ -50,7 +50,8 @@ public sealed class InitializerCalls
                 Services = 9
             });
         ExecuteTask(
-            /* retain leading block comment */ new()
+            /* retain leading block comment */
+            new()
             {
                 Services = 0
             });

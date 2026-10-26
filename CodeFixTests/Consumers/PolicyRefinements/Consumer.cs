@@ -59,6 +59,18 @@ public static class Consumer
 public sealed record Frame(int State);
 public static class NewLayoutCases
 {
-    public static int[] Chain(int[] values) => values.Where(value => value > 0).ToArray();
+    public static int[] Chain(int[] values) => values.Where(value => value > 0).Select(value => value).ToArray();
+    public static bool Branch(bool value)
+    {
+        if (value)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    public static int[] Short(int[] xs) => xs.Skip(1).ToArray();
     public static Frame Update(Frame frame) => frame with { State = 1 };
 }

@@ -45,9 +45,15 @@ public sealed class InitializerCalls
             Services = 8,
         });
         ExecuteTask( // retain call comment
-            new() { Services = 9 });
+            new()
+            {
+                Services = 9
+            });
         ExecuteTask(
-            /* retain leading block comment */ new() { Services = 0 });
+            /* retain leading block comment */ new()
+            {
+                Services = 0
+            });
         ExecuteTask(new()
         {
             Context = 0, /* between members */

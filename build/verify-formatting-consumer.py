@@ -100,7 +100,7 @@ def main():
         output = run(["dotnet", "build", project, "--no-restore"], consumer, environment)
         reports = set(SOURCE_WARNING.findall(output))
         counts = Counter(report[3] for report in reports)
-        assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2, "CR0801": 8, "CR0802": 4}, counts
+        assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2, "CR0801": 10, "CR0802": 4}, counts
         assert not re.search(r"warning (?:AD|CS|ROS)\d+", output), output
         original_behavior = run(["dotnet", "run", "--project", project, "--no-build"], consumer, environment)
         assert original_behavior.splitlines() == ["123345667890123", "new CallerPayload(line: 0) { A = 1, B = 2 }", "18", "19", "27", "42"], original_behavior

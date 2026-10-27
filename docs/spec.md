@@ -19,12 +19,12 @@ package replaces the common upstream fixer assembly with a CodingRules RCS1016
 provider that independently declines these shapes, including in CLI hosts that
 bypass diagnostic suppressors.
 Other upstream rules and broader binary-operator policies remain disabled.
-Slice 03 adds CR0801 for object initializers with at least two members on
-separate lines and CR0802 for a sole positional constructor argument adjacent
-to an invocation's opening parenthesis. Record `with` initializers also require
-a new-line block and trailing comma, including a single member. Empty and
-single-member ordinary object initializers and already adjacent constructors
-remain accepted. Comment-separated argument
+CR0801 requires every nonempty object initializer, including a single-member
+initializer, to place its members on separate lines. CR0802 places a sole
+positional constructor argument adjacent to an invocation's opening parenthesis.
+Record `with` initializers also require a new-line block and trailing comma,
+including a single member. Empty object initializers and already adjacent
+constructors remain accepted. Comment-separated argument
 gaps, directives, invalid syntax and other argument policies are conservative
 boundaries. These layout fixes preserve initializer values and implicit
 caller-information constants across the final formatted document; affected
@@ -106,8 +106,8 @@ through `.editorconfig`.
   should use `if` or `switch` statements with explicit returns. A final
   predicate, nullable expression, or ternary that still chooses among outcomes
   violates the rule, regardless of return type.
-- Returning a value already known to represent one outcome is allowed. A lone
-  conditional return with no preceding conditional return is also allowed.
+- Returning a value already known to represent one outcome is allowed. A return
+  ternary requires explicit branches even without a preceding conditional return.
 - For a final lookup that may be absent, test the result and return the found
   value in its own branch, then explicitly return the fallback. Match the
   direction of earlier branches that return found values.
@@ -275,7 +275,7 @@ acceptance cases for the return rule.
 - [`Program.IsUnsafeFileName`](https://github.com/AntonC9018/FindJobHelper/blob/0f579ef650d0f06c7bb04ff7c32b8daf97b65986/src/FindJobHelper.WebUi/Program.cs#L419-L432)
   returns a predicate after two guards and should warn.
 - The lone ternary in [`Program.cs`](https://github.com/AntonC9018/FindJobHelper/blob/0f579ef650d0f06c7bb04ff7c32b8daf97b65986/src/FindJobHelper.WebUi/Program.cs#L313-L317)
-  should not warn. The explicit final `if` and fallback in
+  should warn even without an earlier guard. The explicit final `if` and fallback in
   [`ExperienceDatabaseShadow`](https://github.com/AntonC9018/FindJobHelper/blob/0f579ef650d0f06c7bb04ff7c32b8daf97b65986/src/FindJobHelper.WebUi/ExperienceDatabaseShadow.cs#L81-L105)
   should not warn either.
 - The private `IndexFor` helper's `-1` fallback in
@@ -285,17 +285,18 @@ acceptance cases for the return rule.
 ## First implementation: explicit return decisions
 
 Diagnostic `CR0001` is a warning by default. It checks block-bodied methods,
-accessors, local functions, and lambdas independently. A preceding top-level
-`if` guard in the same body must have a branch that returns unconditionally.
-The analyzer does not treat a return inside a nested function or deeper control
-flow as a guard for the containing body. Generated code is excluded.
+accessors, local functions, and lambdas independently. A final top-level return
+ternary is a candidate even without an earlier guard. For other compound final
+returns, a preceding top-level `if` guard in the same body must have a branch
+that returns unconditionally. The analyzer does not treat a return inside a
+nested function or deeper control flow as a guard for the containing body.
+Generated code is excluded.
 
-After such a guard, the final return is a candidate when it contains a
-ternary, null-coalescing expression, boolean predicate or boolean-returning
-call, or nullable-returning call. A plain `return value;` and a lone ternary
-without an earlier guard are allowed. Switch expressions and more complex
-control flow are deferred to later tickets. The analyzer reports a candidate
-only when the code fix can rewrite it without changing evaluation order or
+After such a guard, the final return is also a candidate when it contains a
+null-coalescing expression, boolean predicate or boolean-returning call, or
+nullable-returning call. A plain `return value;` is allowed. Switch expressions
+and more complex control flow are deferred to later tickets. The analyzer reports
+a candidate only when the code fix can rewrite it without changing evaluation order or
 the number of times a subexpression runs.
 
 The fix replaces the final decision with explicit `if` branches and returns.
@@ -314,8 +315,9 @@ Acceptance tests include:
   expression can be evaluated once and rewritten with an explicit fallback.
 - The same patterns work in a block-bodied local function, accessor, and
   lambda, without a nested function's guard affecting its parent.
-- A lone conditional return, a plain value return, generated code, and a
-  switch expression do not report in this ticket. A conditional return inside
+- A lone return ternary reports and fixes to explicit branches without requiring
+  an earlier guard. A plain value return, generated code, and a switch expression
+  do not report in this ticket. A conditional return inside
   deeper control flow also does not report in this ticket; it reports from
   ticket #2 onward through the nested return decision rules below.
 - Fixes preserve comments and do not change the number or order of evaluations
@@ -633,3 +635,16 @@ CR1000 retains ordinary owned-contract findings and accepts only a named
 external metadata owner through this marker. Reflection compatibility and the
 reason for retaining the signature remain a manual review; the attribute does
 not provide a blanket exemption for delegates or multi-parameter adapters.
+
+## Review refinements — 2026-10-26
+
+- All nonempty object initializers expand, including a single member.
+- A fluent chain of at most two calls may remain on one line when the full line
+  is at most 90 columns. Longer chains wrap. Invocation argument layout should
+  keep a wrapped expression below the enclosing opening parenthesis.
+- Return ternaries require explicit if statements even without an earlier guard.
+- CR0205 reports else after a terminating return/throw branch. Fixes preserve
+  declaration scopes and decline caller-expression-sensitive edits.
+- Boolean predicate extraction emits early returns, retaining short-circuit
+  evaluation and built-in operator meaning; it does not introduce a mutable
+  scratch-variable tree. CR0303 extraction removes redundant else branches.

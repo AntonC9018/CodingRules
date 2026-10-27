@@ -232,7 +232,7 @@ internal sealed class OperationEvaluator
             ? new SyntaxAnnotation(ConversionAnnotation, ConversionFingerprint(((CSharpCompilation)model.Compilation).ClassifyConversion(savedType, type)))
             : Conversion(original, type);
         var name = Names.Fresh(OperationValueNames.Stem(original, model));
-        var declaration = SyntaxFactory.VariableDeclaration(EvaluationSyntax.Type(type), SyntaxFactory.SingletonSeparatedList(
+        var declaration = SyntaxFactory.VariableDeclaration(EvaluationSyntax.Type(type, model, original.SpanStart), SyntaxFactory.SingletonSeparatedList(
             SyntaxFactory.VariableDeclarator(name).WithInitializer(SyntaxFactory.EqualsValueClause(value.WithoutTrivia()
                 .WithAdditionalAnnotations(conversion, new SyntaxAnnotation(LinearizedAnnotation))))));
         statements.Add(SyntaxFactory.LocalDeclarationStatement(declaration));

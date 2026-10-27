@@ -26,8 +26,23 @@ public struct MyTaskMethodBuilder<T>
 {
     private AsyncTaskMethodBuilder<T> inner;
 
-    public static MyTaskMethodBuilder<T> Create() => new MyTaskMethodBuilder<T> { inner = AsyncTaskMethodBuilder<T>.Create() };
-    public MyTask<T> Task => new MyTask<T> { Wrapped = inner.Task };
+    public static MyTaskMethodBuilder<T> Create()
+    {
+        return new MyTaskMethodBuilder<T>
+        {
+            inner = AsyncTaskMethodBuilder<T>.Create(),
+        };
+    }
+    public MyTask<T> Task
+    {
+        get
+        {
+            return new MyTask<T>
+            {
+                Wrapped = inner.Task,
+            };
+        }
+    }
     public void SetResult(T result) => inner.SetResult(result);
     public void SetException(Exception exception) => inner.SetException(exception);
     public void SetStateMachine(IAsyncStateMachine stateMachine) => inner.SetStateMachine(stateMachine);

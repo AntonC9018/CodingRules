@@ -9,15 +9,57 @@ namespace CodingRules;
 
 public sealed class FluentChainLayoutTests
 {
+    [Fact]
+    public async Task AcceptsTwoCallsOnlyWithinNinetyColumns()
+    {
+        var shortLine = StatementOperationTestFixture.Document("class C { C Next()=>this; C M(C x)=>x.Next().Next(); }");
+        Assert.Empty(await Diagnostics(shortLine));
+        var longLine = StatementOperationTestFixture.Document("class C { C Next()=>this; C M(C x)=>" + new string(' ', 65) + "x.Next().Next(); }");
+        Assert.Single(await Diagnostics(longLine));
+        var threeCalls = StatementOperationTestFixture.Document("class C { C Next()=>this; C M(C x)=>x.Next().Next().Next(); }");
+        Assert.Equal(2, (await Diagnostics(threeCalls)).Length);
+    }
+
+    [Theory]
+    [InlineData("((C)Get().Next()).Next()")]
+    [InlineData("(Get().Next()).Next()")]
+    [InlineData("Get().AsArray()[0].Next()")]
+    [InlineData("Get().Next()!.Next()")]
+    [InlineData("checked(Get().Next()).Next()")]
+    public async Task ReceiverWrappersDoNotHideCallsInLongChains(string expression)
+    {
+        var document = StatementOperationTestFixture.Document($$"""
+            class C
+            {
+                static C Get() => new();
+                C Next() => this;
+                C[] AsArray() => new[] { this };
+                C M() => {{expression}};
+            }
+            """);
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Equal(2, (await Diagnostics(document)).Length);
+        for (var pass = 0; pass < 3; pass++)
+        {
+            var diagnostics = await Diagnostics(document);
+            if (diagnostics.IsEmpty) break;
+            var action = Assert.Single(await Actions(document, diagnostics[0]));
+            var operation = Assert.Single((await action.GetOperationsAsync(default)).OfType<ApplyChangesOperation>());
+            document = await StatementOperationTestFixture.Reparse(operation.ChangedSolution.GetDocument(document.Id)!);
+        }
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await Diagnostics(document));
+    }
+
     [Theory]
     [InlineData("using System.Linq; class C { int[] M(int[] values) => values.Where(x => x > 0).ToArray(); }", 1)]
     [InlineData("using System.Linq; class C { int[] M(int[] values) => values.Where(x => x > 0).Select(x => x + 1).ToArray(); }", 2)]
     [InlineData("using System.Linq; class C { int[] M(int[] values) => values.Where(x => x > 0)\n    .ToArray(); }", 0)]
     [InlineData("using System.Linq; class C { int[] M(int[] values) => values.ToArray(); }", 0)]
-    [InlineData("class C { C Next()=>this; C M(C c) => c.Next()?.Next(); }", 1)]
-    [InlineData("class C { C Next()=>this; C M(C c) => c?.Next().Next(); }", 1)]
-    [InlineData("class C { static object Get()=>new C(); C Next()=>this; C M() => ((C)Get()).Next(); }", 1)]
-    [InlineData("class C { static C[] Get()=>new C[1]; C Next()=>this; C M() => Get()[0].Next(); }", 1)]
+    [InlineData("class C { C Next()=>this; C M(C c) => c.Next()?.Next(); }", 0)]
+    [InlineData("class C { C Next()=>this; C M(C c) => c?.Next().Next(); }", 0)]
+    [InlineData("class C { static object Get()=>new C(); C Next()=>this; C M() => ((C)Get()).Next(); }", 0)]
+    [InlineData("class C { static C[] Get()=>new C[1]; C Next()=>this; C M() => Get()[0].Next(); }", 0)]
     public async Task CountsOnlyCallsAfterTheFirst(string source, int count)
     {
         var document = StatementOperationTestFixture.Document(source);
@@ -73,8 +115,8 @@ public sealed class FluentChainLayoutTests
     [Fact]
     public async Task CommentsKeepTheirAttachment()
     {
-        var document = StatementOperationTestFixture.Document("class C { C Next()=>this; C M(C c)=>c.Next() /* keep */ .Next(); }");
-        var diagnostic = Assert.Single(await Diagnostics(document));
+        var document = StatementOperationTestFixture.Document("class C { C Next()=>this; C M(C c)=>c.Next() /* keep */ .Next().Next(); }");
+        var diagnostic = (await Diagnostics(document)).OrderBy(d => d.Location.SourceSpan.Start).First();
         Assert.Empty(await Actions(document, diagnostic));
     }
 

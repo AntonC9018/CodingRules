@@ -619,3 +619,72 @@ The solution's 715 cases and CLI suite's 770 cases retain exactly the same
 are excluded. The verified source was retrieved and byte-compared before the
 consumer commits. The grouped examples are in the consumer's
 `docs/analyzer-manual-examples-2026-10-25.md`; the package is still unpublished.
+
+## Early-return and data-shape review — 2026-10-26
+
+The maintainer approves the reviewed tuple concepts as domain record structs,
+including the stylesheet resource result and its shared interface contract.
+Keep different concepts separate rather than introducing a generic pair bag.
+Google token operations share client/account/scope inputs; consent uses the
+same context for symmetry, while resolution has its own request. Authorization,
+storage and cancellation retain their distinct operation-stage roles.
+
+CR0200 mixed-condition lowering created mutable Boolean decision trees;
+CR0303 extracted those trees while retaining redundant else branches. The
+approved output is early returns with preserved short-circuit evaluation,
+without changing calculated results. CR0001 now includes a lone return ternary;
+CR0205 reports else after a terminating return/throw. Negation folding is limited
+to equivalent built-in operations. Single-member object initializers expand.
+Fluent chains allow at most two calls on a line of at most 90 characters;
+wrapped arguments start below their enclosing call's opening parenthesis.
+
+`ShouldSkipMerge` takes the `in LessonGroups` parameter explicitly rather than
+capturing it. The StringSearch helper returns remaining memory from explicit
+inputs; a broader LessonGroups redesign remains deferred. The calendar test's
+shared invariant round-trip timestamp representation has an agreed local helper.
+Meaningful explicit assertion messages replace dependence on incidental source
+text. Replacing public API assertions with safe-by-default controlled checks is
+tracked in [ScheduleLib #249](https://github.com/AntonC9018/ScheduleLib/issues/249).
+
+Candidate `f2902d4` passes all 1,470 analyzer/code-fix/package tests and all
+11 consumer gates on AWS. The archive SHA-256 is
+`79972b6df1af48368f3e6e9cff36c01e5dbb858a82c8ba5d59b654a78be7edd6`.
+The nested-conjunction extraction regression requires flat guards. A separate
+runtime regression proves overloaded negation is preserved: the prior rewrite
+changed False to True for a custom operator; the corrected rewrite retains the
+operator call. The mixed-condition regression covers all 16 input combinations
+and their lazy call traces. The candidate remains unpublished.
+
+ScheduleLib source `b1c9aed` adopts that candidate and passes both Release
+rebuilds and final formatting checks. The full 715-case solution and 770-case
+CLI runs retain exactly their 11 and three baseline failures; both filtered
+suites pass. The final inventory contains 142 source findings and 55 unchanged
+dependency-advisory rows. All 94 tuple sites are migrated; new record
+constructions expose additional computation-step findings. Global qualifiers,
+owned Google contract findings and the shared timestamp-formatting finding are
+clear. The tested 538-file archive was retrieved and byte-compared before
+committing. ScheduleLib's `docs/analyzer-readability-cleanup-2026-10-27.md`
+records the remaining rule counts and provenance.
+
+## CodeRabbit review of the latest readability changes — 2026-10-27
+
+The broad PR exceeded CodeRabbit's 100-file limit, so review-only
+[PR #35](https://github.com/AntonC9018/CodingRules/pull/35) isolates the latest
+28 files from `5751b0e` through `f70b2e2`. All four findings were independently
+validated and fixed in `2abd37a`: CR0205 release classification, receiver-wrapper
+traversal in the short-chain check, and the earlier initializer and return-rule
+spec contradictions. All four review threads are resolved.
+
+Five wrapper regressions failed before the fix; all 18 focused chain tests pass
+afterward. Final AWS validation passes all 1,475 solution tests and all 11
+consumer gates against a single candidate archive. Its SHA-256 is
+`b87e5d8e8d5c87a7ade0dbc3583c15a27ce354c48e2cfb1c64f457bddb81b50a`.
+ScheduleLib's two Release rebuilds pass with that candidate, retaining the same
+142 source findings and 55 advisory rows. All 538 source hashes match the earlier
+full-test snapshot, so the consumer tests were not repeated. The new grouped
+review is in ScheduleLib's `docs/analyzer-remaining-clusters-2026-10-27.md`.
+
+Analyzer-only regressions remain in CodingRules. Temporary debugging probes are
+isolated from the consumer's permanent suite; retain a valuable regression as
+an appropriately generalized analyzer/code-fix test rather than adding it to
+ScheduleLib. The cluster proposals do not authorize their implementation.

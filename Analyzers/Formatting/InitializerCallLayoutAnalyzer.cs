@@ -43,12 +43,30 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
             return ImmutableArray<TextChange>.Empty;
         var recordUpdate = initializer.IsKind(SyntaxKind.WithInitializerExpression);
         if ((!recordUpdate && !initializer.IsKind(SyntaxKind.ObjectInitializerExpression))
-            || initializer.Expressions.Count < (recordUpdate ? 1 : 2)) return ImmutableArray<TextChange>.Empty;
+            || initializer.Expressions.Count < 1) return ImmutableArray<TextChange>.Empty;
 
         var changes = ImmutableArray.CreateBuilder<TextChange>();
         var newline = text.Lines.Select(line => text.ToString(TextSpan.FromBounds(line.End, line.EndIncludingLineBreak)))
             .FirstOrDefault(value => value.Length > 0) ?? "\n";
         var previous = initializer.OpenBraceToken;
+        if (initializer.Parent is BaseObjectCreationExpressionSyntax creation)
+        {
+            var previousToken = creation.ArgumentList?.CloseParenToken ?? creation.GetFirstToken();
+            if (creation is ObjectCreationExpressionSyntax explicitCreation && explicitCreation.ArgumentList is null)
+                previousToken = explicitCreation.Type.GetLastToken();
+            AddLineBreak(previousToken, initializer.OpenBraceToken, text, newline, changes);
+            // A block comment immediately before new otherwise becomes the
+            // formatter's alignment anchor, pushing the initializer far right.
+            var first = creation.GetFirstToken();
+            if (first.LeadingTrivia.Any(trivia => trivia.IsKind(SyntaxKind.MultiLineCommentTrivia)
+                && text.Lines.GetLineFromPosition(trivia.Span.End).LineNumber
+                    == text.Lines.GetLineFromPosition(first.SpanStart).LineNumber))
+            {
+                var line = text.Lines.GetLineFromPosition(first.SpanStart);
+                var indentation = new string(text.ToString(line.Span).TakeWhile(c => c is ' ' or '\t').ToArray());
+                changes.Add(new TextChange(new TextSpan(first.SpanStart, 0), newline + indentation));
+            }
+        }
         if (recordUpdate && initializer.Parent is WithExpressionSyntax update)
         {
             AddLineBreak(update.WithKeyword, initializer.OpenBraceToken, text, newline, changes);

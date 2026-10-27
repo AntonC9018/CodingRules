@@ -9,6 +9,28 @@ namespace CodingRules;
 
 public sealed partial class FormattingReuseTests
 {
+    [Fact]
+    public async Task ExpandsSingleMemberInitializer()
+    {
+        var document = Document("class C { C Value = new() { Number = 1 }; public int Number; }");
+        Assert.Contains(await Diagnostics(document), d => d.Id == "CR0801");
+        var changed = await Formatter.FormatAsync(await FixAll(document));
+        Assert.Contains("new()\n", (await changed.GetTextAsync()).ToString());
+        await AssertStableLayout(document, changed);
+    }
+
+    [Fact]
+    public async Task LeadingCommentDoesNotPushSingleMemberInitializerAcrossTheLine()
+    {
+        var document = Document("class C { public int Value; void Use(C x) {} void M() { Use(\n    /* keep */ new C { Value = 1 }); } }");
+        var changed = await Formatter.FormatAsync(await FixAll(document));
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("/* keep */", text);
+        Assert.DoesNotContain("/* keep */ new", text);
+        Assert.DoesNotContain(new string(' ', 30) + "{", text);
+        await AssertStableLayout(document, changed);
+    }
+
     [Theory]
     [InlineData("new()", "new()")]
     [InlineData("new Payload()", "new Payload()")]
@@ -176,7 +198,6 @@ public sealed partial class FormattingReuseTests
     }
 
     [Theory]
-    [InlineData("Use(new() { A = 1 });")]
     [InlineData("Use(new C());")]
     [InlineData("Use(new()\n        {\n            A = 1, // first\n            B = 2,\n        });")]
     [InlineData("Use( // keep explanation\n            new C());")]

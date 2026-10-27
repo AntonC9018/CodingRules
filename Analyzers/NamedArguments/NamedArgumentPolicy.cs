@@ -16,6 +16,7 @@ internal sealed class NamedArgumentPolicy
     private static readonly ConditionalWeakTable<Compilation, NamedArgumentPolicy> Policies = new();
     private readonly Compilation compilation;
     private readonly INamedTypeSymbol? marker;
+    private readonly string assemblyRegistrations = "";
     private readonly ImmutableHashSet<IMethodSymbol> builtins;
     private readonly ConcurrentDictionary<string, ImmutableHashSet<IMethodSymbol>> registrations = new(StringComparer.Ordinal);
 
@@ -45,6 +46,12 @@ internal sealed class NamedArgumentPolicy
             || !usage.NamedArguments.Any(pair => pair.Key == "AllowMultiple" && Equals(pair.Value.Value, false))
             || !usage.NamedArguments.Any(pair => pair.Key == "Inherited" && Equals(pair.Value.Value, false))) return;
         marker = type;
+        var external = assemblies[0].GetTypeByMetadataName("CodingRules.AllowExternalPositionalArgumentsAttribute");
+        assemblyRegistrations = string.Join("|", compilation.Assembly.GetAttributes()
+            .Where(attribute => external is not null && SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, external)
+                && attribute.ConstructorArguments.Length == 2
+                && attribute.ConstructorArguments.All(argument => argument.Value is string))
+            .Select(attribute => attribute.ConstructorArguments[0].Value + "::" + Uri.EscapeDataString((string)attribute.ConstructorArguments[1].Value!)));
     }
 
     public static NamedArgumentPolicy For(Compilation compilation) => Policies.GetValue(compilation, value => new NamedArgumentPolicy(value));
@@ -53,9 +60,11 @@ internal sealed class NamedArgumentPolicy
     {
         token.ThrowIfCancellationRequested();
         var declaration = Declaration(method);
-        if (builtins.Contains(declaration) || Annotated(declaration)) return true;
+        if (builtins.Contains(declaration) || EqualityName(declaration) || Annotated(declaration)) return true;
         var raw = options.GetOptions(tree).TryGetValue(Option, out var file) ? file
-            : options.GlobalOptions.TryGetValue(Option, out var global) ? global : "";
+            : options.GlobalOptions.TryGetValue(Option, out var global) ? global
+            : options.GlobalOptions.TryGetValue("build_property.CodingRulesAllowPositionalArguments", out var property) ? property : "";
+        raw = raw.Length == 0 ? assemblyRegistrations : raw + "|" + assemblyRegistrations;
         if (!registrations.TryGetValue(raw, out var resolved))
         {
             resolved = Resolve(raw, token);
@@ -70,6 +79,10 @@ internal sealed class NamedArgumentPolicy
         var original = (method.ReducedFrom ?? method).OriginalDefinition;
         return original.PartialDefinitionPart ?? original;
     }
+
+    private static bool EqualityName(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Boolean
+        && method.Name.StartsWith("Equals", StringComparison.Ordinal)
+        && (method.Name.Length == 6 || method.Name.Substring(6).All(character => character >= '0' && character <= '9'));
 
     private bool Annotated(IMethodSymbol method) => marker is not null && new[] { method, method.PartialImplementationPart }
         .Where(part => part is not null).Any(part => part!.GetAttributes().Any(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, marker)));

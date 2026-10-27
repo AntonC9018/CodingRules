@@ -1,0 +1,74 @@
+using System.Reflection;
+
+public class C
+{
+    private object? current;
+    private bool keep;
+    private int writes;
+    private object? Effectful { get => current; set { writes++; current = value; } }
+    private object? this[int index] { get => current; set { writes++; current = value; } }
+
+    // ScheduleLib 12e601e, CliSettings.Removals.cs:271-275 (A13).
+    private static object? Traverse(object? value, PropertyInfo[] members)
+    {
+        object? current = value;
+        foreach (var member in members)
+        {
+            current = current is null ? null : member.GetValue(current);
+        }
+        return current;
+    }
+
+    private static int Forward(int current, int next, bool keep)
+    {
+        current = keep ? current : next;
+        return current;
+    }
+
+    private static int Reverse(int current, int next, bool update)
+    {
+        current = update ? next : current;
+        return current;
+    }
+
+    private object? Property => current = keep ? current : "property";
+    private object? Accessor
+    {
+        get => current = keep ? current : "getter";
+        set => current = keep ? current : value;
+    }
+
+    // Accepted: these setters must still run on the unchanged-value branch.
+    private void Accepted(bool keep, object? next, int[] array, int index)
+    {
+        Effectful = keep ? Effectful : next;
+        this[index] = keep ? this[index] : next;
+        array[index] = keep ? array[index] : 7;
+        current = keep ? next : "different";
+    }
+
+    public static string Run()
+    {
+        var c = new C();
+        var member = typeof(Box).GetProperty(nameof(Box.Value))!;
+        var absent = Traverse(null, new[] { member });
+        var found = Traverse(new Box(), new[] { member });
+        var results = new System.Collections.Generic.List<object?> { absent ?? "null", found };
+        foreach (var keep in new[] { true, false })
+        {
+            c.keep = keep;
+            c.current = "old";
+            results.Add(c.Property);
+            results.Add(c.Accessor);
+            c.Accessor = "setter";
+            results.Add(c.current);
+            c.Accepted(keep, "accepted", new[] { 3 }, 0);
+            results.Add(c.writes);
+            results.Add(Forward(1, 2, keep));
+            results.Add(Reverse(1, 2, keep));
+        }
+        return string.Join("|", results);
+    }
+
+    private sealed class Box { public object Value => "reflected"; }
+}

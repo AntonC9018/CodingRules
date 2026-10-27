@@ -68,3 +68,25 @@ Analyzer and code fix unit tests now create source with
 `DiagnosticDescriptor` and marks the expected span. The SDK imports the marker
 method for both test roles. Each test uses `AnalyzerTestBuilder` or
 `CodeFixTestBuilder` to run the corresponding Roslyn test.
+
+## Selected formatting delivery (slice 02)
+
+The SDK's existing pack target intentionally does not infer arbitrary analyzer
+package assets. CodingRules now explicitly packs the complete Roslyn 4.7
+assembly sets from Roslynator.Analyzers/Formatting.Analyzers 5.0.1, using
+restore-only PackageReferences with generated path properties and standard
+NuGet pack items. No shared SDK extension is needed for this pinned delivery.
+The [formatting gate](formatting.md) restores the resulting Anton package in an
+empty cache from an Anton-only feed, proves default build diagnostics, applies
+exported CLI fixes, and checks exact output and a second formatter pass.
+Tests also load the same upstream assets on the Roslyn 4.10 floor. The existing
+test dependency audit issue above remains separate and unchanged.
+
+## Test dependency repair on 2026-10-21
+
+The analyzer and code fix test projects now explicitly pin
+`System.Security.Cryptography.Pkcs` 9.0.21, the first patched 9.x version, to
+repair the test-only Roslyn testing/NuGet.Packaging dependency graph. Ordinary
+restore succeeds with warnings-as-errors and no audit exception. This matches
+SourceGenerators' shared repair; remove these pins when SDK 1.1.1 is published
+and adopted. The 2026-10-15 validation above records the original baseline.

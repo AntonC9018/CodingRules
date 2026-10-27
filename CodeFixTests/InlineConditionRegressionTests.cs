@@ -11,6 +11,59 @@ namespace CodingRules;
 
 public sealed class InlineConditionRegressionTests
 {
+    [Xunit.Fact]
+    public async System.Threading.Tasks.Task MixedPredicateExtractionHasNoMutableDecisionScratch()
+    {
+        var document = InlineConditionTestFixture.Document("class C { bool M(bool a,bool b,bool c,bool d) { return (a || b) && (c || d); } }");
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        await InlineConditionTestFixture.Compiles(changed);
+        var text = (await changed.GetTextAsync()).ToString();
+        Xunit.Assert.DoesNotContain("bool conditionResult;", text);
+        Xunit.Assert.DoesNotContain("else", text);
+    }
+
+    [Fact]
+    public async Task BuiltInNegationUsesDirectGuardsAndInverseEquality()
+    {
+        var document = InlineConditionTestFixture.Document("class C { enum Exit { Success, Cancelled, Other } bool M(bool effects, Exit exit) { return effects && exit != Exit.Success && exit != Exit.Cancelled; } }");
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        await InlineConditionTestFixture.Compiles(changed);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("if (!effects)", text);
+        Assert.Contains("if (exit == Exit.Success)", text);
+        Assert.Contains("if (exit == Exit.Cancelled)", text);
+        Assert.DoesNotContain("!(", text);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    public async Task MixedPredicateKeepsEveryOutcomeAndLazyCallTrace(int bits)
+    {
+        var source = "public class C { static string trace=\"\"; static bool Read(int bit) { trace += bit; return (" + bits
+            + " & (1 << bit)) != 0; } static bool Match() { return (Read(0) || Read(1)) && (Read(2) || Read(3)); } public static string Run() { var value=Match(); return trace + value; } }";
+        var document = InlineConditionTestFixture.Document(source);
+        var before = await InlineConditionTestFixture.Run(document);
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        await InlineConditionTestFixture.Compiles(changed);
+        Assert.Equal(before, await InlineConditionTestFixture.Run(changed));
+        Assert.DoesNotContain("bool conditionResult;", (await changed.GetTextAsync()).ToString());
+    }
+
     [Theory]
     [InlineData("(A() && int.Parse(\"bad\") > 0) == true", false)]
     [InlineData("(A() && int.Parse(\"1\") > 0) == false", false)]

@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Operations;
+using Microsoft.CodeAnalysis.Simplification;
 
 namespace CodingRules;
 
@@ -17,7 +18,10 @@ internal static class StatementOperationFixes
         var root = OperationSiteRewrites.Rewrite(plan, extract);
         root = root.ReplaceNodes(root.GetAnnotatedNodes(OperationSiteRewrites.Generated)
             .Concat(root.GetAnnotatedNodes(ConditionSiteRewrites.Generated)), (_, node) => node.WithAdditionalAnnotations(Formatter.Annotation));
+        root = root.ReplaceNodes(root.GetAnnotatedNodes(EvaluationSyntax.GeneratedType),
+            (_, node) => node.WithAdditionalAnnotations(Simplifier.Annotation));
         var changed = document.WithSyntaxRoot(root);
+        changed = await Simplifier.ReduceAsync(changed, Simplifier.Annotation, cancellationToken: token).ConfigureAwait(false);
         var options = await changed.GetOptionsAsync(token).ConfigureAwait(false);
         var text = (await document.GetTextAsync(token).ConfigureAwait(false)).ToString();
         var first = text.IndexOf('\n');
@@ -46,7 +50,8 @@ internal static class StatementOperationFixes
         var seen = new HashSet<string>();
         foreach (var node in formatted.GetAnnotatedNodes(OperationEvaluator.BindingAnnotation))
         {
-            var original = node.GetAnnotations(OperationEvaluator.BindingAnnotation).Single().Data!;
+            var original = UniqueAnnotationData(node, OperationEvaluator.BindingAnnotation);
+            if (original is null) return false;
             if (!originalCalls.TryGetValue(original, out var binding)) continue;
             if (!seen.Add(original) || Binding(parsed.FindNode(node.Span, getInnermostNodeForTie: true), model) != binding) return false;
         }
@@ -55,7 +60,7 @@ internal static class StatementOperationFixes
         {
             var value = parsed.FindNode(node.Span, getInnermostNodeForTie: true) as ExpressionSyntax;
             if (value is null || OperationEvaluator.ConversionFingerprint(model.GetConversion(value))
-                    != node.GetAnnotations(OperationEvaluator.ConversionAnnotation).Single().Data) return false;
+                    != UniqueAnnotationData(node, OperationEvaluator.ConversionAnnotation)) return false;
         }
         foreach (var node in formatted.GetAnnotatedNodes(OperationEvaluator.LinearizedAnnotation)
                      .Concat(formatted.GetAnnotatedNodes(OperationSiteRewrites.Selected)))
@@ -66,6 +71,14 @@ internal static class StatementOperationFixes
         // Annotations locate occurrences only for validation. The saved tree is
         // classified from scratch and has no annotation-based exemptions.
         return Violations(parsed, model) < Violations(plan.Owner.SyntaxTree.GetRoot(token), plan.Model);
+    }
+
+    private static string? UniqueAnnotationData(SyntaxNode node, string kind)
+    {
+        // Transparent wrappers can attach the same proof more than once.
+        // Conflicting proof values still prevent the rewrite.
+        var values = node.GetAnnotations(kind).Select(annotation => annotation.Data).Distinct().ToArray();
+        return values.Length == 1 ? values[0] : null;
     }
 
     private static int Violations(SyntaxNode root, SemanticModel model) => root.DescendantNodes()
@@ -79,6 +92,8 @@ internal static class StatementOperationFixes
     private static string Binding(SyntaxNode node, SemanticModel model)
     {
         var operation = model.GetOperation(node);
+        if (operation is INameOfOperation nameOf)
+            return "nameof:" + nameOf.ConstantValue.Value;
         var method = operation switch { IInvocationOperation call => call.TargetMethod, IObjectCreationOperation creation => creation.Constructor, _ => null };
         var arguments = operation switch { IInvocationOperation call => call.Arguments, IObjectCreationOperation creation => creation.Arguments, _ => default };
         var instance = operation is IInvocationOperation invocation ? invocation.Instance?.Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) : null;

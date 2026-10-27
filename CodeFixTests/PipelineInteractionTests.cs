@@ -25,7 +25,15 @@ public sealed class PipelineInteractionTests
         Assert.Equal("CR0001",Assert.Single(await PipelineTestFixture.Diagnostics(projectionFirst,true)).Id);
         foreach(var operationKey in new[]{StatementOperationCodeFixProvider.ExtractKey,StatementOperationCodeFixProvider.ExpandKey}){
             var operationFirst=await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document,operationKey));
-            for(var pass=0;pass<3&&(await PipelineTestFixture.Diagnostics(operationFirst)).Length!=0;pass++)operationFirst=await PipelineTestFixture.Fix(operationFirst,key);
+            for (var pass = 0; pass < 3; pass++)
+            {
+                var remaining = await PipelineTestFixture.Diagnostics(operationFirst);
+                if (remaining.IsEmpty) break;
+                // Computation expansion already supplies the block body. Its
+                // remaining stage-implementation finding requires extraction.
+                var nextKey = remaining[0].Id == DiagnosticIds.StageImplementation ? PipelineCodeFixProvider.ExtractKey : key;
+                operationFirst = await PipelineTestFixture.Fix(operationFirst, nextKey);
+            }
             Assert.Equal("CR0001",Assert.Single(await PipelineTestFixture.Diagnostics(operationFirst,true)).Id);
         }
     }
@@ -69,7 +77,9 @@ public sealed class PipelineInteractionTests
                 else break;
             }
             conditionFirst=await StatementOperationTestFixture.Reparse(conditionFirst);
-            await StatementOperationTestFixture.Compiles(conditionFirst);Assert.Empty(await PipelineTestFixture.Diagnostics(conditionFirst,true));
+            await StatementOperationTestFixture.Compiles(conditionFirst);
+            // A top-level ternary exposed by these independent fixes belongs to CR0001.
+            Assert.All(await PipelineTestFixture.Diagnostics(conditionFirst,true), diagnostic => Assert.Equal("CR0001", diagnostic.Id));
         }
     }
     [Theory]

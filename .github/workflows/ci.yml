@@ -37,6 +37,22 @@ jobs:
           --output artifacts/release
       - name: Test the exact package and record provenance
         run: python3 build/package_artifact.py artifacts/release
+      - name: Verify packaged formatting diagnostics and fixes in a clean consumer
+        run: python3 build/verify-formatting-consumer.py artifacts/release
+      - name: Verify packaged tuple data findings and accepted cases in a clean consumer
+        run: python3 build/verify-tuple-consumer.py artifacts/release
+      - name: Verify packaged owned-contract findings and accepted signatures in a clean consumer
+        run: python3 build/verify-contract-consumer.py artifacts/release
+      - name: Verify decision-value extraction consumer
+        run: python3 build/verify-decision-value-consumer.py artifacts/release
+      - name: Verify packaged overload configuration findings and accepted families in a clean consumer
+        run: python3 build/verify-overload-consumer.py artifacts/release
+      - name: Verify packaged compound guards and status filters in a clean consumer
+        run: python3 build/verify-condition-consumer.py artifacts/release
+      - name: Verify packaged computed arguments and service lookup fixes in a clean consumer
+        run: python3 build/verify-computation-consumer.py artifacts/release
+      - name: Verify policy refinements consumer
+        run: python3 build/verify-policy-refinements-consumer.py artifacts/release
       - name: Retain tested main package
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ToolDirectory>$(MSBuildSDKsPath)/../DotnetTools/dotnet-format</ToolDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(ToolDirectory)/Microsoft.CodeAnalysis*.dll" />
+    <Reference Include="$(ToolDirectory)/Microsoft.DiaSymReader.dll" />
+    <Reference Include="$(ToolDirectory)/System.Composition*.dll" />
+    <Reference Include="$(AnalyzerDirectory)/CodingRules.Analyzers.dll" />
+    <Reference Include="$(AnalyzerDirectory)/CodingRules.CodeFixes.dll" />
+  </ItemGroup>
+</Project>

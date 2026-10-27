@@ -63,6 +63,8 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
     internal static DiagnosticDescriptor? Select(ExpressionSyntax expression, SemanticModel model,
         AnalyzerConfigOptionsProvider options, CancellationToken token)
     {
+        if (expression.DescendantNodesAndSelf().Concat(expression.Ancestors()).OfType<InterpolatedStringExpressionSyntax>()
+            .Any(message => ExceptionContextAnalyzer.IsMessage(message, model))) return null;
         var facts = OperationFacts.Create(expression, model);
         if (!facts.HasReason || OperationPlan.Create(expression, model, token) is null) return null;
         foreach (var rule in Priority)

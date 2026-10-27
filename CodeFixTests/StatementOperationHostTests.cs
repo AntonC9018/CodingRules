@@ -25,7 +25,7 @@ public sealed class StatementOperationHostTests
         var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
         Assert.Equal("CR0300", diagnostic.Id);
         var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
-        Assert.Equal(new[] { StatementOperationCodeFixProvider.ExtractKey, StatementOperationCodeFixProvider.ExpandKey },
+        Assert.Equal(new[] { StatementOperationCodeFixProvider.ExpandKey, StatementOperationCodeFixProvider.ExtractKey },
             actions.Select(action => action.EquivalenceKey));
         foreach (var action in actions)
         {

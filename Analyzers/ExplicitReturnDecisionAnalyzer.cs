@@ -11,12 +11,12 @@ public sealed class ExplicitReturnDecisionAnalyzer : DiagnosticAnalyzer
 {
     public static readonly DiagnosticDescriptor Rule = new(
         DiagnosticIds.ExplicitReturnDecision,
-        "Make return outcomes explicit after a guard clause",
-        "Make this return decision explicit after the earlier guard clause",
+        "Make return outcomes explicit",
+        "Make this return decision explicit with if statements",
         "Readability",
         DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "After a conditional early return, return each outcome from an explicit branch.");
+        description: "Return ternary outcomes from explicit branches. After an earlier guard, other compound return decisions also require explicit outcomes.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(Rule);
@@ -41,7 +41,8 @@ public sealed class ExplicitReturnDecisionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!ReturnDecisionAnalysis.HasTopLevelGuard(block))
+        if (!ReturnDecisionAnalysis.HasTopLevelGuard(block)
+            && ReturnDecisionAnalysis.Unwrap(finalReturn.Expression!) is not ConditionalExpressionSyntax)
         {
             return;
         }

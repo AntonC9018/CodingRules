@@ -23,17 +23,17 @@ public sealed class InlineConditionFormattingTests
                 {
                     bool CheckCondition()
                     {
-                        if (!(a))
+                        if (!a)
                         {
                             return false;
                         }
 
-                        if (!(b))
+                        if (!b)
                         {
                             return false;
                         }
 
-                        if (!(c))
+                        if (!c)
                         {
                             return false;
                         }
@@ -68,17 +68,17 @@ public sealed class InlineConditionFormattingTests
             {
                 bool M(bool a, bool b, bool c)
                 {
-                    if (!(a))
+                    if (!a)
                     {
                         return false;
                     }
 
-                    if (!(b))
+                    if (!b)
                     {
                         return false;
                     }
 
-                    if (!(c))
+                    if (!c)
                     {
                         return false;
                     }
@@ -106,7 +106,7 @@ public sealed class InlineConditionFormattingTests
         var document = InlineConditionTestFixture.Document(source, config);
         var changed = await InlineConditionTestFixture.Fix(document, key);
         var text = (await changed.GetTextAsync()).ToString();
-        Assert.Contains("\t\tif (!(a)) {\n", text);
+        Assert.Contains("\t\tif (!a) {\n", text);
         await InlineConditionTestFixture.Compiles(changed);
         var method = (await changed.GetSyntaxRootAsync())!.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>().First();
         Assert.DoesNotContain("\r\n", method.ToFullString());

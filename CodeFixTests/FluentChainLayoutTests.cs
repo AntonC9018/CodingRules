@@ -21,6 +21,37 @@ public sealed class FluentChainLayoutTests
     }
 
     [Theory]
+    [InlineData("((C)Get().Next()).Next()")]
+    [InlineData("(Get().Next()).Next()")]
+    [InlineData("Get().AsArray()[0].Next()")]
+    [InlineData("Get().Next()!.Next()")]
+    [InlineData("checked(Get().Next()).Next()")]
+    public async Task ReceiverWrappersDoNotHideCallsInLongChains(string expression)
+    {
+        var document = StatementOperationTestFixture.Document($$"""
+            class C
+            {
+                static C Get() => new();
+                C Next() => this;
+                C[] AsArray() => new[] { this };
+                C M() => {{expression}};
+            }
+            """);
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Equal(2, (await Diagnostics(document)).Length);
+        for (var pass = 0; pass < 3; pass++)
+        {
+            var diagnostics = await Diagnostics(document);
+            if (diagnostics.IsEmpty) break;
+            var action = Assert.Single(await Actions(document, diagnostics[0]));
+            var operation = Assert.Single((await action.GetOperationsAsync(default)).OfType<ApplyChangesOperation>());
+            document = await StatementOperationTestFixture.Reparse(operation.ChangedSolution.GetDocument(document.Id)!);
+        }
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await Diagnostics(document));
+    }
+
+    [Theory]
     [InlineData("using System.Linq; class C { int[] M(int[] values) => values.Where(x => x > 0).ToArray(); }", 1)]
     [InlineData("using System.Linq; class C { int[] M(int[] values) => values.Where(x => x > 0).Select(x => x + 1).ToArray(); }", 2)]
     [InlineData("using System.Linq; class C { int[] M(int[] values) => values.Where(x => x > 0)\n    .ToArray(); }", 0)]

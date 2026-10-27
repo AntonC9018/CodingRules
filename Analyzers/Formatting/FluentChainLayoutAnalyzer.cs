@@ -81,6 +81,13 @@ public sealed class FluentChainLayoutAnalyzer : DiagnosticAnalyzer
             else if (outer.Parent is InvocationExpressionSyntax next && next.Expression == outer) outer = next;
             else if (outer.Parent is ConditionalAccessExpressionSyntax conditional
                 && (conditional.Expression == outer || conditional.WhenNotNull == outer)) outer = conditional;
+            else if (outer.Parent is ParenthesizedExpressionSyntax parentheses && parentheses.Expression == outer) outer = parentheses;
+            else if (outer.Parent is CastExpressionSyntax cast && cast.Expression == outer) outer = cast;
+            else if (outer.Parent is AwaitExpressionSyntax awaitExpression && awaitExpression.Expression == outer) outer = awaitExpression;
+            else if (outer.Parent is CheckedExpressionSyntax checkedExpression && checkedExpression.Expression == outer) outer = checkedExpression;
+            else if (outer.Parent is ElementAccessExpressionSyntax element && element.Expression == outer) outer = element;
+            else if (outer.Parent is PostfixUnaryExpressionSyntax suppression
+                && suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression) && suppression.Operand == outer) outer = suppression;
             else break;
         }
         var count = CountReceiverCalls(outer);
@@ -98,8 +105,9 @@ public sealed class FluentChainLayoutAnalyzer : DiagnosticAnalyzer
         ParenthesizedExpressionSyntax parentheses => CountReceiverCalls(parentheses.Expression),
         CastExpressionSyntax cast => CountReceiverCalls(cast.Expression),
         AwaitExpressionSyntax awaitExpression => CountReceiverCalls(awaitExpression.Expression),
+        CheckedExpressionSyntax checkedExpression => CountReceiverCalls(checkedExpression.Expression),
         ElementAccessExpressionSyntax element => CountReceiverCalls(element.Expression),
-        PostfixUnaryExpressionSyntax suppression => CountReceiverCalls(suppression.Operand),
+        PostfixUnaryExpressionSyntax suppression when suppression.IsKind(SyntaxKind.SuppressNullableWarningExpression) => CountReceiverCalls(suppression.Operand),
         _ => 0,
     };
 

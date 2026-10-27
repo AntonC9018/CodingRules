@@ -665,3 +665,26 @@ owned Google contract findings and the shared timestamp-formatting finding are
 clear. The tested 538-file archive was retrieved and byte-compared before
 committing. ScheduleLib's `docs/analyzer-readability-cleanup-2026-10-27.md`
 records the remaining rule counts and provenance.
+
+## CodeRabbit review of the latest readability changes — 2026-10-27
+
+The broad PR exceeded CodeRabbit's 100-file limit, so review-only
+[PR #35](https://github.com/AntonC9018/CodingRules/pull/35) isolates the latest
+28 files from `5751b0e` through `f70b2e2`. All four findings were independently
+validated and fixed in `2abd37a`: CR0205 release classification, receiver-wrapper
+traversal in the short-chain check, and the earlier initializer and return-rule
+spec contradictions. All four review threads are resolved.
+
+Five wrapper regressions failed before the fix; all 18 focused chain tests pass
+afterward. Final AWS validation passes all 1,475 solution tests and all 11
+consumer gates against a single candidate archive. Its SHA-256 is
+`b87e5d8e8d5c87a7ade0dbc3583c15a27ce354c48e2cfb1c64f457bddb81b50a`.
+ScheduleLib's two Release rebuilds pass with that candidate, retaining the same
+142 source findings and 55 advisory rows. All 538 source hashes match the earlier
+full-test snapshot, so the consumer tests were not repeated. The new grouped
+review is in ScheduleLib's `docs/analyzer-remaining-clusters-2026-10-27.md`.
+
+Analyzer-only regressions remain in CodingRules. Temporary debugging probes are
+isolated from the consumer's permanent suite; retain a valuable regression as
+an appropriately generalized analyzer/code-fix test rather than adding it to
+ScheduleLib. The cluster proposals do not authorize their implementation.

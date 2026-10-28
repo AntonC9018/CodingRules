@@ -32,12 +32,46 @@ internal sealed class OperationEvaluator
         if (flow is { Succeeded: true }) changingValues.UnionWith(flow.WrittenInside);
         foreach (var closure in plan.DeclarationSpace.DescendantNodes()
                      .Where(node => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            AddClosureWrites(closure);
+    }
+
+    private void AddClosureWrites(SyntaxNode closure)
+    {
+        var body = closure switch
         {
-            foreach (var identifier in closure.DescendantNodes().OfType<IdentifierNameSyntax>())
+            AnonymousFunctionExpressionSyntax { Body: { } lambdaBody } => lambdaBody,
+            LocalFunctionStatementSyntax { Body: { } localBody } => localBody,
+            LocalFunctionStatementSyntax { ExpressionBody: { } expressionBody } => expressionBody.Expression,
+            _ => null,
+        };
+        var flow = body is null ? null : model.AnalyzeDataFlow(body);
+        if (flow is { Succeeded: true })
+        {
+            changingValues.UnionWith(flow.WrittenInside);
+            foreach (var argument in body!.DescendantNodes().OfType<ArgumentSyntax>()
+                         .Where(IsReferenceArgument))
             {
-                if (model.GetSymbolInfo(identifier).Symbol is { } symbol) changingValues.Add(symbol);
+                foreach (var identifier in argument.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+                {
+                    if (model.GetSymbolInfo(identifier).Symbol is { } symbol) changingValues.Add(symbol);
+                }
             }
+            return;
         }
+
+        // A failed body analysis cannot prove that a captured value stays stable.
+        foreach (var identifier in closure.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (model.GetSymbolInfo(identifier).Symbol is { } symbol) changingValues.Add(symbol);
+        }
+    }
+
+    private bool IsReferenceArgument(ArgumentSyntax argument)
+    {
+        var refKind = (model.GetOperation(argument) as IArgumentOperation)?.Parameter?.RefKind;
+        return refKind is not null and not RefKind.None || argument.RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword)
+            || argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
+            || argument.RefOrOutKeyword.IsKind(SyntaxKind.InKeyword);
     }
 
     public ExpressionSyntax Lower(ExpressionSyntax expression, List<StatementSyntax> statements, bool save = false)

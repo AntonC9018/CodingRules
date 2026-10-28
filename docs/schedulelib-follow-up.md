@@ -688,3 +688,28 @@ Analyzer-only regressions remain in CodingRules. Temporary debugging probes are
 isolated from the consumer's permanent suite; retain a valuable regression as
 an appropriately generalized analyzer/code-fix test rather than adding it to
 ScheduleLib. The cluster proposals do not authorize their implementation.
+
+## Consumer review boundary — 2026-10-28
+
+The maintainer requested completing the already identified, unambiguous consumer
+clusters before another full readability review. New complaints about generated
+source and missing analyzer coverage are preserved in [CodingRules #36][review-36].
+Do not interpret analyzer silence as acceptance of a complex expression.
+
+- Inline collection expressions and array creation alone are accepted by CR0300.
+  Nested explicit and target-typed record constructors currently share the same
+  diagnostic policy; the requested simpler-construction boundary needs review.
+- When an ordinary argument list is chopped, its first argument starts on the
+  next line too. Keep the existing lambda exception and the adjacent sole
+  positional constructor form, with its own arguments chopped below `new(`.
+- Prefer a meaningful local for a one-off computation. Remove copies of unchanged
+  locals and receivers when evaluation order does not require a snapshot.
+- Keep branching Boolean decisions explicit through their final true/false
+  outcome, including property-based final decisions after earlier guards.
+- The existing meaningful GetType/IsAssignableTo debug assertions read clearly;
+  leave them intact during this consumer pass. Their current CR0300 reports are
+  review cases, not a request to introduce more staging locals.
+- Analyzer-only regressions belong in CodingRules. Do not add them to ScheduleLib.
+- Link every review example to its exact line and show a short relevant excerpt.
+
+[review-36]: https://github.com/AntonC9018/CodingRules/issues/36

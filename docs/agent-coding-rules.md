@@ -198,8 +198,10 @@ transient grouping does not establish that unrelated concepts share a record.
 
 Object initializers expand onto new lines even with one member. Up to two
 receiver-chain calls may stay on one line only when the full line is at most
-90 characters. Longer chains wrap; when a wrapped call is an argument, prefer
-placing the argument below its enclosing call's opening parenthesis. Debug
+90 characters. Longer chains wrap. When an ordinary argument list is chopped,
+place every argument below the opening parenthesis, including the first. Preserve
+the lambda exception and keep a sole positional constructor adjacent to its outer
+call; chop the constructor's own arguments below `new(` when needed. Debug
 assertions should supply a meaningful explicit message rather than depending
 on incidental caller-expression source text. Replacing public API assertions
 with configurable safe-by-default checks is tracked separately in ScheduleLib

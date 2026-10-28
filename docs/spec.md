@@ -640,8 +640,12 @@ not provide a blanket exemption for delegates or multi-parameter adapters.
 
 - All nonempty object initializers expand, including a single member.
 - A fluent chain of at most two calls may remain on one line when the full line
-  is at most 90 columns. Longer chains wrap. Invocation argument layout should
-  keep a wrapped expression below the enclosing opening parenthesis.
+  is at most 90 columns. Longer chains wrap. Chopped ordinary argument lists put
+  every argument below the opening parenthesis, including the first. Preserve
+  the lambda exception and keep a sole positional constructor adjacent to its
+  outer call, chopping the constructor's own arguments below `new(` when needed.
+  The remaining analyzer/fixer coverage review is tracked in
+  [CodingRules #36](https://github.com/AntonC9018/CodingRules/issues/36).
 - Return ternaries require explicit if statements even without an earlier guard.
 - CR0205 reports else after a terminating return/throw branch. Fixes preserve
   declaration scopes and decline caller-expression-sensitive edits.

@@ -28,6 +28,7 @@ CR0800 | Formatting | Warning | Place wrapped Boolean operators at the start of 
 CR0801 | Formatting | Warning | Place object initializer members on separate lines
 CR0802 | Formatting | Warning | Keep a sole constructor argument adjacent to the call parenthesis
 CR0805 | Formatting | Warning | Wrap fluent chains unless they have at most two calls on a line of at most 90 characters
+CR0806 | Formatting | Warning | Put the first argument of a chopped argument list on a new line
 CR0900 | Readability | Warning | Represent tuple method results, inputs and stored collection elements with a named record struct (manual migration)
 CR1000 | Readability | Warning | Group more than three parameters on locally owned extensible contracts (manual migration)
 CR1001 | Readability | Warning | Use a configuration builder for multi-parameter overloads differing in exactly one parameter type (manual migration)

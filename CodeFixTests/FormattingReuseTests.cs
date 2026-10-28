@@ -47,7 +47,7 @@ public sealed partial class FormattingReuseTests
             "RCS0042" => new AccessorListCodeFixProvider(),
             "RCS1016" => new ExpressionBodyCodeFixProvider(),
             "CR0800" => new LeadingBooleanOperatorCodeFixProvider(),
-            "CR0801" or "CR0802" => new InitializerCallLayoutCodeFixProvider(),
+            "CR0801" or "CR0802" or "CR0806" => new InitializerCallLayoutCodeFixProvider(),
             _ => throw new InvalidOperationException(diagnostic.Id),
         };
         Assert.NotNull(provider.GetType().GetCustomAttribute<ExportCodeFixProviderAttribute>());

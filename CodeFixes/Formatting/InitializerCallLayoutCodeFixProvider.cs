@@ -14,7 +14,8 @@ namespace CodingRules;
 public sealed class InitializerCallLayoutCodeFixProvider : CodeFixProvider
 {
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(
-        DiagnosticIds.InitializerMemberLayout, DiagnosticIds.SoleConstructorArgumentLayout);
+        DiagnosticIds.InitializerMemberLayout, DiagnosticIds.SoleConstructorArgumentLayout,
+        DiagnosticIds.ChoppedArgumentLayout);
 
     // Revalidate against each preceding edit, rather than merging independently
     // safe changes whose combined formatting has never been checked.

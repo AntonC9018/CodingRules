@@ -18,7 +18,13 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
         DiagnosticIds.SoleConstructorArgumentLayout, "Keep a sole constructor argument adjacent to the call parenthesis",
         "Keep the sole constructor argument adjacent to the opening call parenthesis", "Formatting", DiagnosticSeverity.Warning, isEnabledByDefault: true);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(InitializerRule, ArgumentRule);
+    public static readonly DiagnosticDescriptor ChoppedArgumentRule = new(
+        DiagnosticIds.ChoppedArgumentLayout, "Put the first argument on a new line",
+        "Put the first argument of a chopped argument list on a new line", "Formatting",
+        DiagnosticSeverity.Warning, isEnabledByDefault: true);
+
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        ImmutableArray.Create(InitializerRule, ArgumentRule, ChoppedArgumentRule);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -30,24 +36,32 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        if (GetChanges(context.Node, text).IsEmpty) return;
-        var rule = context.Node is InitializerExpressionSyntax ? InitializerRule : ArgumentRule;
+        var changes = GetChanges(context.Node, text, out var rule);
+        if (changes.IsEmpty) return;
         context.ReportDiagnostic(Diagnostic.Create(rule, context.Node.GetFirstToken().GetLocation()));
     }
 
-    public static ImmutableArray<TextChange> GetChanges(SyntaxNode node, SourceText text)
+    public static ImmutableArray<TextChange> GetChanges(SyntaxNode node, SourceText text) => GetChanges(node, text, out _);
+
+    public static ImmutableArray<TextChange> GetChanges(SyntaxNode node, SourceText text, out DiagnosticDescriptor rule)
     {
+        rule = InitializerRule;
         if (node.ContainsDiagnostics || node.ContainsDirectives) return ImmutableArray<TextChange>.Empty;
-        if (node is ArgumentListSyntax arguments) return ArgumentChanges(arguments, text);
+        if (node is ArgumentListSyntax arguments)
+        {
+            var changes = ArgumentChanges(arguments, text, out var isSoleConstruction);
+            rule = isSoleConstruction ? ArgumentRule : ChoppedArgumentRule;
+            return changes;
+        }
         if (node is not InitializerExpressionSyntax initializer)
             return ImmutableArray<TextChange>.Empty;
+        rule = InitializerRule;
         var recordUpdate = initializer.IsKind(SyntaxKind.WithInitializerExpression);
         if ((!recordUpdate && !initializer.IsKind(SyntaxKind.ObjectInitializerExpression))
             || initializer.Expressions.Count < 1) return ImmutableArray<TextChange>.Empty;
 
         var changes = ImmutableArray.CreateBuilder<TextChange>();
-        var newline = text.Lines.Select(line => text.ToString(TextSpan.FromBounds(line.End, line.EndIncludingLineBreak)))
-            .FirstOrDefault(value => value.Length > 0) ?? "\n";
+        var newline = Newline(text);
         var previous = initializer.OpenBraceToken;
         if (initializer.Parent is BaseObjectCreationExpressionSyntax creation)
         {
@@ -109,19 +123,53 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
         else changes.Add(new TextChange(new TextSpan(next.SpanStart, 0), replacement));
     }
 
-    private static ImmutableArray<TextChange> ArgumentChanges(ArgumentListSyntax arguments, SourceText text)
+    private static ImmutableArray<TextChange> ArgumentChanges(ArgumentListSyntax arguments, SourceText text,
+        out bool isSoleConstruction)
     {
-        // Invocation arguments only. Constructor/attribute/indexer lists and multi-argument calls are separate policy.
-        if (arguments.Parent is not InvocationExpressionSyntax || arguments.Arguments.Count != 1)
+        isSoleConstruction = false;
+        // Only ordinary invocation and object-creation lists are in scope.
+        if (arguments.Parent is InvocationExpressionSyntax && arguments.Arguments.Count == 1)
+        {
+            var argument = arguments.Arguments[0];
+            if ((argument.Expression is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
+                && argument.NameColon is null && argument.RefKindKeyword.IsKind(SyntaxKind.None))
+            {
+                var gap = TextSpan.FromBounds(arguments.OpenParenToken.Span.End, argument.SpanStart);
+                var whitespace = text.ToString(gap);
+                if (whitespace.All(char.IsWhiteSpace) && whitespace.IndexOfAny(['\r', '\n']) >= 0)
+                {
+                    isSoleConstruction = true;
+                    return ImmutableArray.Create(new TextChange(gap, ""));
+                }
+            }
+        }
+
+        if (arguments.Parent is not (InvocationExpressionSyntax or ObjectCreationExpressionSyntax
+            or ImplicitObjectCreationExpressionSyntax) || arguments.Arguments.Count < 2)
             return ImmutableArray<TextChange>.Empty;
-        var argument = arguments.Arguments[0];
-        if (argument.Expression is not (ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
-            || argument.NameColon is not null || !argument.RefKindKeyword.IsKind(SyntaxKind.None))
+
+        var first = arguments.Arguments[0];
+        // A multiline lambda is an intentional exception to argument-list wrapping.
+        if (first.Expression is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax)
             return ImmutableArray<TextChange>.Empty;
-        var gap = TextSpan.FromBounds(arguments.OpenParenToken.Span.End, argument.SpanStart);
-        var whitespace = text.ToString(gap);
-        if (!whitespace.All(char.IsWhiteSpace) || whitespace.IndexOfAny(['\r', '\n']) < 0)
+        if (text.Lines.GetLineFromPosition(arguments.OpenParenToken.Span.End).LineNumber
+            != text.Lines.GetLineFromPosition(first.SpanStart).LineNumber)
             return ImmutableArray<TextChange>.Empty;
-        return ImmutableArray.Create(new TextChange(gap, ""));
+
+        var chopped = arguments.Arguments.Skip(1).Any(argument =>
+            text.Lines.GetLineFromPosition(argument.SpanStart).LineNumber
+                > text.Lines.GetLineFromPosition(first.SpanStart).LineNumber);
+        if (!chopped) return ImmutableArray<TextChange>.Empty;
+
+        var gapToFirst = TextSpan.FromBounds(arguments.OpenParenToken.Span.End, first.SpanStart);
+        if (!text.ToString(gapToFirst).All(char.IsWhiteSpace)) return ImmutableArray<TextChange>.Empty;
+        var newline = Newline(text);
+        var changes = ImmutableArray.CreateBuilder<TextChange>();
+        AddLineBreak(arguments.OpenParenToken, first.GetFirstToken(), text, newline, changes);
+        return changes.ToImmutable();
     }
+
+    private static string Newline(SourceText text) => text.Lines
+        .Select(line => text.ToString(TextSpan.FromBounds(line.End, line.EndIncludingLineBreak)))
+        .FirstOrDefault(value => value.Length > 0) ?? "\n";
 }

@@ -31,6 +31,7 @@ public static class DiagnosticIds
     public const string RequiredBraces = "CR0803";
     public const string CastSpacing = "CR0804";
     public const string FluentChainLayout = "CR0805";
+    public const string ChoppedArgumentLayout = "CR0806";
     public const string NamedTupleData = "CR0900";
     public const string ContractParameterGroup = "CR1000";
     public const string OverloadConfigurationBuilder = "CR1001";

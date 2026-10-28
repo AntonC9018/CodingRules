@@ -15,7 +15,7 @@ from zipfile import ZipFile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DIAGNOSTICS = ["RCS0042", "RCS1016", "CR0800", "CR0801", "CR0802"]
+DIAGNOSTICS = ["RCS0042", "RCS1016", "CR0800", "CR0801", "CR0802", "CR0806"]
 SOURCE_WARNING = re.compile(r"([^/\\\s]+\.cs)\((\d+),(\d+)\): warning (\w+):")
 
 
@@ -100,7 +100,8 @@ def main():
         output = run(["dotnet", "build", project, "--no-restore"], consumer, environment)
         reports = set(SOURCE_WARNING.findall(output))
         counts = Counter(report[3] for report in reports)
-        assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2, "CR0801": 10, "CR0802": 4}, counts
+        assert counts == {"RCS0042": 1, "RCS1016": 6, "CR0800": 2, "CR0801": 10,
+                          "CR0802": 5, "CR0806": 5}, counts
         assert not re.search(r"warning (?:AD|CS|ROS)\d+", output), output
         original_behavior = run(["dotnet", "run", "--project", project, "--no-build"], consumer, environment)
         assert original_behavior.splitlines() == ["123345667890123", "new CallerPayload(line: 0) { A = 1, B = 2 }", "18", "19", "27", "42"], original_behavior
@@ -139,13 +140,23 @@ def main():
         expression_path = consumer / "CallerExpressions.cs"
         expression_fixed = expression_path.read_bytes()
         assert expression_fixed == (ROOT / "CodeFixTests/Expected/CallerExpressions.Fixed.cs.txt").read_bytes()
+        chopped_path = consumer / "ChoppedArguments.cs"
+        chopped_fixed = chopped_path.read_bytes()
+        chopped_expected = (ROOT / "CodeFixTests/Expected/ChoppedArguments.Fixed.cs.txt").read_bytes()
+        chopped_difference = "".join(difflib.unified_diff(
+            chopped_expected.decode().splitlines(keepends=True), chopped_fixed.decode().splitlines(keepends=True),
+            fromfile="chopped arguments expected", tofile="chopped arguments actual"))
+        assert chopped_fixed == chopped_expected, chopped_difference
         caller_reports = {
             ("CallerExpressions.cs", "9", "62", "CR0801"),
             ("CallerInformation.cs", "17", "12", "CR0802"),
             ("CallerInformation.cs", "19", "31", "CR0801"),
+            ("ChoppedArguments.cs", "29", "24", "CR0806"),
+            ("ChoppedArguments.cs", "31", "16", "CR0806"),
         }
         output = run(["dotnet", "format", "analyzers", project, "--no-restore", "--diagnostics",
-                      "CR0801", "CR0802", "--verify-no-changes"], consumer, environment, expected_returncode=2)
+                      "CR0801", "CR0802", "CR0806", "--verify-no-changes"], consumer, environment,
+                     expected_returncode=2)
         assert set(SOURCE_WARNING.findall(output)) == caller_reports, output
         # This CLI bypasses suppressors, but newer SDK feature bands omit
         # manual-only diagnostics that offer no action. The golden bytes and
@@ -169,8 +180,9 @@ def main():
         assert task_like_path.read_bytes() == task_like_original
         assert caller_path.read_bytes() == caller_fixed
         assert expression_path.read_bytes() == expression_fixed
+        assert chopped_path.read_bytes() == chopped_fixed
         output = run(["dotnet", "build", project, "--no-restore", "-warnaserror",
-                      "-p:WarningsNotAsErrors=CR0801%3BCR0802"], consumer, environment)
+                      "-p:WarningsNotAsErrors=CR0801%3BCR0802%3BCR0806"], consumer, environment)
         assert set(SOURCE_WARNING.findall(output)) == caller_reports, output
         assert run(["dotnet", "run", "--project", project, "--no-build"], consumer, environment) == original_behavior
         print("PASS: exact diagnostics, exported CLI fixes, formatter and second-pass stability; isolated package.")

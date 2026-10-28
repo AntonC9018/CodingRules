@@ -9,23 +9,23 @@ public static class ChoppedArgumentCases
 {
     public static void Run()
     {
-        Use(1,
-            2);
-        _ = new ChoppedArgumentValue(1,
-            2);
-        ChoppedArgumentValue value = new(1,
-            2);
-        Use(transform => transform + 1,
+        UseNumbers(first: 1,
+            second: 2);
+        _ = new ChoppedArgumentValue(first: 1,
+            second: 2);
+        ChoppedArgumentValue value = new(first: 1,
+            second: 2);
+        UseTransform(transform => transform + 1,
             4);
-        Use(
+        UseValue(
             new ChoppedArgumentValue(
-                5,
-                6));
+                first: 5,
+                second: 6));
 
         _ = value;
     }
 
-    private static int Use(int first, int second) => first + second;
-    private static void Use(Func<int, int> transform, int value) { }
-    private static void Use(ChoppedArgumentValue value) { }
+    private static int UseNumbers(int first, int second) => first + second;
+    private static void UseTransform(Func<int, int> transform, int value) { }
+    private static void UseValue(ChoppedArgumentValue value) { }
 }

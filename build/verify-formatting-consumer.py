@@ -158,7 +158,7 @@ def main():
             ("CallerExpressions.cs", "9", "62", "CR0801"),
             ("CallerInformation.cs", "17", "12", "CR0802"),
             ("CallerInformation.cs", "19", "31", "CR0801"),
-            ("ChoppedArgumentObservers.cs", "11", "16", "CR0806"),
+            ("ChoppedArgumentObservers.cs", "11", "23", "CR0806"),
             ("ChoppedArgumentObservers.cs", "13", "37", "CR0806"),
         }
         output = run(["dotnet", "format", "analyzers", project, "--no-restore", "--diagnostics",

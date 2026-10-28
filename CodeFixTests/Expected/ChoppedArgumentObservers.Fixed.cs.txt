@@ -8,21 +8,25 @@ public static class ChoppedArgumentObservers
 
     public static void Run()
     {
-        _ = Use(7,
-            8);
-        _ = new ChoppedArgumentValue(7,
-            8);
+        _ = UseNumbers(first: 7,
+            second: 8);
+        _ = new ChoppedArgumentValue(first: 7,
+            second: 8);
 
-        string expression = Capture(Use(7, 8));
-        if (expression != "Use(7, 8)")
-            throw new InvalidOperationException($"Unexpected caller expression: {expression}");
+        string expression = Capture(UseNumbers(first: 7, second: 8));
+        if (expression != "UseNumbers(first: 7, second: 8)")
+        {
+            throw new InvalidOperationException("Caller expression changed during formatting.");
+        }
 
         int callerLine = Line();
-        if (callerLine != 20)
-            throw new InvalidOperationException($"Unexpected caller line: {callerLine}");
+        if (callerLine != 22)
+        {
+            throw new InvalidOperationException("Caller line changed during formatting.");
+        }
     }
 
-    private static int Use(int first, int second) => first + second;
+    private static int UseNumbers(int first, int second) => first + second;
     private static int Line([CallerLineNumber] int line = 0) => line;
     private static string Capture(int value,
         [CallerArgumentExpression("value")] string expression = "") => expression;

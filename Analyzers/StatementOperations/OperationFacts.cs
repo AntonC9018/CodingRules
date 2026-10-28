@@ -88,6 +88,7 @@ internal sealed class OperationFacts
     public static bool IsProducer(ExpressionSyntax expression, SemanticModel model) => expression switch
     {
         InvocationExpressionSyntax invocation => !IsNameof(invocation)
+            && !IsReviewedRuntimeTypeAssertion(invocation, model)
             && (invocation.ArgumentList.Arguments.Count != 0 || IsGenericArgumentLookup(invocation, model))
             && model.GetOperation(invocation) is IInvocationOperation && !IsPipeline(invocation, model),
         BaseObjectCreationExpressionSyntax creation => creation.ArgumentList?.Arguments.Count > 0
@@ -97,6 +98,34 @@ internal sealed class OperationFacts
         InterpolatedStringExpressionSyntax interpolation => model.GetTypeInfo(interpolation).ConvertedType?.SpecialType == SpecialType.System_String,
         _ => IsMutation(expression),
     };
+
+    private static bool IsReviewedRuntimeTypeAssertion(InvocationExpressionSyntax invocation, SemanticModel model)
+    {
+        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol { Name: "IsAssignableTo" } method
+            || !IsFrameworkType(method.ContainingType, "System.Type", model)
+            || invocation.ArgumentList.Arguments.Count != 1
+            || Unwrap(invocation.ArgumentList.Arguments[0].Expression) is not TypeOfExpressionSyntax
+            || invocation.Expression is not MemberAccessExpressionSyntax access
+            || Unwrap(access.Expression) is not InvocationExpressionSyntax getType
+            || model.GetSymbolInfo(getType).Symbol is not IMethodSymbol
+                { Name: "GetType", Parameters.Length: 0, ContainingType.SpecialType: SpecialType.System_Object }
+            || getType.Expression is not MemberAccessExpressionSyntax receiver
+            || Unwrap(receiver.Expression) is not IdentifierNameSyntax)
+        {
+            return false;
+        }
+
+        var argument = invocation.Ancestors().OfType<ArgumentSyntax>().FirstOrDefault();
+        return argument?.Parent?.Parent is InvocationExpressionSyntax assertion
+            && model.GetOperation(argument) is IArgumentOperation { Parameter.Ordinal: 0 }
+            && model.GetSymbolInfo(assertion).Symbol is IMethodSymbol { Name: "Assert" } assertMethod
+            && IsFrameworkType(assertMethod.ContainingType, "System.Diagnostics.Debug", model);
+    }
+
+    private static bool IsFrameworkType(INamedTypeSymbol type, string metadataName, SemanticModel model) =>
+        type.ContainingAssembly.Name is "mscorlib" or "System.Private.CoreLib" or "System.Runtime"
+            or "System.Diagnostics.Debug" or "netstandard"
+        && SymbolEqualityComparer.Default.Equals(type, model.Compilation.GetTypeByMetadataName(metadataName));
 
     // Type metadata calculation is the reviewed parameterless exception. Ordinary
     // factories and business-service receiver chains retain their existing policy.

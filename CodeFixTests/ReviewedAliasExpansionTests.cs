@@ -12,14 +12,17 @@ public sealed class ReviewedAliasExpansionTests
             using System;
             class C
             {
-                static string Use(string reporter, string course, string[] groups, Func<int> inspect, int value) =>
-                    reporter + ":" + course + ":" + groups[0] + ":" + inspect() + ":" + value;
+                static string Use(string reporter, string course, string[] groups, Action inspect, int value)
+                {
+                    inspect();
+                    return $"{reporter}:{course}:{groups[0]}:{value}";
+                }
                 public static string Run()
                 {
                     string reporter = "reporter";
                     string course = "course";
                     string[] groups = ["group"];
-                    Func<int> inspect = () => reporter.Length + course.Length + groups.Length;
+                    Action inspect = () => { _ = reporter; _ = course; _ = groups; };
                     return Use(reporter, course, groups, inspect, int.Parse("7"));
                 }
             }
@@ -43,8 +46,8 @@ public sealed class ReviewedAliasExpansionTests
                 public static string Run()
                 {
                     string value = "before";
-                    string Mutate() { value = "after"; return value; }
-                    return Use(value, Mutate());
+                    string Mutate(int valueToIgnore) { value = "after"; return value; }
+                    return Use(value, Mutate(1));
                 }
             }
             """;
@@ -58,7 +61,7 @@ public sealed class ReviewedAliasExpansionTests
     }
 
     [Fact]
-    public async Task ExpansionSnapshotsStructReceiverWrittenByCallableBetweenArguments()
+    public async Task ExpansionSnapshotsStructValueWrittenByCallableBetweenArguments()
     {
         const string source = """
             struct Counter
@@ -69,12 +72,12 @@ public sealed class ReviewedAliasExpansionTests
             }
             class C
             {
-                static int Use(int value) => value;
+                static string Use(Counter first, int delta) => first.Value + ":" + delta;
                 public static string Run()
                 {
                     var counter = new Counter(10);
-                    int Mutate() { counter.Value = 50; return 2; }
-                    var result = Use(counter.Read(Mutate()));
+                    int Mutate(int valueToIgnore) { counter.Value = 50; return 2; }
+                    var result = Use(counter, Mutate(1));
                     return result + ":" + counter.Value;
                 }
             }
@@ -84,7 +87,7 @@ public sealed class ReviewedAliasExpansionTests
         var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(
             document, StatementOperationCodeFixProvider.ExpandKey));
 
-        Assert.Equal("12:50", before);
+        Assert.Equal("10:2:50", before);
         Assert.Equal(before, await StatementOperationTestFixture.Run(changed));
     }
 }

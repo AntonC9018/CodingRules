@@ -22,6 +22,10 @@ Other upstream rules and broader binary-operator policies remain disabled.
 CR0801 requires every nonempty object initializer, including a single-member
 initializer, to place its members on separate lines. CR0802 places a sole
 positional constructor argument adjacent to an invocation's opening parenthesis.
+CR0806 puts the first argument of a chopped ordinary invocation or constructor
+list below the opening parenthesis. A newline after an argument separator
+establishes chopping; multiline token contents alone do not. First-position
+lambdas and the CR0802 sole-construction form retain their accepted layout.
 Record `with` initializers also require a new-line block and trailing comma,
 including a single member. Empty object initializers and already adjacent
 constructors remain accepted. Comment-separated argument
@@ -294,7 +298,8 @@ Generated code is excluded.
 
 After such a guard, the final return is also a candidate when it contains a
 null-coalescing expression, boolean predicate or boolean-returning call, or
-nullable-returning call. A plain `return value;` is allowed. Switch expressions
+nullable-returning call. A Boolean property read also chooses an outcome and
+requires explicit branches. A plain local, parameter or field return is allowed. Switch expressions
 and more complex control flow are deferred to later tickets. The analyzer reports
 a candidate only when the code fix can rewrite it without changing evaluation order or
 the number of times a subexpression runs.
@@ -426,12 +431,21 @@ Trim/ToString remain allowed here; inline-condition diagnostics stay independent
 ScheduleLib slice 07 additionally treats resolved System.Type.GetGenericArguments
 as a metadata calculation even without source arguments; unrelated parameterless
 factories and service receivers keep their exemption.
+The reviewed `Debug.Assert(value.GetType().IsAssignableTo(typeof(T)), message)`
+checks remain inline, including the null-guarded form. Recognition requires the
+framework Debug, Type and Object symbols, a direct value receiver and `typeof`
+input. Other assertion computations, type-producing calls and lookalike APIs
+retain their existing analysis.
 One simple directly constructed argument may remain inline per containing call,
 including explicit or target-typed `new(...)` alongside other nonconstructed
 arguments. More than one direct construction retains CR0300. The allowance does
 not hide nested constructors, producer calls, conditional values or numeric
 calculations inside the constructor. Existing parameterless and initializer
 boundaries remain unchanged.
+Argument staging can preserve an already temporary struct receiver returned by
+a by-value call, property getter or construction. A variable, field or ref-return
+receiver must retain its original storage; this allowance does not enable copying
+such receivers before evaluating arguments that might change them.
 Direct fields, property/index selections and built-in tests remain inline,
 without a purity assumption. At most one supported built-in numeric calculation
 is allowed, including original constant-folded syntax. Supported nonidentity

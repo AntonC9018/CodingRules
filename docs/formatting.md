@@ -42,10 +42,10 @@ alone. Comments or directives in the whitespace that would move cause a skip.
 Roslynator's broader RCS0027 and RCS0055 remain disabled. No Boolean expression
 is wrapped or split merely to enforce placement.
 
-**CR0801 / A1** expands object initializers with at least two members so each
+**CR0801 / A1** expands nonempty object initializers so each
 member and the closing brace start on separate lines. It handles compact and
 partly wrapped layouts, trailing commas, nested object initializers and comments.
-Empty and single-member ordinary object initializers remain accepted. Record
+Empty ordinary object initializers remain accepted. Record
 `with` initializers with one or more members require the opening block on a new
 line, one member per line, and a trailing comma. Collection, array and
 anonymous-object initializers remain outside this rule.
@@ -60,7 +60,15 @@ retain token text and leave initializer values inline. Existing operation
 findings are independent. Ordinary initializer assignments are accepted by CR0302
 after the #19 fix; combined right-hand-side operations remain analyzed.
 
-Before offering an A1 fix, CodingRules compares implicit caller-information
+**CR0806** moves the first ordinary argument below the opening parenthesis when
+an invocation or constructor list is already chopped after an argument separator.
+It uses the indentation of the existing continuation arguments. Multiline string
+contents alone do not establish a chopped list. First-position lambdas retain
+their exception, and a sole positional constructor retains CR0802 adjacency;
+its own chopped inputs follow CR0806. Comments in the gap and directives remain
+conservative boundaries.
+
+Before offering these layout fixes, CodingRules compares implicit caller-information
 argument constants throughout the original document and the final formatted,
 reparsed source. Enclosing `CallerArgumentExpression` captures and downstream
 `CallerLineNumber` arguments (including calls in later members) must keep their
@@ -332,12 +340,12 @@ comments and existing line breaks between the cast and operand remain intact.
 
 ## Subsequent fluent calls (CR0805)
 
-Start each invocation after the first on a new continuation line, including
-chains that fit on one line:
+A chain of at most two calls may stay on one line when that complete line is
+at most 90 characters. Longer chains or longer lines start subsequent calls on
+new continuation lines. For example, the short chain below may remain compact:
 
 ```csharp
-historical.Where(Matches)
-    .ToArray();
+historical.Where(Matches).ToArray();
 ```
 
 A plain receiver, namespace or property qualification is not itself a method

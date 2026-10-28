@@ -179,13 +179,19 @@ role, such as `var appConfigBuilder = builder` before configuring its Console.
 Single use alone does not make a local useless. Prefer the smallest meaningful
 scope, and give branching helpers names that describe their decisions. Do not
 move computations into a narrower scope when doing so delays, repeats or skips
-observable work. The proposed scope diagnostic is recorded in CodingRules #37.
+observable work. Review a local captured solely by one local function: move it inside that
+function only when its original evaluation timing is unimportant, or pass its
+earlier value explicitly when it is a deliberate snapshot. Review generic names
+such as CheckCondition and CalculateArgs against the operation's domain meaning;
+do not guess a semantic name from syntax alone. These remain agent judgments in
+CodingRules #37; no scope or helper-name diagnostic is approved.
 A function chosen by an automatic refactoring is not evidence that the function
 improves readability.
 
 One simple directly constructed argument may remain inline per call, including
 explicit and target-typed `new(...)` with other simple arguments. Multiple direct
-constructions still need named steps or an appropriate builder. Keep nested input
+constructions still need named steps or an appropriate builder. For the reviewed
+params fixture calls, construct a named array and pass that array. Keep nested input
 computations visible under the existing rules.
 
 Do not add shared API members solely for tests unless they are intended consumer
@@ -212,8 +218,9 @@ receiver-chain calls may stay on one line only when the full line is at most
 90 characters. Longer chains wrap. When an ordinary argument list is chopped,
 place every argument below the opening parenthesis, including the first. Preserve
 the lambda exception and keep a sole positional constructor adjacent to its outer
-call; chop the constructor's own arguments below `new(` when needed. Debug
-assertions should supply a meaningful explicit message rather than depending
+call; chop the constructor's own arguments below `new(` when needed. The reviewed GetType/IsAssignableTo Debug.Assert checks remain readable inline,
+including their null guard; do not introduce staging locals solely for those
+checks. Debug assertions should supply a meaningful explicit message rather than depending
 on incidental caller-expression source text. Replacing public API assertions
 with configurable safe-by-default checks is tracked separately in ScheduleLib
 issue #249; that migration is not a formatting action.

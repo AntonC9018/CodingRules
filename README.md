@@ -55,7 +55,8 @@ records the finite catalogue and manual ownership, API and lifetime boundaries.
 The same package now supplies Roslynator `RCS0042` for compact auto-accessors,
 `RCS1016` for multiline-expression block bodies, `CR0800` for leading
 wrapped `&&`/`||`, and `CR0801`/`CR0802` for multiline initializer members and
-adjacent sole constructor arguments. Other upstream diagnostics remain disabled. See
+adjacent sole constructor arguments. `CR0806` moves the first chopped argument
+below its opening parenthesis. Other upstream diagnostics remain disabled. See
 [packaged formatting](docs/formatting.md) for the required CLI `.editorconfig`
 snippet, formatter interaction, fixer commands, licenses and consumer checks.
 

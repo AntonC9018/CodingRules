@@ -745,3 +745,22 @@ The consumer report's reference links are restored, and the inline-key example
 is separated from the intake alias example. The CLI and scope/name tickets remain
 deferred. The local Nix CoreCLR/glibc mismatch persists; restoration and builds
 were verified on AWS, with local candidate restoration marked unverified.
+
+## Readability follow-up decisions — 2026-10-29
+
+The maintainer accepts the reviewed GetType/IsAssignableTo Debug.Assert checks,
+including their null guard, without staging locals. The eight multiple-source
+fixture calls now construct a named array before passing it to the params API.
+
+Scope and generic helper-name review remain agent guidance under CodingRules #37;
+no review-only diagnostic is approved. Keep purposeful one-use locals and the
+appConfigBuilder alias. Evaluate moving an initializer separately from narrowing
+visibility, because a move may delay, repeat or skip observable work.
+
+The maintainer selected CommandDotNet parser semantics for CLI result-format
+selection and requested the concrete edge-case changes first. Flags after the
+first parse error or after the option terminator are not format selections;
+a flag consumed as another option's value is not a result option. Framework help
+aliases should remain human-readable. Failures before parsing have no parsed
+format intent. Startup JSON stdout remains a protocol boundary, separate from
+human diagnostics and structured logs.

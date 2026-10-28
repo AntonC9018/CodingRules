@@ -43,7 +43,7 @@ static class Generated {
             code, markers = line.split("// ", 1)
             for rule, anchor in re.findall(r"(CR\d+): ([^|]+)", markers):
                 expected.add(("Findings.cs", str(number), str(code.index(anchor.strip()) + 1), "warning", rule))
-        assert len(expected) == 7, expected
+        assert len(expected) == 6, expected
         run(["dotnet", "restore", "Consumer.csproj"], consumer, environment)
         build = ["dotnet", "build", "Consumer.csproj", "--no-restore", "--no-incremental"]
         assert set(REPORT.findall(run(build, consumer, environment))) == expected
@@ -76,7 +76,7 @@ static class Generated {
         run(command, consumer, environment)
         assert {path.name: path.read_bytes() for path in consumer.glob("*.cs")} == fixed
         run([*command, "--verify-no-changes"], consumer, environment)
-        print("PASS: seven exact findings; accepted/generated cases; severity transport; computed-value "
+        print("PASS: six exact findings; accepted/generated cases; severity transport; computed-value "
               "and service-result fixes; unchanged runtime; saved-source stability; existing candidate package.")
 
 

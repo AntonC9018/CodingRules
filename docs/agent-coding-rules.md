@@ -174,8 +174,19 @@ Use the shortest type name that binds unambiguously at the insertion point, or
 var when suitable. Prefer a local variable for a one-off computed value. Use a
 local function with explicit returns for a branching decision. Preserve captures
 needed for evaluation order, but do not copy an unchanged, uncaptured local just
-to pass it to the next call. A function chosen by an automatic refactoring is
-not evidence that the function improves readability.
+to pass it to the next call. Keep aliases that clarify a domain or configuration
+role, such as `var appConfigBuilder = builder` before configuring its Console.
+Single use alone does not make a local useless. Prefer the smallest meaningful
+scope, and give branching helpers names that describe their decisions. Do not
+move computations into a narrower scope when doing so delays, repeats or skips
+observable work. The proposed scope diagnostic is recorded in CodingRules #37.
+A function chosen by an automatic refactoring is not evidence that the function
+improves readability.
+
+One simple directly constructed argument may remain inline per call, including
+explicit and target-typed `new(...)` with other simple arguments. Multiple direct
+constructions still need named steps or an appropriate builder. Keep nested input
+computations visible under the existing rules.
 
 Do not add shared API members solely for tests unless they are intended consumer
 APIs or planned production capabilities. Change tests to exercise the actual API

@@ -13,7 +13,7 @@ CR0202 | Readability | Warning | Separate checks on different values, including 
 CR0203 | Readability | Warning | Separate producing, transforming and validating operations; preserve terminal throw guards, name the reviewed HTTP status filter and stage framework IServiceProvider.GetService null checks
 CR0204 | Readability | Warning | Linearize three or more repeated alternatives
 CR0205 | Readability | Warning | Remove else after a terminating return or throw branch
-CR0300 | Readability | Warning | Calculate nested arguments in named steps, including resolved Type.GetGenericArguments metadata calculations
+CR0300 | Readability | Warning | Name nested arguments; allow one simple direct construction
 CR0301 | Readability | Warning | Assign conditional values to named variables, including composed LINQ branches (ScheduleLib A7)
 CR0302 | Readability | Warning | Separate combined statement operations, including calculations consuming resolved Type.GetGenericArguments metadata
 CR0303 | Readability | Warning | Name Boolean values assigned by exhaustive adjacent branches with a validated local-function extraction

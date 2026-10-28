@@ -49,4 +49,12 @@ public static class Accepted
         var type = TokenTypeLabels.Get(t.Type);
         list.Append($"{type} - {t.Value.Span}");
     }
+    private sealed record Argument(int Value, string[] Labels);
+    private static void UseArgument(Argument value, int extra = 0) { }
+    private static void SingleConstructionArguments()
+    {
+        UseArgument(new Argument(1, ["label"]));
+        UseArgument(value: new(2, ["label"]), extra: 3);
+    }
+
 }

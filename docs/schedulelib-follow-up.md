@@ -713,3 +713,18 @@ Do not interpret analyzer silence as acceptance of a complex expression.
 - Link every review example to its exact line and show a short relevant excerpt.
 
 [review-36]: https://github.com/AntonC9018/CodingRules/issues/36
+
+## Single construction and deferred CLI design — 2026-10-28
+
+The maintainer accepts one simple directly constructed argument per containing
+call, including explicit and target-typed forms alongside other nonconstructed
+arguments. Multiple direct constructions still need named steps or an appropriate
+builder. Nested computations inside a constructor remain analyzed. This settles
+the constructor question previously left for CodingRules #36.
+
+The larger CliHost startup/output refactor is recorded in
+[ScheduleLib #250](https://github.com/AntonC9018/ScheduleLib/issues/250), and a
+possible diagnostic for narrow scopes and meaningful generated decision names is
+recorded in [CodingRules #37](https://github.com/AntonC9018/CodingRules/issues/37).
+Both are deferred. Preserve the expressly approved appConfigBuilder alias; do not
+turn the scope preference into a blanket prohibition on one-use locals.

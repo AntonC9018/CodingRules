@@ -426,6 +426,12 @@ Trim/ToString remain allowed here; inline-condition diagnostics stay independent
 ScheduleLib slice 07 additionally treats resolved System.Type.GetGenericArguments
 as a metadata calculation even without source arguments; unrelated parameterless
 factories and service receivers keep their exemption.
+One simple directly constructed argument may remain inline per containing call,
+including explicit or target-typed `new(...)` alongside other nonconstructed
+arguments. More than one direct construction retains CR0300. The allowance does
+not hide nested constructors, producer calls, conditional values or numeric
+calculations inside the constructor. Existing parameterless and initializer
+boundaries remain unchanged.
 Direct fields, property/index selections and built-in tests remain inline,
 without a purity assumption. At most one supported built-in numeric calculation
 is allowed, including original constant-folded syntax. Supported nonidentity

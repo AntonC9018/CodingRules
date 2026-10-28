@@ -30,11 +30,43 @@ internal sealed class OperationFacts
             || nodes.Any(node => IsMutation(node) && IsConsumedMutation(node));
         if (expression.Parent is ArgumentSyntax argument && IsOrdinaryArgument(argument, model))
         {
-            facts.Nested = calculations > 1 || nodes.Any(node => IsProducer(node, model)
-                || node is ConditionalExpressionSyntax);
+            var inlineConstruction = SingleSimpleConstruction(argument, nodes, model);
+            facts.Nested = calculations > 1 || nodes.Any(node => node != inlineConstruction
+                && (IsProducer(node, model) || node is ConditionalExpressionSyntax));
         }
 
         return facts;
+    }
+
+    private static BaseObjectCreationExpressionSyntax? SingleSimpleConstruction(
+        ArgumentSyntax argument,
+        ExpressionSyntax[] evaluated,
+        SemanticModel model)
+    {
+        if (Unwrap(argument.Expression) is not BaseObjectCreationExpressionSyntax creation
+            || model.GetOperation(creation) is not IObjectCreationOperation
+            || argument.Parent is not ArgumentListSyntax arguments)
+        {
+            return null;
+        }
+
+        var constructions = arguments.Arguments.Count(item =>
+            Unwrap(item.Expression) is BaseObjectCreationExpressionSyntax sibling
+            && model.GetOperation(sibling) is IObjectCreationOperation);
+        if (constructions != 1)
+        {
+            return null;
+        }
+
+        // Only the direct construction is allowed. Its input computations retain
+        // their existing diagnostics, including nested construction and arithmetic.
+        if (evaluated.Any(node => node != creation
+                && (node is BaseObjectCreationExpressionSyntax or ConditionalExpressionSyntax
+                    || IsProducer(node, model) || IsCalculation(node, model))))
+        {
+            return null;
+        }
+        return creation;
     }
 
     public static bool IsOrdinaryArgument(ArgumentSyntax argument, SemanticModel model) => argument.Parent?.Parent switch

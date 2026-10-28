@@ -9,8 +9,8 @@ public sealed class StatementOperationSafetyTests
     [Theory]
     [InlineData("Use(Get(1, line: 7))", "using System.Runtime.CompilerServices;", "static int Get(int x, [CallerLineNumber] int line = 0) => x;")]
     [InlineData("Use(callback(1))", "using System;", "static Func<int,int> callback = x => x;")]
-    [InlineData("Use(new Item(1))", "", "record Item(int Value); static int Use(Item x) => x.Value;")]
-    [InlineData("UseItem(new(1))", "", "record Item(int Value); static int UseItem(Item x) => x.Value;")]
+    [InlineData("Use(new Item(Get(1)))", "", "record Item(int Value); static int Get(int value) => value; static int Use(Item x) => x.Value;")]
+    [InlineData("UseItem(new(Get(1)))", "", "record Item(int Value); static int Get(int value) => value; static int UseItem(Item x) => x.Value;")]
     [InlineData("Use(System.Convert.ToInt32(\"1\"))", "", "")]
     [InlineData("Use(Extensions.Get(1))", "", "")]
     public async Task ResolvedBindingsAndExplicitCallerConstantsHaveSavedFixes(string expression, string imports, string declarations)

@@ -29,7 +29,6 @@ public sealed class ReviewedComputationTests
 
     public static TheoryData<string, string> Cases => new()
     {
-        { "static void M(Exception ex) { throw StreamingFailure(new CliOutputStreamingException(\"Calendar output streaming failed.\", ex)); }", "CR0300" },
         { "static Exception M(string[] outcomes, Exception inner) => new CalendarStreamingException(new Result(outcomes.Any(x => x == \"completed\") ? 6 : 1, [\"Output streaming failed.\"], false), inner);", "CR0301" },
         { "static string M(string? selected) { var path = selected is { } cache ? ResolvePath(cache) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), \"ScheduleLib\", \"cache\"); return path; }", "CR0300" },
         { "static object M<T>(Node node, JsonObject action) => node.GetOrAdd(new NodeDataKey<T>(new(action[\"key\"]!.GetValue<string>().Split('.')[0])));", "CR0300" },
@@ -59,6 +58,7 @@ public sealed class ReviewedComputationTests
     }
 
     [Theory]
+    [InlineData("static void M(Exception ex) { throw StreamingFailure(new CliOutputStreamingException(\"Calendar output streaming failed.\", ex)); }")]
     [InlineData("static int M(bool flag) { var value = flag ? 1 : 2; return value; }")]
     [InlineData("static string[] M(string[] parts) => new[] { \"defaults\" }.Concat(parts).ToArray();")]
     [InlineData("static int M(string[] values) => values.Any(x => x.Length > 0) ? 6 : 1;")]
@@ -102,7 +102,7 @@ public sealed class ReviewedComputationTests
         var document = StatementOperationTestFixture.Document(source);
         var before = await StatementOperationTestFixture.Run(document);
         var diagnostics = await StatementOperationTestFixture.Diagnostics(document);
-        Assert.Equal(6, diagnostics.Length);
+        Assert.Equal(5, diagnostics.Length);
         var conditions = await InlineConditionTestFixture.Diagnostics(document);
         Assert.Equal("CR0203", Assert.Single(conditions).Id);
         foreach (var diagnostic in diagnostics.Concat(conditions))

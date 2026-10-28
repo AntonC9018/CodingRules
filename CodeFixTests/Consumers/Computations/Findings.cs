@@ -24,7 +24,7 @@ public static class C
 
     private static void Fail(Exception ex)
     {
-        throw StreamingFailure(new CliOutputStreamingException("Calendar output streaming failed.", ex)); // CR0300: new CliOutputStreamingException
+        throw StreamingFailure(new CliOutputStreamingException("Calendar output streaming failed.", ex)); // Accepted: one simple constructed argument.
     }
 
     private static Exception Failure(string[] outcomes, Exception inner) => new CalendarStreamingException(new Result(outcomes.Any(x => x == "completed") ? 6 : 1, ["Output streaming failed. Completed actions remain applied; inspect the destination before another apply."], false), inner); // CR0301: new Result

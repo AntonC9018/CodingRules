@@ -16,7 +16,7 @@ doubles; it does not reference or modify the downstream repository.
 
 | Case | Original source | Finding and resulting boundary |
 | --- | --- | --- |
-| Constructed streaming exception | [CalendarSync.cs:161](https://github.com/AntonC9018/ScheduleLib/blob/12e601e7b62511bdecc44e280407fee12147b230/src/MainCli/CalendarSync.cs#L161) | Existing CR0300 names the exception; its original message and inner-exception identity remain intact. |
+| Streaming exception | [CalendarSync.cs:161][streaming-exception] | Accepted single construction. |
 | Any/ternary inside result/exception construction | [CalendarSync.cs:165](https://github.com/AntonC9018/ScheduleLib/blob/12e601e7b62511bdecc44e280407fee12147b230/src/MainCli/CalendarSync.cs#L165) | Existing CR0301 names the selected exit value without eagerly evaluating either branch. |
 | Directory selection | [CliRuntime.cs:44](https://github.com/AntonC9018/ScheduleLib/blob/12e601e7b62511bdecc44e280407fee12147b230/src/MainCli/CliRuntime.cs#L44) | CR0300 names GetFolderPath inside the fallback branch. Its helper remains inside the original Path.Combine argument evaluation. |
 | Split/key/lookup construction | [CliSettings.Removals.cs:260](https://github.com/AntonC9018/ScheduleLib/blob/12e601e7b62511bdecc44e280407fee12147b230/src/MainCli/CliSettings.Removals.cs#L260) | CR0300 stages split/index/key construction in order. Target-typed new keeps its construction conversion; later local copies validate their own conversion. |
@@ -85,7 +85,7 @@ existing agent-guidance/ADR policy.
 ## Verification and package offering
 
 `ReviewedComputationTests` reads the same Findings.cs and Accepted.cs shipped in
-`CodeFixTests/Consumers/Computations`. It verifies six exact CR03 locations, the
+`CodeFixTests/Consumers/Computations`. It verifies five exact CR03 locations, the
 CR0203 location, compiled saved actions at every finding, runtime equivalence,
 fix convergence and accepted-case silence. Runtime tests separately check lazy
 pipeline enumeration/failure, guarded reflection queries and provider failures,
@@ -93,7 +93,7 @@ nullable service-result naming, nested lookup receiver/constructor order and JSO
 failures, and handler constructor/append gating.
 
 CI registers `build/verify-computation-consumer.py artifacts/release`. The gate
-requires an existing candidate package and never repacks it. It checks all seven
+requires an existing candidate package and never repacks it. It checks all six
 exact warning locations, severity-none/error and warnings-as-errors transport,
 generated/accepted source stability, packaged fixing convergence, identical runtime
 output, and a stable second formatting pass. Its execution is intentionally
@@ -121,3 +121,25 @@ then its result type. Names are collision-safe; captured values with the same
 resolved type are reused rather than copied into another generated local.
 Exception interpolation belongs to CR1600, and does not receive a CR03 string
 extraction action.
+
+## Single constructed argument — 2026-10-28
+
+Accept one simple direct construction per invocation or constructor argument
+list. This applies to explicit and target-typed construction, including test
+fixtures and production calls. Other nonconstructed arguments do not consume
+this allowance. Multiple direct constructions still require named steps or a
+purposeful builder; this does not mandate a builder for every such call.
+
+The allowance covers the construction itself. A nested constructor, producer
+call, conditional or numeric calculation inside it remains subject to the
+existing diagnostics and fix-safety checks. Collection expressions containing
+simple values remain accepted. Existing parameterless-call and object-initializer
+boundaries are unchanged.
+
+The original simple streaming-exception wrapper now belongs to the accepted
+coverage. Its runtime identity and message checks remain in the shared fixture;
+the exact-warning expectations change from seven to six total warnings. Both
+in-process and packaged consumer checks cover simple construction acceptance.
+
+[streaming-exception]:
+  https://github.com/AntonC9018/ScheduleLib/blob/12e601e/src/MainCli/CalendarSync.cs#L161

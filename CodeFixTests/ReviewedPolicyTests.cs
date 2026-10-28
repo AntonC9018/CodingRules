@@ -22,7 +22,7 @@ public sealed class ReviewedPolicyTests
     [Fact]
     public async Task OrdinaryComputationPrefersLocalAndSimplifiesTypes()
     {
-        var document = StatementOperationTestFixture.Document("using System.Text; class C { static string Use(StringBuilder value) => value.Capacity.ToString(); public static string Run() => Use(new StringBuilder(4)); }");
+        var document = StatementOperationTestFixture.Document("using System.Text; class C { static string Use(StringBuilder value) => value.Capacity.ToString(); static StringBuilder Create(int capacity) => new(capacity); public static string Run() => Use(Create(4)); }");
         var before = await StatementOperationTestFixture.Run(document);
         var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
         var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
@@ -50,7 +50,7 @@ public sealed class ReviewedPolicyTests
     [Fact]
     public async Task SimplifiedTypeStillDisambiguatesAConflictingShortName()
     {
-        var document = StatementOperationTestFixture.Document("class StringBuilder {} class C { static string Use(System.Text.StringBuilder value) => value.Capacity.ToString(); public static string Run() => Use(new System.Text.StringBuilder(4)); }");
+        var document = StatementOperationTestFixture.Document("class StringBuilder {} class C { static string Use(System.Text.StringBuilder value) => value.Capacity.ToString(); static System.Text.StringBuilder Create(int capacity) => new(capacity); public static string Run() => Use(Create(4)); }");
         var changed = await StatementOperationTestFixture.Fix(document, StatementOperationCodeFixProvider.ExpandKey);
         var text = (await changed.GetTextAsync()).ToString();
         Assert.Contains("System.Text.StringBuilder", text);

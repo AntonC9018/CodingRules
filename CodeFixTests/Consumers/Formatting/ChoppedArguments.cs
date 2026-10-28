@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.CompilerServices;
 
 public sealed class ChoppedArgumentValue
 {
@@ -11,8 +10,7 @@ public static class ChoppedArgumentCases
     public static void Run()
     {
         Use(1,
-            2,
-         3);
+            2);
         _ = new ChoppedArgumentValue(1,
             2);
         ChoppedArgumentValue value = new(1,
@@ -24,17 +22,10 @@ public static class ChoppedArgumentCases
                 5,
                 6));
 
-        _ = Capture(Use(7,
-            8));
-        _ = Use(Line(),
-            9);
         _ = value;
     }
 
     private static int Use(int first, int second) => first + second;
     private static void Use(Func<int, int> transform, int value) { }
     private static void Use(ChoppedArgumentValue value) { }
-    private static int Line([CallerLineNumber] int line = 0) => line;
-    private static string Capture(int value,
-        [CallerArgumentExpression("value")] string expression = "") => expression;
 }

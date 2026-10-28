@@ -147,12 +147,19 @@ def main():
             chopped_expected.decode().splitlines(keepends=True), chopped_fixed.decode().splitlines(keepends=True),
             fromfile="chopped arguments expected", tofile="chopped arguments actual"))
         assert chopped_fixed == chopped_expected, chopped_difference
+        observers_path = consumer / "ChoppedArgumentObservers.cs"
+        observers_fixed = observers_path.read_bytes()
+        observers_expected = (ROOT / "CodeFixTests/Expected/ChoppedArgumentObservers.Fixed.cs.txt").read_bytes()
+        observers_difference = "".join(difflib.unified_diff(
+            observers_expected.decode().splitlines(keepends=True), observers_fixed.decode().splitlines(keepends=True),
+            fromfile="chopped argument observers expected", tofile="chopped argument observers actual"))
+        assert observers_fixed == observers_expected, observers_difference
         caller_reports = {
             ("CallerExpressions.cs", "9", "62", "CR0801"),
             ("CallerInformation.cs", "17", "12", "CR0802"),
             ("CallerInformation.cs", "19", "31", "CR0801"),
-            ("ChoppedArguments.cs", "29", "24", "CR0806"),
-            ("ChoppedArguments.cs", "31", "16", "CR0806"),
+            ("ChoppedArgumentObservers.cs", "11", "16", "CR0806"),
+            ("ChoppedArgumentObservers.cs", "13", "37", "CR0806"),
         }
         output = run(["dotnet", "format", "analyzers", project, "--no-restore", "--diagnostics",
                       "CR0801", "CR0802", "CR0806", "--verify-no-changes"], consumer, environment,
@@ -181,6 +188,7 @@ def main():
         assert caller_path.read_bytes() == caller_fixed
         assert expression_path.read_bytes() == expression_fixed
         assert chopped_path.read_bytes() == chopped_fixed
+        assert observers_path.read_bytes() == observers_fixed
         output = run(["dotnet", "build", project, "--no-restore", "-warnaserror",
                       "-p:WarningsNotAsErrors=CR0801%3BCR0802%3BCR0806"], consumer, environment)
         assert set(SOURCE_WARNING.findall(output)) == caller_reports, output

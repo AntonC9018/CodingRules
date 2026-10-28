@@ -312,7 +312,8 @@ internal static class ReturnDecisionAnalysis
         var type = semanticModel.GetTypeInfo(expression, cancellationToken).Type;
         if (type?.SpecialType == SpecialType.System_Boolean)
         {
-            if (IsBooleanDecision(expression))
+            if (IsBooleanDecision(expression)
+                || semanticModel.GetSymbolInfo(expression, cancellationToken).Symbol is IPropertySymbol)
             {
                 kind = ReturnDecisionKind.Boolean;
                 return true;

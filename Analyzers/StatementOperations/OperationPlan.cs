@@ -171,10 +171,23 @@ internal sealed class OperationPlan
             IObjectCreationOperation creation => creation.Arguments,
             _ => default,
         };
+        // Arguments to a conditional method are skipped when its symbol is absent.
+        // They must stay inside that invocation, including any extracted helper call.
+        if (operation is IInvocationOperation conditional && conditional.TargetMethod.GetAttributes().Any(attribute =>
+                attribute.AttributeClass?.ToDisplayString() == "System.Diagnostics.ConditionalAttribute")) return false;
         return !arguments.IsDefault && arguments.All(argument => argument.Parameter?.RefKind == RefKind.None
                 && argument.ArgumentKind != ArgumentKind.ParamArray && argument.Parameter.Type.IsRefLikeType == false)
-            && operation is not IInvocationOperation { Instance.Type.IsValueType: true };
+            && (operation is not IInvocationOperation { Instance.Type.IsValueType: true } call
+                || IsValueTemporary(call.Instance));
     }
+
+    // A by-value call/property result already has temporary storage in the source.
+    // Capturing it preserves that storage before later argument evaluation. A
+    // variable/field/ref-return receiver can alias storage changed by an argument.
+    private static bool IsValueTemporary(IOperation? operation) => operation is
+        IInvocationOperation { TargetMethod.ReturnsByRef: false, TargetMethod.ReturnsByRefReadonly: false }
+        or IPropertyReferenceOperation { Property.ReturnsByRef: false, Property.ReturnsByRefReadonly: false }
+        or IObjectCreationOperation;
 
     private static bool CanLower(ExpressionSyntax expression, SemanticModel model)
     {
@@ -218,7 +231,8 @@ internal sealed class OperationPlan
                     if (model.GetConversion(cast).IsUserDefined) return false;
                     break;
                 case MemberAccessExpressionSyntax member:
-                    if (HasLowering(member.Expression, model) && model.GetTypeInfo(member.Expression).Type?.IsValueType == true) return false;
+                    if (HasLowering(member.Expression, model) && model.GetTypeInfo(member.Expression).Type?.IsValueType == true
+                        && !IsValueTemporary(model.GetOperation(member.Expression))) return false;
                     break;
                 case ElementAccessExpressionSyntax element:
                     if (model.GetTypeInfo(element.Expression).Type?.IsReferenceType != true

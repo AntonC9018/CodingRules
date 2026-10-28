@@ -49,9 +49,9 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
         if (node.ContainsDiagnostics || node.ContainsDirectives) return ImmutableArray<TextChange>.Empty;
         if (node is ArgumentListSyntax arguments)
         {
-            var changes = ArgumentChanges(arguments, text, out var isSoleConstruction);
+            var argumentChanges = ArgumentChanges(arguments, text, out var isSoleConstruction);
             rule = isSoleConstruction ? ArgumentRule : ChoppedArgumentRule;
-            return changes;
+            return argumentChanges;
         }
         if (node is not InitializerExpressionSyntax initializer)
             return ImmutableArray<TextChange>.Empty;
@@ -156,17 +156,18 @@ public sealed class InitializerCallLayoutAnalyzer : DiagnosticAnalyzer
             != text.Lines.GetLineFromPosition(first.SpanStart).LineNumber)
             return ImmutableArray<TextChange>.Empty;
 
-        var chopped = arguments.Arguments.Skip(1).Any(argument =>
+        var continuation = arguments.Arguments.Skip(1).Where((argument, index) =>
             text.Lines.GetLineFromPosition(argument.SpanStart).LineNumber
-                > text.Lines.GetLineFromPosition(first.SpanStart).LineNumber);
-        if (!chopped) return ImmutableArray<TextChange>.Empty;
+                > text.Lines.GetLineFromPosition(arguments.Arguments.GetSeparator(index).Span.End).LineNumber)
+            .FirstOrDefault();
+        if (continuation is null) return ImmutableArray<TextChange>.Empty;
 
         var gapToFirst = TextSpan.FromBounds(arguments.OpenParenToken.Span.End, first.SpanStart);
         if (!text.ToString(gapToFirst).All(char.IsWhiteSpace)) return ImmutableArray<TextChange>.Empty;
-        var newline = Newline(text);
-        var changes = ImmutableArray.CreateBuilder<TextChange>();
-        AddLineBreak(arguments.OpenParenToken, first.GetFirstToken(), text, newline, changes);
-        return changes.ToImmutable();
+        var continuationLine = text.Lines.GetLineFromPosition(continuation.SpanStart);
+        var indentation = new string(text.ToString(continuationLine.Span)
+            .TakeWhile(character => character is ' ' or '\t').ToArray());
+        return ImmutableArray.Create(new TextChange(gapToFirst, Newline(text) + indentation));
     }
 
     private static string Newline(SourceText text) => text.Lines

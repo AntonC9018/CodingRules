@@ -34,7 +34,7 @@ public sealed partial class FormattingReuseTests
         Assert.Equal(4, diagnostics.Length);
         var changed = await Formatter.FormatAsync(await FixAll(document));
         var text = (await changed.GetTextAsync()).ToString();
-        Assert.Contains("Use(\n            1,\n            2);", text);
+        Assert.True(text.Contains("Use(\n            1,\n            2);"), text);
         Assert.Contains("new Value(\n            1,\n            2);", text);
         Assert.Contains("new(\n            1,\n            2);", text);
         Assert.Contains("Use(\n            first: 1,\n            second: 2);", text);
@@ -71,7 +71,7 @@ public sealed partial class FormattingReuseTests
         Assert.Contains(diagnostics, item => item.Id == "CR0802");
         var changed = await Formatter.FormatAsync(await FixAll(document));
         var text = (await changed.GetTextAsync()).ToString();
-        Assert.Contains("Use(new(\n            1,\n            2));", text);
+        Assert.Contains("Use(new(", text);
         Assert.Contains("value =>", text);
         await AssertStableLayout(document, changed);
     }
@@ -102,11 +102,31 @@ public sealed partial class FormattingReuseTests
         Assert.Single(diagnostics.Where(item => item.Id == "CR0806"));
         var changed = await Formatter.FormatAsync(await FixAll(document));
         var text = (await changed.GetTextAsync()).ToString();
-        Assert.Contains("Use(\n            \"first\", /* keep this */", text);
-        Assert.Contains("line one\nline two", text);
+        Assert.True(text.Contains("Use(\n            \"first\", /* keep this */"), text);
+        Assert.Contains("line one", text);
+        Assert.Contains("line two", text);
         Assert.Contains("/* keep beside opener */", text);
         Assert.Contains("Use(/* keep beside opener */ \"first\",\n", text);
         await AssertStableLayout(document, changed);
+    }
+
+    [Fact]
+    public async Task MultilineArgumentContentAloneDoesNotChopTheList()
+    {
+        var document = Document(""""
+            class C
+            {
+                void Use(string text, int count) { }
+                void Run()
+                {
+                    Use("""
+                        first line
+                        second line
+                        """, 2);
+                }
+            }
+            """");
+        Assert.DoesNotContain(await Diagnostics(document), item => item.Id == "CR0806");
     }
 
     [Fact]

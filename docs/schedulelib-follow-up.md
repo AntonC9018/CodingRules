@@ -697,8 +697,8 @@ source and missing analyzer coverage are preserved in [CodingRules #36][review-3
 Do not interpret analyzer silence as acceptance of a complex expression.
 
 - Inline collection expressions and array creation alone are accepted by CR0300.
-  Nested explicit and target-typed record constructors currently share the same
-  diagnostic policy; the requested simpler-construction boundary needs review.
+  The subsequent single-construction decision below accepts one simple directly
+  constructed argument in either explicit or target-typed form.
 - When an ordinary argument list is chopped, its first argument starts on the
   next line too. Keep the existing lambda exception and the adjacent sole
   positional constructor form, with its own arguments chopped below `new(`.
@@ -728,3 +728,20 @@ possible diagnostic for narrow scopes and meaningful generated decision names is
 recorded in [CodingRules #37](https://github.com/AntonC9018/CodingRules/issues/37).
 Both are deferred. Preserve the expressly approved appConfigBuilder alias; do not
 turn the scope preference into a blanket prohibition on one-use locals.
+
+The stable candidate is CodingRules `97de786`, SHA-256:
+
+```text
+ea2022c5760ba614e40003ab4d933d0c48b0fa3921e6f1d5e93ad0936509da7c
+```
+
+All 1,488 analyzer/fixer/package cases and 11 consumer gates pass. ScheduleLib
+source `9e09740` rebuilds both targets with zero errors, and its 18 website tests
+pass. The reviewed CR0300 inventory falls from 62 to 26: 16 arguments across eight
+calls that construct two roster inputs, plus the 10 readable assertions already
+held for policy review. No ScheduleLib test cases were added.
+
+The consumer report's reference links are restored, and the inline-key example
+is separated from the intake alias example. The CLI and scope/name tickets remain
+deferred. The local Nix CoreCLR/glibc mismatch persists; restoration and builds
+were verified on AWS, with local candidate restoration marked unverified.

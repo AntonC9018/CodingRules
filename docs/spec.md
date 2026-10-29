@@ -436,6 +436,12 @@ checks remain inline, including the null-guarded form. Recognition requires the
 framework Debug, Type and Object symbols, a direct value receiver and `typeof`
 input. Other assertion computations, type-producing calls and lookalike APIs
 retain their existing analysis.
+The reviewed JsonElement `GetProperty` plus scalar reader remains one inline
+field read when its receiver and key are direct values. The initial reader
+catalogue is GetString, GetBoolean, GetInt32, GetInt64, GetDouble, GetDecimal and
+GetArrayLength. A surrounding comparison or calculation still requires named
+steps, and computed keys remain analyzed. This preserves the accepted short
+JSON assertion examples while reporting the compound file-count comparison.
 One simple directly constructed argument may remain inline per containing call,
 including explicit or target-typed `new(...)` alongside other nonconstructed
 arguments. More than one direct construction retains CR0300. The allowance does

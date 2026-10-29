@@ -21,6 +21,10 @@ internal sealed class OperationFacts
     public static OperationFacts Create(ExpressionSyntax expression, SemanticModel model)
     {
         var facts = new OperationFacts(expression);
+        if (expression.Parent is ArgumentSyntax && IsSimpleJsonFieldRead(expression, model))
+        {
+            return facts;
+        }
         var nodes = EvaluationNodes(expression).OfType<ExpressionSyntax>().ToArray();
         var calculations = nodes.Count(node => IsCalculation(node, model));
         facts.Conditional = nodes.OfType<ConditionalExpressionSyntax>()
@@ -97,6 +101,41 @@ internal sealed class OperationFacts
         CastExpressionSyntax => false,
         InterpolatedStringExpressionSyntax interpolation => model.GetTypeInfo(interpolation).ConvertedType?.SpecialType == SpecialType.System_String,
         _ => IsMutation(expression),
+    };
+
+    private static bool IsSimpleJsonFieldRead(ExpressionSyntax expression, SemanticModel model)
+    {
+        if (Unwrap(expression) is not InvocationExpressionSyntax scalar
+            || scalar.ArgumentList.Arguments.Count != 0
+            || model.GetSymbolInfo(scalar).Symbol is not IMethodSymbol reader
+            || reader.Name is not ("GetString" or "GetBoolean" or "GetInt32" or "GetInt64"
+                or "GetDouble" or "GetDecimal" or "GetArrayLength")
+            || !IsJsonElement(reader.ContainingType, model)
+            || scalar.Expression is not MemberAccessExpressionSyntax access
+            || Unwrap(access.Expression) is not InvocationExpressionSyntax property
+            || property.ArgumentList.Arguments.Count != 1
+            || model.GetSymbolInfo(property).Symbol is not IMethodSymbol { Name: "GetProperty" } lookup
+            || !IsJsonElement(lookup.ContainingType, model)
+            || property.Expression is not MemberAccessExpressionSyntax receiver
+            || !IsDirectJsonInput(receiver.Expression)
+            || !IsDirectJsonInput(property.ArgumentList.Arguments[0].Expression))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsJsonElement(INamedTypeSymbol type, SemanticModel model) =>
+        type.ContainingAssembly.Name == "System.Text.Json"
+        && !type.Locations.Any(location => location.IsInSource)
+        && SymbolEqualityComparer.Default.Equals(type, model.Compilation.GetTypeByMetadataName("System.Text.Json.JsonElement"));
+
+    private static bool IsDirectJsonInput(ExpressionSyntax expression) => Unwrap(expression) switch
+    {
+        IdentifierNameSyntax or LiteralExpressionSyntax or ThisExpressionSyntax => true,
+        MemberAccessExpressionSyntax member => IsDirectJsonInput(member.Expression),
+        _ => false,
     };
 
     private static bool IsReviewedRuntimeTypeAssertion(InvocationExpressionSyntax invocation, SemanticModel model)

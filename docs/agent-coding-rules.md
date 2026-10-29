@@ -188,6 +188,11 @@ CodingRules #37; no scope or helper-name diagnostic is approved.
 A function chosen by an automatic refactoring is not evidence that the function
 improves readability.
 
+A direct JSON scalar field read may remain inline, such as
+`root.GetProperty("command").GetString()`. Name the scalar before comparing or
+calculating with it inside a call argument. Do not introduce extra locals solely
+to split the accepted short field read.
+
 One simple directly constructed argument may remain inline per call, including
 explicit and target-typed `new(...)` with other simple arguments. Multiple direct
 constructions still need named steps or an appropriate builder. For the reviewed

@@ -56,6 +56,11 @@ static class Generated {
         configure("error")
         assert set(REPORT.findall(run(build, consumer, environment, expected_returncode=1))) == errors
         configure("warning")
+        # Diagnostic anchors are test metadata, not source comments that a fix
+        # may move into another operation. Preserve ordinary comments; remove
+        # only these anchors after checking their exact diagnostic locations.
+        finding = consumer / "Findings.cs"
+        finding.write_text(re.sub(r"[ \t]*// CR[0-9][^\r\n]*", "", finding.read_text()))
         command = ["dotnet", "format", "analyzers", "Consumer.csproj", "--no-restore", "--diagnostics", *DIAGNOSTICS]
         for attempt in range(8):
             previous = {path.name: path.read_bytes() for path in consumer.glob("*.cs")}

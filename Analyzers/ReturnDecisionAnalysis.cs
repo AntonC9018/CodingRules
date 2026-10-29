@@ -127,12 +127,19 @@ internal static class ReturnDecisionAnalysis
         bool allowThrowArms,
         out ReturnDecisionKind kind)
     {
-        return TryClassify(
-            returnStatement,
-            semanticModel,
-            cancellationToken,
-            allowThrowArms,
-            out kind);
+        if (!TryClassify(
+                returnStatement,
+                semanticModel,
+                cancellationToken,
+                allowThrowArms,
+                out kind))
+        {
+            return false;
+        }
+
+        // Expanded branches can alter enclosing caller expressions and later
+        // caller-line values, including indexers and calls in other members.
+        return !NamedArgumentObservers.Affected(returnStatement, semanticModel, cancellationToken);
     }
 
     /// <summary>

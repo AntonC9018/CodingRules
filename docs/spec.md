@@ -327,6 +327,9 @@ Acceptance tests include:
   ticket #2 onward through the nested return decision rules below.
 - Fixes preserve comments and do not change the number or order of evaluations
   of calls and property accesses.
+- Implicit caller-expression and caller-line values must remain unchanged,
+  including indexers and observations in later members. Sites affected by those
+  observations stay outside this initial safe-fix diagnostic coverage.
 
 For nullable fallbacks, the fix returns the found value from an `if` branch and
 leaves the fallback as the final return. For example, after an earlier guard,

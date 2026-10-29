@@ -1,6 +1,5 @@
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
@@ -9,17 +8,17 @@ namespace CodingRules;
 public sealed class StatementOperationSafetyTests
 {
     [Theory]
-    [InlineData("Use(First() + Second(),\n            detail:\n                \"invocation\")", "static string Use(int value, string detail) => detail;", "invocation")]
-    [InlineData("new Item(First() + Second(),\n            detail:\n                \"construction\").Detail", "sealed class Item { public string Detail; public Item(int value, string detail) { Detail = detail; } }", "construction")]
+    [InlineData("Use(First(1) + Second(2),\n            detail:\n                \"invocation\")", "static string Use(int value, string detail) => detail;", "invocation")]
+    [InlineData("new Item(First(1) + Second(2),\n            detail:\n                \"construction\").Detail", "sealed class Item { public string Detail; public Item(int value, string detail) { Detail = detail; } }", "construction")]
     public async Task LoweringPreservesArgumentSeparatorsAndExpressionTrivia(string expression, string declarations, string expected)
     {
-        var source = "class C { static int First()=>1; static int Second()=>2; " + declarations
+        var source = "class C { static int First(int value)=>value; static int Second(int value)=>value; " + declarations
             + " public static string Run() { return " + expression + "; } }";
         var document = StatementOperationTestFixture.Document(source);
         await StatementOperationTestFixture.Compiles(document);
         var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
         var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
-        Assert.NotEmpty(actions);
+        Assert.Contains(actions, action => action.EquivalenceKey == StatementOperationCodeFixProvider.ExpandKey);
         var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document,
             StatementOperationCodeFixProvider.ExpandKey));
         await StatementOperationTestFixture.Compiles(changed);
@@ -28,12 +27,13 @@ public sealed class StatementOperationSafetyTests
         var root = await changed.GetSyntaxRootAsync();
         var arguments = Assert.Single(root!.DescendantNodes().OfType<ArgumentListSyntax>()
             .Where(argumentList => argumentList.Arguments.Count == 2));
-        Assert.Equal(2, arguments.Arguments.Count);
-        Assert.Contains(arguments.Arguments[1].Expression.GetLeadingTrivia(),
-            trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia));
-        Assert.Contains(arguments.Arguments.GetSeparators(),
-            separator => separator.TrailingTrivia.Any(trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia)));
-        Assert.Contains("detail:", (await changed.GetTextAsync()).ToString());
+        var firstArgumentEnd = arguments.Arguments[0].GetLocation().GetLineSpan().EndLinePosition;
+        var detailArgument = arguments.Arguments[1];
+        var detailLabel = detailArgument.NameColon!.GetLocation().GetLineSpan().StartLinePosition;
+        var detailValue = detailArgument.Expression.GetLocation().GetLineSpan().StartLinePosition;
+        Assert.True(detailLabel.Line > firstArgumentEnd.Line);
+        Assert.True(detailValue.Line > detailLabel.Line);
+        Assert.True(detailValue.Character >= detailLabel.Character);
         Assert.Equal(expected, await StatementOperationTestFixture.Run(changed));
     }
 

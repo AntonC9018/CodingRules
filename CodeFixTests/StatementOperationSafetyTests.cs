@@ -1,11 +1,42 @@
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace CodingRules;
 
 public sealed class StatementOperationSafetyTests
 {
+    [Theory]
+    [InlineData("Use(First() + Second(),\n            detail:\n                \"invocation\")", "static string Use(int value, string detail) => detail;", "invocation")]
+    [InlineData("new Item(First() + Second(),\n            detail:\n                \"construction\").Detail", "sealed class Item { public string Detail; public Item(int value, string detail) { Detail = detail; } }", "construction")]
+    public async Task LoweringPreservesArgumentSeparatorsAndExpressionTrivia(string expression, string declarations, string expected)
+    {
+        var source = "class C { static int First()=>1; static int Second()=>2; " + declarations
+            + " public static string Run() { return " + expression + "; } }";
+        var document = StatementOperationTestFixture.Document(source);
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
+        var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
+        Assert.NotEmpty(actions);
+        var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document,
+            StatementOperationCodeFixProvider.ExpandKey));
+        await StatementOperationTestFixture.Compiles(changed);
+        Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
+
+        var root = await changed.GetSyntaxRootAsync();
+        var arguments = Assert.Single(root!.DescendantNodes().OfType<ArgumentListSyntax>()
+            .Where(argumentList => argumentList.Arguments.Count == 2));
+        Assert.Equal(2, arguments.Arguments.Count);
+        Assert.Contains(arguments.Arguments[1].Expression.GetLeadingTrivia(),
+            trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia));
+        Assert.Contains(arguments.Arguments.GetSeparators(),
+            separator => separator.TrailingTrivia.Any(trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia)));
+        Assert.Contains("detail:", (await changed.GetTextAsync()).ToString());
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(changed));
+    }
+
     [Theory]
     [InlineData("Use(Get(1, line: 7))", "using System.Runtime.CompilerServices;", "static int Get(int x, [CallerLineNumber] int line = 0) => x;")]
     [InlineData("Use(callback(1))", "using System;", "static Func<int,int> callback = x => x;")]

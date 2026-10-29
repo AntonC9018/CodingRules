@@ -128,12 +128,12 @@ internal sealed class OperationEvaluator
             }
 
             expression = invocation.WithExpression(target).WithArgumentList(invocation.ArgumentList.WithArguments(
-                SyntaxFactory.SeparatedList(LowerArguments(invocation.ArgumentList.Arguments, statements))));
+                LowerArguments(invocation.ArgumentList.Arguments, statements)));
         }
         else if (expression is BaseObjectCreationExpressionSyntax creation && creation.ArgumentList is not null
             && creation.ArgumentList.Arguments.Any(argument => HasWork(argument.Expression)))
         {
-            var arguments = creation.ArgumentList.WithArguments(SyntaxFactory.SeparatedList(LowerArguments(creation.ArgumentList.Arguments, statements)));
+            var arguments = creation.ArgumentList.WithArguments(LowerArguments(creation.ArgumentList.Arguments, statements));
             expression = creation switch
             {
                 ObjectCreationExpressionSyntax explicitCreation => explicitCreation.WithArgumentList(arguments),
@@ -173,7 +173,7 @@ internal sealed class OperationEvaluator
         {
             var receiver = Save(element.Expression, Lower(element.Expression, statements, save: true), statements);
             expression = element.WithExpression(receiver).WithArgumentList(element.ArgumentList.WithArguments(
-                SyntaxFactory.SeparatedList(LowerArguments(element.ArgumentList.Arguments, statements))));
+                LowerArguments(element.ArgumentList.Arguments, statements)));
         }
         else if (expression is AssignmentExpressionSyntax assignment)
         {
@@ -224,7 +224,7 @@ internal sealed class OperationEvaluator
         return statements;
     }
 
-    private IEnumerable<ArgumentSyntax> LowerArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, List<StatementSyntax> statements)
+    private SeparatedSyntaxList<ArgumentSyntax> LowerArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, List<StatementSyntax> statements)
     {
         var result = new List<ArgumentSyntax>();
         foreach (var argument in arguments)
@@ -232,9 +232,9 @@ internal sealed class OperationEvaluator
             var value = Lower(argument.Expression, statements, save: true);
             var type = model.GetTypeInfo(argument.Expression).ConvertedType ?? model.GetTypeInfo(argument.Expression).Type!;
             value = Save(argument.Expression, value, statements, type);
-            result.Add(argument.WithExpression(value));
+            result.Add(argument.WithExpression(value.WithTriviaFrom(argument.Expression)));
         }
-        return result;
+        return SyntaxFactory.SeparatedList(result, arguments.GetSeparators());
     }
 
     private ExpressionSyntax LowerLeft(ExpressionSyntax left, List<StatementSyntax> statements) => left switch
@@ -242,7 +242,7 @@ internal sealed class OperationEvaluator
         MemberAccessExpressionSyntax member when model.GetSymbolInfo(member).Symbol is not IFieldSymbol { IsStatic: true }
             and not IPropertySymbol { IsStatic: true } => member.WithExpression(Save(member.Expression, Lower(member.Expression, statements), statements)),
         ElementAccessExpressionSyntax element => element.WithExpression(Save(element.Expression, Lower(element.Expression, statements), statements))
-            .WithArgumentList(element.ArgumentList.WithArguments(SyntaxFactory.SeparatedList(LowerArguments(element.ArgumentList.Arguments, statements)))),
+            .WithArgumentList(element.ArgumentList.WithArguments(LowerArguments(element.ArgumentList.Arguments, statements))),
         _ => left,
     };
 

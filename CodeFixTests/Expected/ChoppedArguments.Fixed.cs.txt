@@ -21,8 +21,8 @@ public static class ChoppedArgumentCases
         UseTransform(transform => transform + 1,
             4);
         UseValue(new ChoppedArgumentValue(
-            first: 5,
-            second: 6));
+                first: 5,
+                second: 6));
 
         _ = value;
     }

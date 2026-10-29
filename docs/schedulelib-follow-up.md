@@ -764,3 +764,9 @@ a flag consumed as another option's value is not a result option. Framework help
 aliases should remain human-readable. Failures before parsing have no parsed
 format intent. Startup JSON stdout remains a protocol boundary, separate from
 human diagnostics and structured logs.
+
+The nested-predicate review is settled: the compound expression becomes a block
+lambda with guard clauses. Two compact Any/All/Where predicate levels are allowed;
+a third compact level expands into a block or meaningful named stage. Keep the
+simple group/lesson nesting compact. These decisions refine the original proposal
+for a manually named helper; the preferred automatic shape is an explicit block.

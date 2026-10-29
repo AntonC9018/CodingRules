@@ -564,6 +564,23 @@ around the intended function. Neighboring functions and other rule IDs remain
 enabled. Real analyzer-driver tests verify both suppressions and restored scope;
 there is no custom opt-out attribute or handwritten suppression matcher.
 
+## Compound and deeply nested predicates (CR0403)
+
+For the resolved framework Enumerable Any, All and Where predicate parameters,
+CR0403 requires an expression-bodied predicate to become a block with guard
+clauses when it combines built-in `&&` or `||` with another predicate lambda.
+The Boolean tree must retain short-circuit order and explicit final outcomes.
+Simple nested predicates remain compact through two expression-lambda levels;
+a third compact level requires a block or a named stage. Blocks and named stages
+break compact nesting. An outer depth finding owns its compact chain so the
+same depth excess is not repeated at every ancestor.
+
+Source lookalikes and noncatalogued APIs do not establish this boundary. A safe
+fix keeps delegate binding, conversions, nullable flow, captures and caller
+information unchanged after formatting and reparsing. When that cannot be
+established, the warning remains for a source review. It must not introduce a
+Boolean scratch tree or guess a domain-specific function name.
+
 ## Constructor overloads (ticket 7)
 
 The constructor-overload policy remains a maintainer judgment without an

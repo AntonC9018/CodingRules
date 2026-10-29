@@ -200,6 +200,19 @@ and keep fixture construction inside tests. This extends the existing constructo
 policy; referenced-assembly consumers cannot be inferred from an absence of local
 call sites alone.
 
+## Keep predicate lambdas readable
+
+Use a block lambda with guard clauses when one predicate combines `&&` or `||`
+with another LINQ predicate. Preserve short-circuit reads and give each final
+Boolean outcome an explicit return. Do not replace the expression with a mutable
+Boolean scratch tree or a generically named helper.
+
+Simple compact Any/All/Where predicates may nest through two levels. At a third
+compact level, introduce a block or a meaningful named stage. A block or named
+stage separates the compact expression; it does not justify hiding complex
+logic inside another single expression. The simple group/lesson query remains
+accepted: `groups.Any(g => g.Lessons.Any(l => l.IsLab))`.
+
 ## Prefer early exits and compact safe expressions
 
 Do not retain an else branch after a branch that unconditionally returns or

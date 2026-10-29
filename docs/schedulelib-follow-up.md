@@ -786,19 +786,21 @@ Operation expansion preserves temporary struct storage and declines hoisting
 across conditional calls, including Debug.Assert without DEBUG. Read-only captured
 values can be reused; changing values retain snapshots. Simple identity-converted
 constants stay inline, while boxing and user-defined conversions retain their
-original evaluation position. Return rewrites also decline sites that would
+original evaluation position. Argument lowering preserves existing separators
+and expression trivia, including chopped argument lines and literal indentation.
+Return rewrites also decline sites that would
 change observed caller information later in the source.
 
-The stable candidate source is `429fc14b57302ec6a42447e2d5eb42e6cf2e1f53`.
+The stable candidate source is `0f4cb30ae9dde5dea3307894e6b08bd8f0ec156b`.
 Its package SHA-256 is:
 
 ```text
-a6aa7c4d75646ef5f238a560db28c4556a4e322e49ee1d08a8b9de26ffab50cd
+fa6d591710e640daea033df4cba2bbd2461e065e67deec09012dd35a8c9d2da2
 ```
 
-All 1,589 analyzer/fixer/package tests pass: 264 analyzer tests and 1,325 fixer
+All 1,591 analyzer/fixer/package tests pass: 264 analyzer tests and 1,327 fixer
 and package tests. All 12 consumer gates pass against that one archive, including
 the new predicate gate. The constant-copy regression fails before the correction;
-all 314 focused operation, pipeline, capture and JSON regressions pass afterward.
+all 316 focused operation, pipeline, capture and JSON regressions pass afterward.
 This candidate remains unpublished. These results supersede the earlier deferred
 candidate-validation records for the completed slices.

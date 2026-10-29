@@ -770,3 +770,35 @@ lambda with guard clauses. Two compact Any/All/Where predicate levels are allowe
 a third compact level expands into a block or meaningful named stage. Keep the
 simple group/lesson nesting compact. These decisions refine the original proposal
 for a manually named helper; the preferred automatic shape is an explicit block.
+
+## Verified readability candidate — 2026-10-29
+
+CR0403 implements the approved compound-predicate and two-level compact-nesting
+boundary for framework Enumerable Any/All/Where. Its fixes use block lambdas,
+guards and explicit Boolean outcomes; sequential Fix All handles findings exposed
+by an earlier edit. Expression trees, caller-sensitive expressions, comments and
+unsupported conversions can retain a finding without an offered fix. CR0806
+covers the first argument of chopped calls and constructions, preserving the
+lambda and sole-construction exceptions and caller-information safety checks.
+
+The reviewed runtime-type assertions and direct JSON scalar reads remain accepted.
+Operation expansion preserves temporary struct storage and declines hoisting
+across conditional calls, including Debug.Assert without DEBUG. Read-only captured
+values can be reused; changing values retain snapshots. Simple identity-converted
+constants stay inline, while boxing and user-defined conversions retain their
+original evaluation position. Return rewrites also decline sites that would
+change observed caller information later in the source.
+
+The stable candidate source is `429fc14b57302ec6a42447e2d5eb42e6cf2e1f53`.
+Its package SHA-256 is:
+
+```text
+a6aa7c4d75646ef5f238a560db28c4556a4e322e49ee1d08a8b9de26ffab50cd
+```
+
+All 1,589 analyzer/fixer/package tests pass: 264 analyzer tests and 1,325 fixer
+and package tests. All 12 consumer gates pass against that one archive, including
+the new predicate gate. The constant-copy regression fails before the correction;
+all 314 focused operation, pipeline, capture and JSON regressions pass afterward.
+This candidate remains unpublished. These results supersede the earlier deferred
+candidate-validation records for the completed slices.

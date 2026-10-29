@@ -249,6 +249,12 @@ internal sealed class OperationEvaluator
     public ExpressionSyntax Save(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
     {
         type ??= model.GetTypeInfo(original).Type ?? model.GetTypeInfo(original).ConvertedType!;
+        // A constant needs no snapshot when its conversion is identity. Keep
+        // actual calculations linearized, and retain conversions such as boxing
+        // or user operators at their original argument-evaluation position.
+        if (model.GetConstantValue(original).HasValue && !HasWork(original)
+            && model.ClassifyConversion(original, type).IsIdentity)
+            return value.WithAdditionalAnnotations(Conversion(original, type));
         if (canReuseValues && original is IdentifierNameSyntax source && value is IdentifierNameSyntax same
             && same.Identifier.ValueText == source.Identifier.ValueText)
         {

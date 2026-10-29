@@ -455,6 +455,10 @@ Argument staging can preserve an already temporary struct receiver returned by
 a by-value call, property getter or construction. A variable, field or ref-return
 receiver must retain its original storage; this allowance does not enable copying
 such receivers before evaluating arguments that might change them.
+Simple constant inputs stay inline when their conversion is identity. Keep
+actual calculations separated, and preserve the original evaluation position
+of boxing and user-defined conversions; a constant operand alone does not make
+those conversions unobservable.
 Direct fields, property/index selections and built-in tests remain inline,
 without a purity assumption. At most one supported built-in numeric calculation
 is allowed, including original constant-folded syntax. Supported nonidentity

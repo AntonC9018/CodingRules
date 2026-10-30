@@ -31,7 +31,10 @@
     <PackageReference Include="NETStandard.Library" Version="2.0.3" PrivateAssets="all" GeneratePathProperty="true" />
     <None Include="$(PkgNETStandard_Library)/build/netstandard2.0/ref/netstandard.dll"
           Link="References/netstandard.dll" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="$(NetCoreRoot)packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1/netstandard.dll"
+    <!-- Restore the 2.1 reference surface instead of reading the running SDK's
+         packs folder, which not every SDK installation provides. -->
+    <PackageDownload Include="NETStandard.Library.Ref" Version="[2.1.0]" />
+    <None Include="$([MSBuild]::EnsureTrailingSlash($(NuGetPackageRoot)))netstandard.library.ref/2.1.0/ref/netstandard2.1/netstandard.dll"
           Link="References/netstandard2.1.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

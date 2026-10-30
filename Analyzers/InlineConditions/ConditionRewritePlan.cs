@@ -246,10 +246,9 @@ internal sealed class ConditionRewritePlan
         foreach (var symbol in symbols)
         {
             if (SymbolType(symbol)?.NullableAnnotation != NullableAnnotation.Annotated) continue;
-            foreach (var identifier in host.DescendantNodes().OfType<IdentifierNameSyntax>())
+            foreach (var identifier in SymbolReferences.In(host, symbol, model))
             {
                 if (expression.Span.Contains(identifier.Span)) continue;
-                if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol)) continue;
                 if (model.GetTypeInfo(identifier).Nullability.FlowState == NullableFlowState.NotNull) return true;
             }
         }
@@ -292,8 +291,7 @@ internal sealed class ConditionRewritePlan
     }
 
     private static bool HasExternalReference(ISymbol symbol, ExpressionSyntax expression, SyntaxNode scope, SemanticModel model) =>
-        scope.DescendantNodes().OfType<IdentifierNameSyntax>().Any(identifier => !expression.Span.Contains(identifier.Span)
-            && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol));
+        SymbolReferences.In(scope, symbol, model).Any(identifier => !expression.Span.Contains(identifier.Span));
 
     private static bool IsFlowPreserving(IfStatementSyntax statement, List<ISymbol> external, SyntaxNode scope, SemanticModel model)
     {
@@ -313,8 +311,7 @@ internal sealed class ConditionRewritePlan
 
             return external.All(symbol => !HasExternalReference(symbol, statement.Condition, scope, model)
                 || symbol.DeclaringSyntaxReferences.Any(reference => leftmost.Span.Contains(reference.Span))
-                || !scope.DescendantNodes().OfType<IdentifierNameSyntax>().Any(identifier => identifier.SpanStart > statement.Span.End
-                    && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol)));
+                || !SymbolReferences.In(scope, symbol, model).Any(identifier => identifier.SpanStart > statement.Span.End));
         }
 
         return binary.IsKind(SyntaxKind.LogicalOrExpression) && (statement.Statement is ReturnStatementSyntax or ThrowStatementSyntax

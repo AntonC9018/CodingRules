@@ -69,6 +69,5 @@ public sealed class DecisionValueAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool Reads(SyntaxNode node, ILocalSymbol symbol, SemanticModel model) =>
-        node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
-            .Any(identifier => SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol));
+        SymbolReferences.In(node, symbol, model).Any();
 }

@@ -82,9 +82,8 @@ internal sealed class OperationPlan
 
         var declared = new HashSet<ISymbol>(flow.VariablesDeclared, SymbolEqualityComparer.Default);
         var writes = flow.WrittenInside.Any(symbol => !declared.Contains(symbol));
-        var externalDeclarations = declared.Any(symbol => plan.DeclarationSpace.DescendantNodes().OfType<IdentifierNameSyntax>()
-            .Any(identifier => !plan.ExtractionRoot.Span.Contains(identifier.Span)
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol)));
+        var externalDeclarations = declared.Any(symbol => SymbolReferences.In(plan.DeclarationSpace, symbol, model)
+            .Any(identifier => !plan.ExtractionRoot.Span.Contains(identifier.Span)));
         var unsafeCapture = symbols.Any(CannotCapture);
         var structThis = model.GetEnclosingSymbol(owner.SpanStart)?.ContainingType?.IsValueType == true
             && OperationFacts.EvaluationNodes(plan.ExtractionRoot).OfType<ExpressionSyntax>().Any(value => model.GetOperation(value) switch

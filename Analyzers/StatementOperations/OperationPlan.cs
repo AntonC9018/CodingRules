@@ -42,69 +42,129 @@ internal sealed class OperationPlan
 
     public static OperationPlan? Create(ExpressionSyntax owner, SemanticModel model, CancellationToken token)
     {
-        if (RequiresConstant(owner) || !SafeSyntax(owner, model, token) || !CanLower(owner, model)) return null;
-        var plan = new OperationPlan(owner, model);
-        if (plan.Statement is null && plan.ExpressionBody is null && plan.MemberInitializer is null) return null;
-        if (plan.DeclarationSpace.DescendantNodes().Any(node => node is LabeledStatementSyntax or GotoStatementSyntax)) return null;
+        if (RequiresConstant(owner) || !SafeSyntax(owner, model, token) || !CanLower(owner, model))
+        {
+            return null;
+        }
 
+        var plan = new OperationPlan(owner, model);
+        var hasHost = plan.Statement is not null || plan.ExpressionBody is not null || plan.MemberInitializer is not null;
+        if (!hasHost || plan.DeclarationSpace.DescendantNodes().Any(node => node is LabeledStatementSyntax or GotoStatementSyntax))
+        {
+            return null;
+        }
+
+        var flow = model.AnalyzeDataFlow(owner);
+        if (flow?.Succeeded != true)
+        {
+            return null;
+        }
+
+        var symbols = AccessedSymbols(flow);
+        var unavailable = symbols
+            .Where(symbol => symbol is (ILocalSymbol or IParameterSymbol) && !IsVisibleAt(plan.InsertionPoint, symbol, model))
+            .ToArray();
         // Pattern/filter/header variables are unavailable where a helper is declared.
         // Bridge the complete evaluation site, so its parameterized invocation is
         // not another nested argument operation.
-        var filter = owner.Ancestors().FirstOrDefault(node => node is CatchFilterClauseSyntax or WhenClauseSyntax);
-        var loopRoot = plan.Statement switch
-        {
-            ForStatementSyntax loop when loop.Condition?.Span.Contains(owner.Span) == true => loop.Condition,
-            ForStatementSyntax loop => loop.Incrementors.FirstOrDefault(value => value.Span.Contains(owner.Span)),
-            _ => null,
-        };
-        var site = filter switch
-        {
-            CatchFilterClauseSyntax clause => clause.FilterExpression,
-            WhenClauseSyntax clause => clause.Condition,
-            _ => loopRoot,
-        };
-        var flow = model.AnalyzeDataFlow(owner);
-        if (flow?.Succeeded != true) return null;
-        var symbols = flow.ReadInside.Concat(flow.WrittenInside).Distinct(SymbolEqualityComparer.Default).ToArray();
-        var insertion = plan.Statement?.SpanStart ?? (plan.ExpressionBody is LambdaExpressionSyntax { Body: ExpressionSyntax lambdaBody }
-            ? lambdaBody.SpanStart : plan.ExpressionBody?.SpanStart) ?? plan.MemberInitializer!.SpanStart;
-        var unavailable = symbols.Where(symbol => symbol is (ILocalSymbol or IParameterSymbol)
-            && !model.LookupSymbols(insertion, name: symbol.Name).Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, symbol))).ToArray();
+        var site = BridgeSite(owner, plan.Statement);
         if (unavailable.Length != 0 && site is not null)
         {
-            if (!SafeSyntax(site, model, token) || !CanLower(site, model)) return null;
+            if (!SafeSyntax(site, model, token) || !CanLower(site, model))
+            {
+                return null;
+            }
+
             plan.ExtractionRoot = site;
             flow = model.AnalyzeDataFlow(site);
-            if (flow?.Succeeded != true) return null;
-            symbols = flow.ReadInside.Concat(flow.WrittenInside).Distinct(SymbolEqualityComparer.Default).ToArray();
+            if (flow?.Succeeded != true)
+            {
+                return null;
+            }
+
+            symbols = AccessedSymbols(flow);
             plan.BridgeVariables.AddRange(unavailable);
         }
 
-        var declared = new HashSet<ISymbol>(flow.VariablesDeclared, SymbolEqualityComparer.Default);
-        var writes = flow.WrittenInside.Any(symbol => !declared.Contains(symbol));
-        var externalDeclarations = declared.Any(symbol => SymbolReferences.In(plan.DeclarationSpace, symbol, model)
-            .Any(identifier => !plan.ExtractionRoot.Span.Contains(identifier.Span)));
-        var unsafeCapture = symbols.Any(CannotCapture);
-        var structThis = model.GetEnclosingSymbol(owner.SpanStart)?.ContainingType?.IsValueType == true
-            && OperationFacts.EvaluationNodes(plan.ExtractionRoot).OfType<ExpressionSyntax>().Any(value => model.GetOperation(value) switch
+        plan.CanExtract = (unavailable.Length == 0 || site is not null) && CanExtractRoot(plan, flow, symbols);
+        var expansion = FindExpansionRoot(plan);
+        if (expansion is not null
+            && SafeSyntax(expansion, model, token)
+            && CanLower(expansion, model)
+            && SupportsExpansion(expansion, plan, model))
+        {
+            plan.ExpansionRoot = expansion;
+        }
+
+        return plan.CanExtract || plan.CanExpand ? plan : null;
+    }
+
+    // Where a helper or its call is inserted: before the statement, at the start
+    // of the expression body, or at the member initializer.
+    private int InsertionPoint => Statement?.SpanStart
+        ?? (ExpressionBody is LambdaExpressionSyntax { Body: ExpressionSyntax lambdaBody } ? lambdaBody.SpanStart : ExpressionBody?.SpanStart)
+        ?? MemberInitializer!.SpanStart;
+
+    private static ISymbol[] AccessedSymbols(DataFlowAnalysis flow) =>
+        flow.ReadInside.Concat(flow.WrittenInside).Distinct(SymbolEqualityComparer.Default).ToArray();
+
+    private static bool IsVisibleAt(int position, ISymbol symbol, SemanticModel model) =>
+        model.LookupSymbols(position, name: symbol.Name).Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, symbol));
+
+    // The whole catch filter, when clause, or for-loop condition/incrementor around the owner.
+    private static ExpressionSyntax? BridgeSite(ExpressionSyntax owner, StatementSyntax? statement)
+    {
+        var filter = owner.Ancestors().FirstOrDefault(node => node is CatchFilterClauseSyntax or WhenClauseSyntax);
+        return filter switch
+        {
+            CatchFilterClauseSyntax clause => clause.FilterExpression,
+            WhenClauseSyntax clause => clause.Condition,
+            _ => statement switch
             {
-                IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance } => true,
-                IFieldReferenceOperation { Instance: IInstanceReferenceOperation } => true,
-                IPropertyReferenceOperation { Instance: IInstanceReferenceOperation } => true,
-                IInvocationOperation { Instance: IInstanceReferenceOperation } => true,
-                _ => false,
-            });
-        var type = model.GetTypeInfo(plan.ExtractionRoot).Type ?? model.GetTypeInfo(plan.ExtractionRoot).ConvertedType;
-        plan.CanExtract = !writes && !externalDeclarations && !unsafeCapture && !structThis
-            && (unavailable.Length == 0 || site is not null) && IsRenderable(type)
+                ForStatementSyntax loop when loop.Condition?.Span.Contains(owner.Span) == true => loop.Condition,
+                ForStatementSyntax loop => loop.Incrementors.FirstOrDefault(value => value.Span.Contains(owner.Span)),
+                _ => null,
+            },
+        };
+    }
+
+    // An extracted helper must not write outer state, declare variables used
+    // outside it, capture what a local function cannot, or use a struct's this.
+    private static bool CanExtractRoot(OperationPlan plan, DataFlowAnalysis flow, ISymbol[] symbols)
+    {
+        var model = plan.Model;
+        var declared = new HashSet<ISymbol>(flow.VariablesDeclared, SymbolEqualityComparer.Default);
+        var writesOuterState = flow.WrittenInside.Any(symbol => !declared.Contains(symbol));
+        var declaresUsedVariables = declared.Any(symbol => SymbolReferences.In(plan.DeclarationSpace, symbol, model)
+            .Any(identifier => !plan.ExtractionRoot.Span.Contains(identifier.Span)));
+        var initializerUsesLocals = plan.MemberInitializer is not null && symbols.Any(symbol => symbol is ILocalSymbol or IParameterSymbol);
+        if (writesOuterState || declaresUsedVariables || symbols.Any(CannotCapture) || UsesStructThis(plan) || initializerUsesLocals)
+        {
+            return false;
+        }
+
+        var typeInfo = model.GetTypeInfo(plan.ExtractionRoot);
+        return IsRenderable(typeInfo.Type ?? typeInfo.ConvertedType)
             && !HasNullableDependency(plan.ExtractionRoot, model)
             && plan.BridgeVariables.All(symbol => IsRenderable(SymbolType(symbol)));
-        if (plan.MemberInitializer is not null && symbols.Any(symbol => symbol is ILocalSymbol or IParameterSymbol)) plan.CanExtract = false;
+    }
 
-        var expansion = FindExpansionRoot(plan);
-        if (expansion is not null && SafeSyntax(expansion, model, token) && CanLower(expansion, model)
-            && SupportsExpansion(expansion, plan, model)) plan.ExpansionRoot = expansion;
-        return plan.CanExtract || plan.CanExpand ? plan : null;
+    private static bool UsesStructThis(OperationPlan plan)
+    {
+        var model = plan.Model;
+        if (model.GetEnclosingSymbol(plan.Owner.SpanStart)?.ContainingType?.IsValueType != true)
+        {
+            return false;
+        }
+
+        return OperationFacts.EvaluationNodes(plan.ExtractionRoot).OfType<ExpressionSyntax>().Any(value => model.GetOperation(value) switch
+        {
+            IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance } => true,
+            IFieldReferenceOperation { Instance: IInstanceReferenceOperation } => true,
+            IPropertyReferenceOperation { Instance: IInstanceReferenceOperation } => true,
+            IInvocationOperation { Instance: IInstanceReferenceOperation } => true,
+            _ => false,
+        });
     }
 
     // CR04 uses the existing evaluator for independently reached aggregate

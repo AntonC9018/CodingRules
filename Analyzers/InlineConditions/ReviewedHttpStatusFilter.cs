@@ -22,8 +22,8 @@ internal static class ReviewedHttpStatusFilter
     public static IsPatternExpressionSyntax? NamedPattern(ExpressionSyntax expression, SemanticModel model)
     {
         if (expression.Parent is not CatchFilterClauseSyntax
-            || ConditionFacts.Unwrap(expression) is not IsPatternExpressionSyntax pattern
-            || ConditionFacts.Unwrap(pattern.Expression) is not CastExpressionSyntax cast
+            || Parentheses.Unwrap(expression) is not IsPatternExpressionSyntax pattern
+            || Parentheses.Unwrap(pattern.Expression) is not CastExpressionSyntax cast
             || model.GetTypeInfo(cast).Type?.SpecialType != SpecialType.System_Int32)
         {
             return null;

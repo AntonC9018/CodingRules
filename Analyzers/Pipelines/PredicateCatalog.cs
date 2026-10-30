@@ -20,10 +20,7 @@ internal sealed class PredicateCatalog
         var func = compilation.GetTypeByMetadataName("System.Func`2");
         var indexedFunc = compilation.GetTypeByMetadataName("System.Func`3");
         var sequence = compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
-        if (enumerable is null || enumerable.Locations.Any(location => location.IsInSource)
-            || enumerable.ContainingAssembly.Identity.PublicKeyToken.IsDefaultOrEmpty
-            || enumerable.ContainingAssembly.Identity.Name is not "System.Linq" and not "System.Core"
-                and not "netstandard")
+        if (enumerable is null || !FrameworkSymbols.IsPlatformAssembly(enumerable.ContainingAssembly))
         {
             return;
         }

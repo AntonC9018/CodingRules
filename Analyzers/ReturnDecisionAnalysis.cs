@@ -250,7 +250,7 @@ internal static class ReturnDecisionAnalysis
             return false;
         }
 
-        var expression = Unwrap(returnStatement.Expression);
+        var expression = Parentheses.Unwrap(returnStatement.Expression);
         if (expression is ConditionalExpressionSyntax conditional)
         {
             if (!HasIdentityReturnConversion(expression, semanticModel, cancellationToken))
@@ -258,8 +258,8 @@ internal static class ReturnDecisionAnalysis
                 return false;
             }
 
-            var trueArmThrows = Unwrap(conditional.WhenTrue) is ThrowExpressionSyntax;
-            var falseArmThrows = Unwrap(conditional.WhenFalse) is ThrowExpressionSyntax;
+            var trueArmThrows = Parentheses.Unwrap(conditional.WhenTrue) is ThrowExpressionSyntax;
+            var falseArmThrows = Parentheses.Unwrap(conditional.WhenFalse) is ThrowExpressionSyntax;
             if (trueArmThrows && falseArmThrows)
             {
                 return false;
@@ -304,7 +304,7 @@ internal static class ReturnDecisionAnalysis
                 }
             }
 
-            if (Unwrap(coalesce.Right) is ThrowExpressionSyntax)
+            if (Parentheses.Unwrap(coalesce.Right) is ThrowExpressionSyntax)
             {
                 if (!allowThrowArms)
                 {
@@ -346,19 +346,9 @@ internal static class ReturnDecisionAnalysis
         return true;
     }
 
-    public static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parentheses)
-        {
-            expression = parentheses.Expression;
-        }
-
-        return expression;
-    }
-
     public static bool IsFallback(ExpressionSyntax expression)
     {
-        var unwrapped = Unwrap(expression);
+        var unwrapped = Parentheses.Unwrap(expression);
         switch (unwrapped.Kind())
         {
             case SyntaxKind.NullLiteralExpression:
@@ -443,7 +433,7 @@ internal static class ReturnDecisionAnalysis
 
         if (expression is AwaitExpressionSyntax awaitExpression)
         {
-            if (Unwrap(awaitExpression.Expression) is InvocationExpressionSyntax)
+            if (Parentheses.Unwrap(awaitExpression.Expression) is InvocationExpressionSyntax)
             {
                 return true;
             }
@@ -454,10 +444,10 @@ internal static class ReturnDecisionAnalysis
         // access once into a local.
         if (expression is ConditionalAccessExpressionSyntax conditionalAccess)
         {
-            var current = Unwrap(conditionalAccess.WhenNotNull);
+            var current = Parentheses.Unwrap(conditionalAccess.WhenNotNull);
             while (current is ConditionalAccessExpressionSyntax nestedAccess)
             {
-                current = Unwrap(nestedAccess.WhenNotNull);
+                current = Parentheses.Unwrap(nestedAccess.WhenNotNull);
             }
 
             return current is InvocationExpressionSyntax;

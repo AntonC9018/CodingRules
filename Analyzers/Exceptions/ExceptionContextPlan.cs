@@ -35,7 +35,7 @@ internal sealed class ExceptionContextPlan
             || constructor.Parameters[0].Type.SpecialType != SpecialType.System_String
             || constructor.ContainingType is not { IsSealed: false, ContainingNamespace: { } ns } exception
             || ns.ToDisplayString() != "System"
-            || exception.ContainingAssembly.Name is not ("mscorlib" or "System.Private.CoreLib" or "System.Runtime" or "netstandard")) return null;
+            || !FrameworkSymbols.IsPlatformAssembly(exception.ContainingAssembly)) return null;
         if (CallerInformation.AffectedDefaults(creation, container, model)) return null;
         var names = new EvaluationNames(container, model);
         var words = new string(message.Contents.OfType<InterpolatedStringTextSyntax>().FirstOrDefault()?.TextToken.ValueText

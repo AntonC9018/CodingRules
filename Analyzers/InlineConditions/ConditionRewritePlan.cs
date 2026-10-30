@@ -124,7 +124,7 @@ internal sealed class ConditionRewritePlan
         if (plan.NeedsFlowPreservingIf)
         {
             plan.CanExpand = plan.Statement is IfStatementSyntax { Else: null } flowIf
-                && ConditionFacts.Unwrap(expression) == ConditionFacts.Unwrap(flowIf.Condition)
+                && Parentheses.Unwrap(expression) == Parentheses.Unwrap(flowIf.Condition)
                 && IsFlowPreserving(flowIf, externalDeclarations, plan.DeclarationSpace, model);
             if (WouldHideReturnWarning(plan, token))
             {
@@ -297,7 +297,7 @@ internal sealed class ConditionRewritePlan
 
     private static bool IsFlowPreserving(IfStatementSyntax statement, List<ISymbol> external, SyntaxNode scope, SemanticModel model)
     {
-        var expression = ConditionFacts.Unwrap(statement.Condition);
+        var expression = Parentheses.Unwrap(statement.Condition);
         if (expression is not BinaryExpressionSyntax binary)
         {
             return false;
@@ -306,7 +306,7 @@ internal sealed class ConditionRewritePlan
         if (binary.IsKind(SyntaxKind.LogicalAndExpression))
         {
             var leftmost = binary.Left;
-            while (ConditionFacts.Unwrap(leftmost) is BinaryExpressionSyntax left && left.IsKind(SyntaxKind.LogicalAndExpression))
+            while (Parentheses.Unwrap(leftmost) is BinaryExpressionSyntax left && left.IsKind(SyntaxKind.LogicalAndExpression))
             {
                 leftmost = left.Left;
             }

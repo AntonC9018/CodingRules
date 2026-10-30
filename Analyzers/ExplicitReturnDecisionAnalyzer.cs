@@ -42,7 +42,7 @@ public sealed class ExplicitReturnDecisionAnalyzer : DiagnosticAnalyzer
         }
 
         if (!ReturnDecisionAnalysis.HasTopLevelGuard(block)
-            && ReturnDecisionAnalysis.Unwrap(finalReturn.Expression!) is not ConditionalExpressionSyntax)
+            && Parentheses.Unwrap(finalReturn.Expression!) is not ConditionalExpressionSyntax)
         {
             return;
         }

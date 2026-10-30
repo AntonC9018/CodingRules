@@ -74,8 +74,8 @@ internal sealed class ConditionFacts
     }
 
     private static ExpressionSyntax UnwrapNegation(ExpressionSyntax expression) =>
-        Unwrap(expression) is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression)
-            ? Unwrap(unary.Operand) : Unwrap(expression);
+        Parentheses.Unwrap(expression) is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression)
+            ? Parentheses.Unwrap(unary.Operand) : Parentheses.Unwrap(expression);
 
     private static bool IsWhitespaceTest(ExpressionSyntax expression, SemanticModel model) =>
         UnwrapNegation(expression) is InvocationExpressionSyntax call
@@ -83,7 +83,7 @@ internal sealed class ConditionFacts
 
     private bool Collect(ExpressionSyntax expression, SemanticModel model, CancellationToken token)
     {
-        expression = Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
             if (model.GetOperation(binary, token) is not IBinaryOperation { OperatorMethod: null } operation
@@ -123,19 +123,9 @@ internal sealed class ConditionFacts
         return true;
     }
 
-    public static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parentheses)
-        {
-            expression = parentheses.Expression;
-        }
-
-        return expression;
-    }
-
     internal static void CollectChain(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
     {
-        var unwrapped = Unwrap(expression);
+        var unwrapped = Parentheses.Unwrap(expression);
         if (unwrapped is BinaryExpressionSyntax binary && binary.IsKind(kind))
         {
             CollectChain(binary.Left, kind, leaves);
@@ -178,7 +168,7 @@ internal sealed class ConditionFacts
 
         if (IsServiceLookup(invocation, model)) return true;
 
-        if (!IsFramework(method))
+        if (!FrameworkSymbols.IsPlatformAssembly(method.ContainingAssembly))
         {
             return false;
         }
@@ -210,14 +200,9 @@ internal sealed class ConditionFacts
             && method.Name is "Trim" or "TrimStart" or "TrimEnd" or "Replace";
     }
 
-    private static bool IsFramework(IMethodSymbol method) =>
-        method.ContainingAssembly.Identity.Name is "mscorlib" or "System.Private.CoreLib" or "System.Runtime"
-            or "System.Collections" or "System.Text.Json" or "netstandard";
-
     internal static bool IsServiceLookup(InvocationExpressionSyntax invocation, SemanticModel model) =>
         model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "GetService", Parameters.Length: 1 } method
-        && (IsFramework(method) || method.ContainingAssembly.Name == "System.ComponentModel")
-        && SymbolEqualityComparer.Default.Equals(method.ContainingType, model.Compilation.GetTypeByMetadataName("System.IServiceProvider"));
+        && FrameworkSymbols.IsPlatformType(method.ContainingType, "System.IServiceProvider", model.Compilation);
 
     internal static bool IsServiceNullTest(IsPatternExpressionSyntax pattern, SemanticModel model) =>
         pattern.Pattern is ConstantPatternSyntax { Expression: LiteralExpressionSyntax literal }
@@ -237,7 +222,7 @@ internal sealed class ConditionFacts
 
     internal static bool IsPredicate(InvocationExpressionSyntax invocation, SemanticModel model)
     {
-        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method || !IsFramework(method))
+        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method || !FrameworkSymbols.IsPlatformAssembly(method.ContainingAssembly))
         {
             return false;
         }
@@ -357,7 +342,7 @@ internal sealed class ConditionFacts
 
     private static ConditionSubject? Subject(ExpressionSyntax expression, SemanticModel model)
     {
-        expression = Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary)
         {
             if (binary.IsKind(SyntaxKind.IsExpression) && model.GetOperation(binary) is IIsTypeOperation)

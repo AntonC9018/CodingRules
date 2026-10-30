@@ -56,7 +56,7 @@ internal static class CompoundPredicateFacts
 
     private static bool HasPredicateLambda(InvocationExpressionSyntax call, SemanticModel model,
         PredicateCatalog catalog) => call.ArgumentList.Arguments
-        .Select(argument => Unwrap(argument.Expression)).OfType<LambdaExpressionSyntax>()
+        .Select(argument => Parentheses.Unwrap(argument.Expression)).OfType<LambdaExpressionSyntax>()
         .Any(lambda => IsPredicate(lambda, model, catalog));
 
     public static bool IsPredicate(LambdaExpressionSyntax lambda, SemanticModel model, PredicateCatalog catalog)
@@ -89,14 +89,4 @@ internal static class CompoundPredicateFacts
     public static IEnumerable<SyntaxNode> EvaluationNodes(SyntaxNode body) =>
         body.DescendantNodesAndSelf(node => node is not AnonymousFunctionExpressionSyntax
             and not LocalFunctionStatementSyntax);
-
-    public static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parentheses)
-        {
-            expression = parentheses.Expression;
-        }
-
-        return expression;
-    }
 }

@@ -31,24 +31,15 @@ internal sealed class NamedArgumentPolicy
             foreach (var method in declaringType.GetMembers().OfType<IMethodSymbol>()) if (Builtin(method)) catalogue.Add(method);
         }
         builtins = catalogue.ToImmutable();
-        var assemblies = compilation.SourceModule.ReferencedAssemblySymbols.Where(assembly => assembly.Name == "CodingRules.Shared").ToArray();
-        if (assemblies.Length != 1 || assemblies[0].Identity.Version != new Version(1, 0, 0, 0)
-            || assemblies[0].Identity.PublicKeyToken.Length != 0) return;
-        var type = assemblies[0].GetTypeByMetadataName("CodingRules.AllowPositionalArgumentsAttribute");
-        if (type is not { IsSealed: true, DeclaredAccessibility: Accessibility.Public }
-            || !SymbolEqualityComparer.Default.Equals(type.BaseType, compilation.GetTypeByMetadataName("System.Attribute"))
-            || !type.InstanceConstructors.Any(ctor => ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public)) return;
-        var usages = type.GetAttributes().Where(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass,
-            compilation.GetTypeByMetadataName("System.AttributeUsageAttribute"))).ToArray();
-        if (usages.Length != 1) return;
-        var usage = usages[0];
-        if (usage.ConstructorArguments.Length != 1 || !Equals(usage.ConstructorArguments[0].Value, 96)
-            || !usage.NamedArguments.Any(pair => pair.Key == "AllowMultiple" && Equals(pair.Value.Value, false))
-            || !usage.NamedArguments.Any(pair => pair.Key == "Inherited" && Equals(pair.Value.Value, false))) return;
-        marker = type;
-        var external = assemblies[0].GetTypeByMetadataName("CodingRules.AllowExternalPositionalArgumentsAttribute");
+        marker = PolicyAttributeIdentity.Resolve(compilation, "CodingRules.AllowPositionalArgumentsAttribute");
+        var external = PolicyAttributeIdentity.Resolve(compilation, "CodingRules.AllowExternalPositionalArgumentsAttribute");
+        if (external is null)
+        {
+            return;
+        }
+
         assemblyRegistrations = string.Join("|", compilation.Assembly.GetAttributes()
-            .Where(attribute => external is not null && SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, external)
+            .Where(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, external)
                 && attribute.ConstructorArguments.Length == 2
                 && attribute.ConstructorArguments.All(argument => argument.Value is string))
             .Select(attribute => attribute.ConstructorArguments[0].Value + "::" + Uri.EscapeDataString((string)attribute.ConstructorArguments[1].Value!)));
@@ -134,14 +125,7 @@ internal sealed class NamedArgumentPolicy
     private static bool Builtin(IMethodSymbol method)
     {
         if (method.Locations.Any(location => location.IsInSource) || method.Arity != 0 || method.Parameters.Any(parameter => parameter.RefKind != RefKind.None)) return false;
-        var assembly = method.ContainingAssembly.Identity;
-        var expected = assembly.Name switch
-        {
-            "mscorlib" => "b77a5c561934e089", "System.Private.CoreLib" => "7cec85d7bea7798e",
-            "System.Runtime" or "System.Runtime.Extensions" or "System.IO.FileSystem.Primitives" => "b03f5f7f11d50a3a",
-            "netstandard" => "cc7b13ffcd2ddd51", _ => "",
-        };
-        if (expected.Length == 0 || string.Concat(assembly.PublicKeyToken.Select(value => value.ToString("x2"))) != expected) return false;
+        if (!FrameworkSymbols.IsPlatformAssembly(method.ContainingAssembly)) return false;
         var type = method.ContainingType.ToDisplayString();
         var parameters = method.Parameters;
         if (type is "System.Math" or "System.MathF")

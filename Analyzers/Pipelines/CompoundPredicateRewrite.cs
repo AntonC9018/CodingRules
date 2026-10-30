@@ -70,7 +70,7 @@ internal sealed class CompoundPredicateRewrite
 
     private List<StatementSyntax>? Decision(ExpressionSyntax expression, bool invertResult)
     {
-        expression = CompoundPredicateFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (BuiltinNot(expression) is { } operand)
         {
             return Decision(operand, !invertResult);
@@ -84,7 +84,7 @@ internal sealed class CompoundPredicateRewrite
             var statements = new List<StatementSyntax>();
             for (var index = 0; index < leaves.Count; index++)
             {
-                var leaf = CompoundPredicateFacts.Unwrap(leaves[index]);
+                var leaf = Parentheses.Unwrap(leaves[index]);
                 // The last decision owns the remaining outcomes. This keeps
                 // A && (B || C) flat without an else or a Boolean scratch value.
                 if (index == leaves.Count - 1 && (leaf is BinaryExpressionSyntax nested
@@ -120,7 +120,7 @@ internal sealed class CompoundPredicateRewrite
 
     private List<StatementSyntax>? Exit(ExpressionSyntax expression, bool whenTrue, bool result)
     {
-        expression = CompoundPredicateFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (BuiltinNot(expression) is { } operand)
         {
             return Exit(operand, !whenTrue, result);
@@ -150,7 +150,7 @@ internal sealed class CompoundPredicateRewrite
 
     private List<StatementSyntax>? Gate(ExpressionSyntax expression, bool whenTrue, List<StatementSyntax> body)
     {
-        expression = CompoundPredicateFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (BuiltinNot(expression) is { } operand)
         {
             return Gate(operand, !whenTrue, body);
@@ -200,7 +200,7 @@ internal sealed class CompoundPredicateRewrite
 
     private void Collect(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
     {
-        expression = CompoundPredicateFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary && binary.IsKind(kind)
             && CompoundPredicateFacts.IsBuiltinLogical(binary, model))
         {

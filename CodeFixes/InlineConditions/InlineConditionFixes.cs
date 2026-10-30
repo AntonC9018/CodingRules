@@ -43,7 +43,7 @@ internal static class InlineConditionFixes
         // Flow-preserving OR guards duplicate a terminal statement syntactically.
         // Only the first reached guard executes it, just as in the original OR.
         if (!extract && plan.NeedsFlowPreservingIf && plan.Statement is IfStatementSyntax flowIf
-            && ConditionFacts.Unwrap(plan.Expression) is BinaryExpressionSyntax disjunction
+            && Parentheses.Unwrap(plan.Expression) is BinaryExpressionSyntax disjunction
             && disjunction.IsKind(SyntaxKind.LogicalOrExpression))
         {
             var leaves = new List<ExpressionSyntax>();

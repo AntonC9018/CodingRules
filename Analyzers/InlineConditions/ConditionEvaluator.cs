@@ -42,7 +42,7 @@ internal sealed class ConditionEvaluator
 
     public List<StatementSyntax> Evaluate(ExpressionSyntax expression, string result)
     {
-        expression = ConditionFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
             var leaves = new List<ExpressionSyntax>();
@@ -93,7 +93,7 @@ internal sealed class ConditionEvaluator
 
     private static bool IsAtomic(ExpressionSyntax expression)
     {
-        expression = ConditionFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
             return false;
@@ -118,7 +118,7 @@ internal sealed class ConditionEvaluator
     // are repeated; producers are still evaluated once, at their original point.
     private List<StatementSyntax> Guard(ExpressionSyntax expression, bool exitWhenTrue, bool result)
     {
-        expression = ConditionFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
         {
             return Guard(unary.Operand, !exitWhenTrue, result);
@@ -148,7 +148,7 @@ internal sealed class ConditionEvaluator
 
     private List<StatementSyntax> Gate(ExpressionSyntax expression, bool whenTrue, List<StatementSyntax> body)
     {
-        expression = ConditionFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
             return Gate(unary.Operand, !whenTrue, body);
         if (expression is BinaryExpressionSyntax binary
@@ -174,8 +174,8 @@ internal sealed class ConditionEvaluator
 
     internal ExpressionSyntax NegateCondition(ExpressionSyntax original, ExpressionSyntax lowered)
     {
-        var unwrapped = ConditionFacts.Unwrap(original);
-        var value = ConditionFacts.Unwrap(lowered);
+        var unwrapped = Parentheses.Unwrap(original);
+        var value = Parentheses.Unwrap(lowered);
         if (unwrapped is BinaryExpressionSyntax binary && value is BinaryExpressionSyntax rewritten
             && binary.Kind() is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression
             && model.GetOperation(binary) is Microsoft.CodeAnalysis.Operations.IBinaryOperation { OperatorMethod: null })
@@ -358,9 +358,9 @@ internal sealed class ConditionEvaluator
 
     internal static ExpressionSyntax Negate(ExpressionSyntax expression)
     {
-        var value = ConditionFacts.Unwrap(expression);
+        var value = Parentheses.Unwrap(expression);
         if (value is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
-            return ConditionFacts.Unwrap(unary.Operand);
+            return Parentheses.Unwrap(unary.Operand);
         var operand = value is IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax
             ? value : SyntaxFactory.ParenthesizedExpression(value);
         return SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand);

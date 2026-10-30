@@ -24,7 +24,7 @@ internal sealed class ConditionSubject
 
     public static ConditionSubject? Create(ExpressionSyntax expression, SemanticModel model)
     {
-        expression = ConditionFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is ThisExpressionSyntax or BaseExpressionSyntax)
         {
             var type = model.GetEnclosingSymbol(expression.SpanStart)?.ContainingType;

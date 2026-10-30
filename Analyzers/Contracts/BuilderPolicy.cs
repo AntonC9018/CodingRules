@@ -14,7 +14,7 @@ internal sealed class BuilderPolicy
     private BuilderPolicy(Compilation compilation, AnalyzerConfigOptionsProvider options)
     {
         suffixes = ReadSuffixes(options.GlobalOptions);
-        marker = ResolveMarker(compilation);
+        marker = PolicyAttributeIdentity.Resolve(compilation, "CodingRules.ConfigurationBuilderAttribute");
     }
 
     public static BuilderPolicy For(Compilation compilation, AnalyzerConfigOptionsProvider options, CancellationToken cancellationToken)
@@ -43,20 +43,5 @@ internal sealed class BuilderPolicy
         var values = configured.Split(',').Select(value => value.Trim())
             .Where(value => value.Length != 0).Distinct(StringComparer.Ordinal).ToImmutableArray();
         return values;
-    }
-
-    private static INamedTypeSymbol? ResolveMarker(Compilation compilation)
-    {
-        var type = PolicyAttributeIdentity.Resolve(compilation, "CodingRules.ConfigurationBuilderAttribute");
-        if (type is null
-            || !type.InstanceConstructors.Any(ctor => ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public)) return null;
-        var usages = type.GetAttributes().Where(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass,
-            compilation.GetTypeByMetadataName("System.AttributeUsageAttribute"))).ToArray();
-        if (usages.Length != 1) return null;
-        var usage = usages[0];
-        if (usage.ConstructorArguments.Length != 1 || !Equals(usage.ConstructorArguments[0].Value, 12)
-            || !usage.NamedArguments.Any(pair => pair.Key == "AllowMultiple" && Equals(pair.Value.Value, false))
-            || !usage.NamedArguments.Any(pair => pair.Key == "Inherited" && Equals(pair.Value.Value, false))) return null;
-        return type;
     }
 }

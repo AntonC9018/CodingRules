@@ -28,7 +28,7 @@ internal sealed class UnchangedAssignmentPlan
 
     public static UnchangedAssignmentPlan? Create(AssignmentExpressionSyntax assignment, SemanticModel model, CancellationToken token)
     {
-        if (Unwrap(assignment.Right) is not ConditionalExpressionSyntax conditional
+        if (Parentheses.Unwrap(assignment.Right) is not ConditionalExpressionSyntax conditional
             || model.GetOperation(assignment, token) is not ISimpleAssignmentOperation { IsRef: false } operation
             || Storage(operation.Target) is not { } storage
             || operation.Type is not { CanBeReferencedByName: true, IsRefLikeType: false } type
@@ -122,12 +122,6 @@ internal sealed class UnchangedAssignmentPlan
     private static AccessorListSyntax Getter(BlockSyntax block) => SyntaxFactory.AccessorList(
         SyntaxFactory.SingletonList(SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration).WithBody(block)));
 
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parentheses) expression = parentheses.Expression;
-        return expression;
-    }
-
     private static ISymbol? Storage(IOperation? operation) => operation switch
     {
         ILocalReferenceOperation { Local.RefKind: RefKind.None } local => local.Local,
@@ -140,14 +134,14 @@ internal sealed class UnchangedAssignmentPlan
     };
 
     private static bool SameStorage(ExpressionSyntax expression, ISymbol storage, SemanticModel model, CancellationToken token) =>
-        SymbolEqualityComparer.Default.Equals(Storage(model.GetOperation(Unwrap(expression), token)), storage);
+        SymbolEqualityComparer.Default.Equals(Storage(model.GetOperation(Parentheses.Unwrap(expression), token)), storage);
 
     private static bool NullBranch(ConditionalExpressionSyntax conditional, ISymbol storage, ITypeSymbol type,
         SemanticModel model, CancellationToken token, out bool trueUnchanged)
     {
         trueUnchanged = false;
         if (!type.IsReferenceType) return false;
-        var test = Unwrap(conditional.Condition);
+        var test = Parentheses.Unwrap(conditional.Condition);
         bool trueIsNull;
         if (test is IsPatternExpressionSyntax pattern && SameStorage(pattern.Expression, storage, model, token))
         {
@@ -162,12 +156,12 @@ internal sealed class UnchangedAssignmentPlan
         }
         else if (test is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression
             && model.GetOperation(binary, token) is IBinaryOperation { OperatorMethod: null, IsLifted: false }
-            && (SameStorage(binary.Left, storage, model, token) && Unwrap(binary.Right).IsKind(SyntaxKind.NullLiteralExpression)
-                || SameStorage(binary.Right, storage, model, token) && Unwrap(binary.Left).IsKind(SyntaxKind.NullLiteralExpression)))
+            && (SameStorage(binary.Left, storage, model, token) && Parentheses.Unwrap(binary.Right).IsKind(SyntaxKind.NullLiteralExpression)
+                || SameStorage(binary.Right, storage, model, token) && Parentheses.Unwrap(binary.Left).IsKind(SyntaxKind.NullLiteralExpression)))
             trueIsNull = binary.IsKind(SyntaxKind.EqualsExpression);
         else return false;
         trueUnchanged = trueIsNull;
-        return Unwrap(trueIsNull ? conditional.WhenTrue : conditional.WhenFalse).IsKind(SyntaxKind.NullLiteralExpression);
+        return Parentheses.Unwrap(trueIsNull ? conditional.WhenTrue : conditional.WhenFalse).IsKind(SyntaxKind.NullLiteralExpression);
     }
 
     private static bool HasSourceObserver(SemanticModel model, CancellationToken token)

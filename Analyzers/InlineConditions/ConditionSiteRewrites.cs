@@ -257,7 +257,7 @@ internal static class ConditionSiteRewrites
     private static SyntaxNode ExpandFlowIf(ConditionRewritePlan plan, ConditionEvaluator evaluator)
     {
         var statement = (IfStatementSyntax)plan.Statement!;
-        var condition = ConditionFacts.Unwrap(statement.Condition);
+        var condition = Parentheses.Unwrap(statement.Condition);
         var conjunction = ((BinaryExpressionSyntax)condition).IsKind(SyntaxKind.LogicalAndExpression);
         var leaves = new List<ExpressionSyntax>();
         ConditionFacts.CollectChain(condition, conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression, leaves);

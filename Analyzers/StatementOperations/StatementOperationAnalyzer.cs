@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Linq;
@@ -43,27 +44,45 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
             SyntaxKind.PreDecrementExpression, SyntaxKind.PostDecrementExpression);
     }
 
+    /// <summary>The expression a candidate node reports on; an argument reports on its value.</summary>
     internal static ExpressionSyntax? Owner(SyntaxNode node) => node is ArgumentSyntax argument ? argument.Expression : node as ExpressionSyntax;
 
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var expression = Owner(context.Node);
-        if (expression is null) return;
-        if (context.Node is ExpressionSyntax { Parent: ArgumentSyntax }) return;
+        // An argument's expression is analyzed through its ArgumentSyntax.
+        if (context.Node is ExpressionSyntax { Parent: ArgumentSyntax } || Owner(context.Node) is not { } expression)
+        {
+            return;
+        }
+
         var selections = Selections.GetValue(context.SemanticModel, _ => new());
         var rule = CachedSelect(expression, context, selections);
-        if (rule is null) return;
-        // Ownership is independent of callback order. An unsafe outer value does
-        // not hide a separately feasible inner argument or combination.
-        foreach (var ancestor in expression.Ancestors().TakeWhile(node => node is not AnonymousFunctionExpressionSyntax
-                     and not LocalFunctionStatementSyntax and not StatementSyntax and not MemberDeclarationSyntax))
+        if (rule is null)
         {
-            var enclosing = Owner(ancestor);
-            if (enclosing is null || enclosing == expression || !IsCandidate(ancestor)) continue;
-            if (CachedSelect(enclosing, context, selections) is not null) return;
+            return;
         }
-        context.ReportDiagnostic(Diagnostic.Create(rule, expression.GetLocation()));
+
+        // Ownership is independent of callback order: the outermost selected
+        // candidate reports. An unsafe outer value does not hide a separately
+        // feasible inner argument or combination.
+        var hasSelectedOwner = EnclosingCandidates(expression)
+            .Any(enclosing => CachedSelect(enclosing, context, selections) is not null);
+        if (!hasSelectedOwner)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(rule, expression.GetLocation()));
+        }
     }
+
+    // Candidates around the expression within the same statement and function.
+    private static IEnumerable<ExpressionSyntax> EnclosingCandidates(ExpressionSyntax expression) => expression.Ancestors()
+        .TakeWhile(node => node is not AnonymousFunctionExpressionSyntax
+            and not LocalFunctionStatementSyntax
+            and not StatementSyntax
+            and not MemberDeclarationSyntax)
+        .Where(IsCandidate)
+        .Select(Owner)
+        .OfType<ExpressionSyntax>()
+        .Where(enclosing => enclosing != expression);
 
     private static DiagnosticDescriptor? CachedSelect(ExpressionSyntax expression, SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<ExpressionSyntax, DiagnosticDescriptor?> selections) =>
@@ -74,21 +93,36 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
         or BinaryExpressionSyntax or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax
         or CastExpressionSyntax or InterpolatedStringExpressionSyntax or AssignmentExpressionSyntax;
 
+    /// <summary>The highest-priority enabled rule that applies to a feasible rewrite of <paramref name="expression"/>.</summary>
     internal static DiagnosticDescriptor? Select(ExpressionSyntax expression, SemanticModel model,
         AnalyzerConfigOptionsProvider options, CancellationToken token)
     {
-        if (expression.DescendantNodesAndSelf().Concat(expression.Ancestors()).OfType<InterpolatedStringExpressionSyntax>()
-            .Any(message => ExceptionContextAnalyzer.IsMessage(message, model))) return null;
-        var facts = OperationFacts.Create(expression, model);
-        if (!facts.HasReason || OperationPlan.Create(expression, model, token) is null) return null;
-        foreach (var rule in Priority)
+        if (IsWithinExceptionMessage(expression, model))
         {
-            if (rule == ConditionalRule ? facts.Conditional is null : rule == NestedRule ? !facts.Nested : !facts.Combined) continue;
-            if (!RuleSeverity.IsEnabled(rule.Id, expression.SyntaxTree, model.Compilation, options, token)) continue;
-            return rule;
+            return null;
         }
-        return null;
+
+        var facts = OperationFacts.Create(expression, model);
+        if (!facts.HasReason || OperationPlan.Create(expression, model, token) is null)
+        {
+            return null;
+        }
+
+        return Priority.FirstOrDefault(rule => Applies(rule, facts)
+            && RuleSeverity.IsEnabled(rule.Id, expression.SyntaxTree, model.Compilation, options, token));
     }
+
+    // Exception messages belong to the exception-context rule.
+    private static bool IsWithinExceptionMessage(ExpressionSyntax expression, SemanticModel model) => expression
+        .DescendantNodesAndSelf()
+        .Concat(expression.Ancestors())
+        .OfType<InterpolatedStringExpressionSyntax>()
+        .Any(message => ExceptionContextAnalyzer.IsMessage(message, model));
+
+    private static bool Applies(DiagnosticDescriptor rule, OperationFacts facts) =>
+        rule == ConditionalRule ? facts.Conditional is not null
+        : rule == NestedRule ? facts.Nested
+        : facts.Combined;
 
     private static DiagnosticDescriptor Rule(string id, string title, string message) =>
         new(id, title, message, "Readability", DiagnosticSeverity.Warning, isEnabledByDefault: true);

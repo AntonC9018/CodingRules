@@ -42,13 +42,13 @@ internal static class NamedArgumentFixes
             var corresponding = root.FindNode(span, getInnermostNodeForTie: true).AncestorsAndSelf()
                 .FirstOrDefault(node => node.Span == span && node.RawKind == occurrence.RawKind);
             if (corresponding is null
-                || NamedArgumentIdentity.Operation(model.GetOperation(occurrence, token)) != NamedArgumentIdentity.Operation(after.GetOperation(corresponding, token))) return null;
+                || BindingIdentity.Operation(model.GetOperation(occurrence, token)) != BindingIdentity.Operation(after.GetOperation(corresponding, token))) return null;
             if (occurrence is ExpressionSyntax beforeExpression && corresponding is ExpressionSyntax afterExpression)
             {
                 var oldType = model.GetTypeInfo(beforeExpression, token);
                 var newType = after.GetTypeInfo(afterExpression, token);
-                if (NamedArgumentIdentity.Type(oldType.Type) != NamedArgumentIdentity.Type(newType.Type)
-                    || NamedArgumentIdentity.Type(oldType.ConvertedType) != NamedArgumentIdentity.Type(newType.ConvertedType)) return null;
+                if (BindingIdentity.Type(oldType.Type) != BindingIdentity.Type(newType.Type)
+                    || BindingIdentity.Type(oldType.ConvertedType) != BindingIdentity.Type(newType.ConvertedType)) return null;
             }
         }
         var selected = root.FindNode(Map(owner.Span, changes), getInnermostNodeForTie: true);

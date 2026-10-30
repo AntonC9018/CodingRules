@@ -1,13 +1,18 @@
 using System;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace CodingRules;
 
-// Structural identities deliberately retain assembly identity and constructions.
-// Display strings and OriginalDefinition alone lose those facts across compilations.
-internal static class NamedArgumentIdentity
+/// <summary>
+/// Structural identities that fixes compare before and after a rewrite to prove
+/// that symbols, conversions and calls still bind the same way. They deliberately
+/// retain assembly identity and constructions; display strings and
+/// OriginalDefinition alone lose those facts across compilations.
+/// </summary>
+internal static class BindingIdentity
 {
     public static string Symbol(ISymbol? symbol)
     {
@@ -68,4 +73,39 @@ internal static class NamedArgumentIdentity
         return operation.Kind + ":" + operation.IsImplicit + ":" + Type(operation.Type) + ":" + constant + ":" + detail
             + "[" + string.Join(";", operation.ChildOperations.Select(Operation)) + "]";
     }
+
+    /// <summary>
+    /// The resolved target, receiver type, virtual dispatch and per-argument
+    /// binding of a call, creation, indexer or attribute; other operations use
+    /// <see cref="Operation"/>.
+    /// </summary>
+    public static string Call(IOperation? operation)
+    {
+        if (operation is IAttributeOperation attribute)
+        {
+            operation = attribute.Operation;
+        }
+
+        var (target, receiver, arguments) = operation switch
+        {
+            IInvocationOperation call => ((ISymbol)call.TargetMethod, call.Instance, call.Arguments),
+            IObjectCreationOperation creation => (creation.Constructor, null, creation.Arguments),
+            IPropertyReferenceOperation property => (property.Property, property.Instance, property.Arguments),
+            _ => (null, null, default(ImmutableArray<IArgumentOperation>)),
+        };
+        if (arguments.IsDefault)
+        {
+            return Operation(operation);
+        }
+
+        var isVirtual = operation is IInvocationOperation { IsVirtual: true };
+        return Symbol(target) + ":" + Type(receiver?.Type) + ":" + isVirtual + ":" + string.Join(";", arguments.Select(Argument));
+    }
+
+    private static string Argument(IArgumentOperation argument) => Symbol(argument.Parameter)
+        + ":" + argument.ArgumentKind
+        + ":" + Conversion(argument.InConversion)
+        + ":" + Conversion(argument.OutConversion)
+        + ":" + Type(argument.Value.Type)
+        + ":" + argument.Value.ConstantValue;
 }

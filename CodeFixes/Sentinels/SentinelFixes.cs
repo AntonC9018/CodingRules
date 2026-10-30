@@ -80,8 +80,8 @@ internal static class SentinelFixes
         if (afterModel is null || afterRoot is null) return null;
         // Every original call is compared in source order, including neighboring
         // bodies and implicit caller constants. New guards contain no calls.
-        var beforeCalls = root.DescendantNodes().Where(Occurrence).Select(node => Binding(model.GetOperation(node, token))).ToArray();
-        var afterCalls = afterRoot.DescendantNodes().Where(Occurrence).Select(node => Binding(afterModel.GetOperation(node, token))).ToArray();
+        var beforeCalls = root.DescendantNodes().Where(Occurrence).Select(node => BindingIdentity.Call(model.GetOperation(node, token))).ToArray();
+        var afterCalls = afterRoot.DescendantNodes().Where(Occurrence).Select(node => BindingIdentity.Call(afterModel.GetOperation(node, token))).ToArray();
         if (!beforeCalls.SequenceEqual(afterCalls)) return null;
         var beforeErrors = model.GetDiagnostics(cancellationToken: token).Where(item => item.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
             .Select(item => item.Id + ":" + item.GetMessage()).OrderBy(item => item).ToArray();
@@ -98,19 +98,4 @@ internal static class SentinelFixes
         return proposed;
     }
     private static bool Occurrence(SyntaxNode node) => NamedArgumentSite.IsHost(node) || node is ElementAccessExpressionSyntax or ElementBindingExpressionSyntax;
-    private static string Binding(IOperation? operation)
-    {
-        if (operation is IAttributeOperation attribute) operation = attribute.Operation;
-        var symbol = operation switch { IInvocationOperation call => (ISymbol)call.TargetMethod, IObjectCreationOperation creation => creation.Constructor,
-            IPropertyReferenceOperation indexer => indexer.Property, _ => null };
-        var arguments = operation switch { IInvocationOperation call => call.Arguments, IObjectCreationOperation creation => creation.Arguments,
-            IPropertyReferenceOperation indexer => indexer.Arguments, _ => default };
-        var receiver = operation switch { IInvocationOperation call => call.Instance, IPropertyReferenceOperation property => property.Instance, _ => null };
-        if (arguments.IsDefault) return NamedArgumentIdentity.Operation(operation);
-        return NamedArgumentIdentity.Symbol(symbol) + ":" + NamedArgumentIdentity.Type(receiver?.Type)
-            + ":" + (operation is IInvocationOperation invocation && invocation.IsVirtual) + ":"
-            + string.Join(";", arguments.Select(argument => NamedArgumentIdentity.Symbol(argument.Parameter) + ":" + argument.ArgumentKind
-                + ":" + NamedArgumentIdentity.Conversion(argument.InConversion) + ":" + NamedArgumentIdentity.Conversion(argument.OutConversion)
-                + ":" + NamedArgumentIdentity.Type(argument.Value.Type) + ":" + argument.Value.ConstantValue));
-    }
 }

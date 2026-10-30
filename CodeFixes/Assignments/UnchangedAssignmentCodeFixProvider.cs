@@ -78,5 +78,5 @@ public sealed class UnchangedAssignmentCodeFixProvider : CodeFixProvider
     private static string[] Bindings(SyntaxNode root, SemanticModel model, CancellationToken token) => root.DescendantNodes()
         .Where(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax
             or ElementBindingExpressionSyntax or ConstructorInitializerSyntax or PrimaryConstructorBaseTypeSyntax or AttributeSyntax)
-        .Select(node => NamedArgumentIdentity.Operation(model.GetOperation(node, token))).ToArray();
+        .Select(node => BindingIdentity.Operation(model.GetOperation(node, token))).ToArray();
 }

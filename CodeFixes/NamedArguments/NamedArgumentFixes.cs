@@ -24,9 +24,8 @@ internal static class NamedArgumentFixes
         }).ToArray();
         var original = await document.GetTextAsync(token).ConfigureAwait(false);
         var text = original.WithChanges(changes);
-        var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)owner.SyntaxTree.Options, owner.SyntaxTree.FilePath, token);
-        var root = tree.GetRoot(token);
-        var after = model.Compilation.ReplaceSyntaxTree(owner.SyntaxTree, tree).GetSemanticModel(tree);
+        var after = SavedSource.Compile(model, text, token);
+        var root = after.SyntaxTree.GetRoot(token);
         // Exact occurrence mapping includes diagnostics outside the selected root.
         // No histogram can distinguish a moved warning from a new same-message one.
         var beforeDiagnostics = model.GetDiagnostics(cancellationToken: token).Where(CompilerDiagnostic)

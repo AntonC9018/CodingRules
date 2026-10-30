@@ -30,12 +30,10 @@ internal static class StatementOperationFixes
         var changed = await ApplyAsync(document, plan, extract, token).ConfigureAwait(false);
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
         if ((await document.GetTextAsync(token).ConfigureAwait(false)).ContentEquals(text)) return false;
-        var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)plan.Owner.SyntaxTree.Options, plan.Owner.SyntaxTree.FilePath, token);
-        var model = plan.Model.Compilation.ReplaceSyntaxTree(plan.Owner.SyntaxTree, tree).GetSemanticModel(tree);
-        var before = CompilerMessages(plan.Model, token);
-        if (CompilerMessages(model, token).Any(pair => !before.TryGetValue(pair.Key, out var count) || pair.Value > count)) return false;
+        var model = SavedSource.Compile(plan.Model, text, token);
+        if (SavedSource.AddsCompilerMessages(plan.Model, model, token)) return false;
         var formatted = (await changed.GetSyntaxRootAsync(token).ConfigureAwait(false))!;
-        var parsed = tree.GetRoot(token);
+        var parsed = model.SyntaxTree.GetRoot(token);
         var selectedRoot = extract ? plan.ExtractionRoot : plan.ExpansionRoot!;
         var originalCalls = OperationFacts.EvaluationNodes(selectedRoot).Where(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)
             .ToDictionary(OperationEvaluator.Key, node => Binding(node, plan.Model));
@@ -76,10 +74,6 @@ internal static class StatementOperationFixes
     private static int Violations(SyntaxNode root, SemanticModel model) => root.DescendantNodes()
         .Where(StatementOperationAnalyzer.IsCandidate).Select(StatementOperationAnalyzer.Owner)
         .Where(expression => expression is not null).Count(expression => OperationFacts.Create(expression!, model).HasReason);
-
-    private static Dictionary<string, int> CompilerMessages(SemanticModel model, CancellationToken token) =>
-        model.GetDiagnostics(cancellationToken: token).Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
-            .GroupBy(diagnostic => diagnostic.Id + ":" + diagnostic.GetMessage()).ToDictionary(group => group.Key, group => group.Count());
 
     private static string Binding(SyntaxNode node, SemanticModel model)
     {

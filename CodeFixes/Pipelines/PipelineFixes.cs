@@ -27,11 +27,9 @@ internal static class PipelineFixes
         var originalText = await document.GetTextAsync(token).ConfigureAwait(false);
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
         if (originalText.ContentEquals(text)) return null;
-        var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)owner.SyntaxTree.Options, owner.SyntaxTree.FilePath, token);
-        var parsed = tree.GetRoot(token);
-        var after = model.Compilation.ReplaceSyntaxTree(owner.SyntaxTree, tree).GetSemanticModel(tree);
-        var beforeMessages = Messages(model, token);
-        if (Messages(after, token).Any(pair => !beforeMessages.TryGetValue(pair.Key, out var count) || pair.Value > count)) return null;
+        var after = SavedSource.Compile(model, text, token);
+        var parsed = after.SyntaxTree.GetRoot(token);
+        if (SavedSource.AddsCompilerMessages(model, after, token)) return null;
         var formatted = (await changed.GetSyntaxRootAsync(token).ConfigureAwait(false))!;
         var originalCalls = owner.DescendantNodesAndSelf().OfType<ExpressionSyntax>().Where(value => value is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)
             .Where(value => value != owner || selector is null).ToDictionary(OperationEvaluator.Key, value => Binding(value, model));
@@ -92,9 +90,6 @@ internal static class PipelineFixes
         return document.WithText(text);
     }
 
-    private static Dictionary<string, int> Messages(SemanticModel model, CancellationToken token) => model.GetDiagnostics(cancellationToken: token)
-        .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
-        .GroupBy(diagnostic => diagnostic.Id + ":" + diagnostic.GetMessage()).ToDictionary(group => group.Key, group => group.Count());
     private static string Method(IMethodSymbol method) => (method.ReducedFrom ?? method).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     private static string Binding(SyntaxNode node, SemanticModel model)
     {

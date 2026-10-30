@@ -75,11 +75,9 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
         var changedRoot = (await changed.GetSyntaxRootAsync(token).ConfigureAwait(false))!;
         var helperSpan = changedRoot.GetAnnotatedNodes(marker).Single().Span;
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
-        var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)model.SyntaxTree.Options, model.SyntaxTree.FilePath, token);
-        var saved = model.Compilation.ReplaceSyntaxTree(model.SyntaxTree, tree).GetSemanticModel(tree);
-        var before = CompilerMessages(model, token);
-        if (CompilerMessages(saved, token).Any(pair => !before.TryGetValue(pair.Key, out var count) || pair.Value > count)) return document;
-        var parsedHelper = tree.GetRoot(token).FindNode(helperSpan, getInnermostNodeForTie: true);
+        var saved = SavedSource.Compile(model, text, token);
+        if (SavedSource.AddsCompilerMessages(model, saved, token)) return document;
+        var parsedHelper = saved.SyntaxTree.GetRoot(token).FindNode(helperSpan, getInnermostNodeForTie: true);
         if (!Bindings(decision, model, token).SequenceEqual(Bindings(parsedHelper, saved, token))) return document;
         return changed;
     }
@@ -110,12 +108,6 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
                 throw new InvalidOperationException("The decision shape must be validated before rewriting.");
         }
     }
-
-    private static Dictionary<string, int> CompilerMessages(SemanticModel model, CancellationToken token) =>
-        model.GetDiagnostics(cancellationToken: token)
-            .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
-            .GroupBy(diagnostic => diagnostic.Id + ":" + diagnostic.GetMessage())
-            .ToDictionary(group => group.Key, group => group.Count());
 
     private static IEnumerable<string> Bindings(SyntaxNode root, SemanticModel model, CancellationToken token) =>
         root.DescendantNodesAndSelf().Where(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)

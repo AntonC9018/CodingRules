@@ -24,19 +24,10 @@ internal static class InlineConditionFixes
             return false;
         }
 
-        // Compile the text users save, including precedence and token boundaries.
-        var changedTree = CSharpSyntaxTree.ParseText(changedText, (CSharpParseOptions)originalTree.Options,
-            originalTree.FilePath, token);
-        var compilation = plan.Model.Compilation.ReplaceSyntaxTree(originalTree, changedTree);
-        var changedModel = compilation.GetSemanticModel(changedTree);
-        var before = CompilerMessages(plan.Model, token);
-        var after = CompilerMessages(changedModel, token);
-        foreach (var pair in after)
+        var changedModel = SavedSource.Compile(plan.Model, changedText, token);
+        if (SavedSource.AddsCompilerMessages(plan.Model, changedModel, token))
         {
-            if (!before.TryGetValue(pair.Key, out var count) || pair.Value > count)
-            {
-                return false;
-            }
+            return false;
         }
 
         var originalBindings = CallBindings(await document.GetSyntaxRootAsync(token).ConfigureAwait(false), plan.Model, token);
@@ -54,7 +45,7 @@ internal static class InlineConditionFixes
             }
         }
 
-        var changedBindings = CallBindings(changedTree.GetRoot(token), changedModel, token);
+        var changedBindings = CallBindings(changedModel.SyntaxTree.GetRoot(token), changedModel, token);
         foreach (var pair in originalBindings)
         {
             if (!changedBindings.TryGetValue(pair.Key, out var count) || pair.Value != count)
@@ -64,7 +55,7 @@ internal static class InlineConditionFixes
         }
 
         var formattedRoot = await changedDocument.GetSyntaxRootAsync(token).ConfigureAwait(false);
-        var parsedRoot = changedTree.GetRoot(token);
+        var parsedRoot = changedModel.SyntaxTree.GetRoot(token);
         foreach (var generated in formattedRoot!.GetAnnotatedNodes(ConditionEvaluator.Linearized))
         {
             var expression = parsedRoot.FindNode(generated.Span, getInnermostNodeForTie: true) as ExpressionSyntax;
@@ -74,7 +65,7 @@ internal static class InlineConditionFixes
             }
         }
 
-        if (CountViolations(changedTree.GetRoot(token), changedModel, token)
+        if (CountViolations(changedModel.SyntaxTree.GetRoot(token), changedModel, token)
             >= CountViolations(originalTree.GetRoot(token), plan.Model, token))
         {
             return false;
@@ -86,10 +77,6 @@ internal static class InlineConditionFixes
     private static int CountViolations(SyntaxNode root, SemanticModel model, CancellationToken token) =>
         root.DescendantNodes().Select(ConditionHosts.GetExpression).Where(expression => expression is not null)
             .Count(expression => ConditionFacts.Create(expression!, model, token)?.HasReason == true);
-
-    private static Dictionary<string, int> CompilerMessages(SemanticModel model, CancellationToken token) =>
-        model.GetDiagnostics(cancellationToken: token).Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Warning or DiagnosticSeverity.Error)
-            .GroupBy(diagnostic => diagnostic.Id + ":" + diagnostic.GetMessage()).ToDictionary(group => group.Key, group => group.Count());
 
     private static Dictionary<string, int> CallBindings(SyntaxNode? root, SemanticModel model, CancellationToken token) =>
         root!.DescendantNodes().Where(node => node is InvocationExpressionSyntax or ObjectCreationExpressionSyntax)

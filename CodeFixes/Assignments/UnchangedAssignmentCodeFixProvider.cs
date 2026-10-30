@@ -54,8 +54,7 @@ public sealed class UnchangedAssignmentCodeFixProvider : CodeFixProvider
         changed = await Formatter.FormatAsync(changed, Formatter.Annotation, cancellationToken: token).ConfigureAwait(false);
         // Validate the saved text, rather than relying on construction annotations.
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
-        var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)model.SyntaxTree.Options, model.SyntaxTree.FilePath, token);
-        var after = model.Compilation.ReplaceSyntaxTree(model.SyntaxTree, tree).GetSemanticModel(tree);
+        var after = SavedSource.Compile(model, text, token);
         var beforeDiagnostics = RelevantDiagnostics(model, token).GroupBy(DiagnosticKey)
             .ToDictionary(group => group.Key, group => group.Count());
         foreach (var group in RelevantDiagnostics(after, token).GroupBy(DiagnosticKey))
@@ -64,7 +63,7 @@ public sealed class UnchangedAssignmentCodeFixProvider : CodeFixProvider
         }
         // The only removed expressions are proven storage reads/null. Every call,
         // creation and argument conversion must retain its resolved binding.
-        if (!Bindings(root!, model, token).SequenceEqual(Bindings(tree.GetRoot(token), after, token))) return null;
+        if (!Bindings(root!, model, token).SequenceEqual(Bindings(after.SyntaxTree.GetRoot(token), after, token))) return null;
         return changed;
     }
 

@@ -26,12 +26,8 @@ internal static class CompoundPredicateFixes
             lambda.WithBody(body.WithAdditionalAnnotations(Formatter.Annotation))));
         changed = await GeneratedSyntaxFormatter.FormatAsync(changed, document, token).ConfigureAwait(false);
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
-        var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)lambda.SyntaxTree.Options,
-            lambda.SyntaxTree.FilePath, token);
-        var after = model.Compilation.ReplaceSyntaxTree(lambda.SyntaxTree, tree).GetSemanticModel(tree);
-        var beforeMessages = Messages(model, token);
-        if (Messages(after, token).Any(pair => !beforeMessages.TryGetValue(pair.Key, out var count)
-            || pair.Value > count))
+        var after = SavedSource.Compile(model, text, token);
+        if (SavedSource.AddsCompilerMessages(model, after, token))
         {
             return null;
         }
@@ -39,19 +35,13 @@ internal static class CompoundPredicateFixes
         // Source-order occurrences, including enclosing calls and other members,
         // must bind identically after formatting, saving and reparsing. A set of
         // method names would miss changed overloads, repeated calls and defaults.
-        if (!Bindings(root, model).SequenceEqual(Bindings(tree.GetRoot(token), after)))
+        if (!Bindings(root, model).SequenceEqual(Bindings(after.SyntaxTree.GetRoot(token), after)))
         {
             return null;
         }
 
         return document.WithText(text);
     }
-
-    private static Dictionary<string, int> Messages(SemanticModel model, CancellationToken token) =>
-        model.GetDiagnostics(cancellationToken: token)
-            .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
-            .GroupBy(diagnostic => diagnostic.Id + ":" + diagnostic.GetMessage())
-            .ToDictionary(group => group.Key, group => group.Count());
 
     private static IEnumerable<string> Bindings(SyntaxNode root, SemanticModel model)
     {

@@ -200,9 +200,9 @@ fixtures. Final candidate package execution is deferred until all tickets.
 CR0201/CR0202/CR0203 cover the reviewed config-result, JSON lookup,
 cancellation/authentication and numeric HTTP-status examples. CR0202 resolves
 simple type tests and single-constant typed property-pattern subjects. CR0203's
-flow expansion supports terminal throw guards; its exact reviewed six-status
-catch filter extracts a named predicate using HttpStatusCode members while
-keeping evaluation inside `when`. No new diagnostic is introduced. The
+flow expansion supports terminal throw guards; a catch filter that tests an enum
+through numeric literals extracts a named predicate using the enum's members
+while keeping evaluation inside `when`. No new diagnostic is introduced. The
 [compound-condition boundary](compound-conditions.md) records original-source
 provenance, exact recognition, accepted invariants, manual review cases and
 packaged positive/accepted/runtime regression evidence.

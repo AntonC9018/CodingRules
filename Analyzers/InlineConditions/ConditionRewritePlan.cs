@@ -195,7 +195,7 @@ internal sealed class ConditionRewritePlan
                 MemberAccessExpressionSyntax => true,
                 CastExpressionSyntax => true,
                 IsPatternExpressionSyntax pattern => ConditionFacts.IsServiceNullTest(pattern, model)
-                    || ReviewedHttpStatusFilter.NamedPattern(expression, model) is not null,
+                    || EnumMemberPattern.Create(expression, model) is not null,
                 _ => false,
             };
             if (!supported)

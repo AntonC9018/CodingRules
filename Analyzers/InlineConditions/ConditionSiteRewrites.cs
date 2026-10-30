@@ -99,10 +99,10 @@ internal static class ConditionSiteRewrites
     {
         var expression = plan.Expression;
         var root = expression.SyntaxTree.GetRoot();
-        var namedStatus = ReviewedHttpStatusFilter.NamedPattern(expression, plan.Model);
-        var name = evaluator.FreshName(namedStatus is null ? "CheckCondition" : "IsRejectedHttpStatusCode");
-        var body = namedStatus is null ? evaluator.ReturnBody(expression)
-            : SyntaxFactory.Block(SyntaxFactory.ReturnStatement(namedStatus));
+        var enumPattern = EnumMemberPattern.Create(expression, plan.Model);
+        var name = evaluator.FreshName(enumPattern?.PredicateName ?? "CheckCondition");
+        var body = enumPattern is null ? evaluator.ReturnBody(expression)
+            : SyntaxFactory.Block(SyntaxFactory.ReturnStatement(enumPattern.Pattern));
         foreach (var ancestor in expression.Ancestors())
         {
             if (ancestor is CheckedStatementSyntax checkedStatement)

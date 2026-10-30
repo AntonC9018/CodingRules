@@ -158,9 +158,11 @@ public sealed class ReviewedCompoundRuntimeTests
     }
 
     [Theory]
-    [InlineData("400 or 403 or 404 or 409 or 412 or 422")]
-    [InlineData("(422 or 412) or (409 or 404) or (403 or 400)")]
-    public async Task StatusPredicatePreservesEveryStatusGetterExceptionAndFilterTiming(string numericPattern)
+    [InlineData("400 or 403 or 404 or 409 or 412 or 422", "BadRequest,Forbidden,NotFound,Conflict,PreconditionFailed,UnprocessableEntity")]
+    [InlineData("(422 or 412) or (409 or 404) or (403 or 400)", "BadRequest,Forbidden,NotFound,Conflict,PreconditionFailed,UnprocessableEntity")]
+    [InlineData("408 or 429 or 503", "RequestTimeout,TooManyRequests,ServiceUnavailable")]
+    [InlineData("not (200 or 204)", "OK,NoContent")]
+    public async Task StatusPredicatePreservesEveryStatusGetterExceptionAndFilterTiming(string numericPattern, string members)
     {
         var source = """
             using System;
@@ -179,8 +181,8 @@ public sealed class ReviewedCompoundRuntimeTests
                 public static string Trace = "";
                 static void Apply(int code)
                 {
-                    bool IsRejectedHttpStatusCode() => false;
-                    _ = IsRejectedHttpStatusCode();
+                    bool MatchesHttpStatusCode() => false;
+                    _ = MatchesHttpStatusCode();
                     try
                     {
                         try { throw new GoogleApiException(code); }
@@ -199,9 +201,9 @@ public sealed class ReviewedCompoundRuntimeTests
             """;
         source = source.Replace("400 or 403 or 404 or 409 or 412 or 422", numericPattern);
         var fixedText = await VerifyEveryAction(source, "CR0203", InlineConditionCodeFixProvider.ExtractKey);
-        Assert.Contains("when (IsRejectedHttpStatusCode2(e))", fixedText);
+        Assert.Contains("when (MatchesHttpStatusCode2(e))", fixedText);
         Assert.DoesNotContain("(int)e.HttpStatusCode is", fixedText);
-        foreach (var member in new[] { "BadRequest", "Forbidden", "NotFound", "Conflict", "PreconditionFailed", "UnprocessableEntity" })
+        foreach (var member in members.Split(','))
             Assert.Contains("global::System.Net.HttpStatusCode." + member, fixedText);
     }
 

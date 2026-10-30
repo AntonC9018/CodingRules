@@ -126,11 +126,53 @@ public sealed class ReviewedCompoundConditionTests
     [Theory]
     [InlineData("400 or 403 or 404 or 409 or 412")]
     [InlineData("400 or 403 or 404 or 409 or 412 or 422 or 429")]
-    [InlineData("400 or 403 or 404 or 409 or 412 or 412")]
+    [InlineData("408 or 429 or 503")]
     [InlineData("not (400 or 403 or 404 or 409 or 412 or 422)")]
-    public async Task UnreviewedStatusSetsRemainForAgentReview(string pattern)
+    [InlineData("404")]
+    [InlineData("300 or 404")]
+    public async Task AnyStatusSetOfDeclaredMembersIsNamed(string pattern)
+    {
+        var document = InlineConditionTestFixture.Document(Status.Replace("400 or 403 or 404 or 409 or 412 or 422", pattern));
+        await InlineConditionTestFixture.Compiles(document);
+        var diagnostic = Assert.Single(await InlineConditionTestFixture.Diagnostics(document));
+        Assert.Equal("CR0203", diagnostic.Id);
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("when (MatchesHttpStatusCode(e))", text);
+        Assert.DoesNotContain("(int)e.HttpStatusCode", text);
+    }
+
+    [Fact]
+    public async Task SourceEnumWithOtherUnderlyingTypeIsNamed()
+    {
+        var source = Status.Replace("class C", "enum Outcome : byte { Rejected = 4, Retried = 7 } class E : Exception { public Outcome Outcome; } class C")
+            .Replace("catch (GoogleApiException e) when ((int)e.HttpStatusCode is 400 or 403 or 404 or 409 or 412 or 422)",
+                "catch (E e) when ((byte)e.Outcome is 4 or 7)")
+            .Replace("throw new GoogleApiException();", "throw new E();");
+        var document = InlineConditionTestFixture.Document(source);
+        await InlineConditionTestFixture.Compiles(document);
+        Assert.Single(await InlineConditionTestFixture.Diagnostics(document));
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("global::Outcome.Rejected or global::Outcome.Retried", text);
+    }
+
+    [Theory]
+    [InlineData("400 or 403 or 404 or 409 or 412 or 412")]
+    [InlineData("400 or 499")]
+    [InlineData("> 399 and < 500")]
+    public async Task DuplicateUndeclaredOrRangeStatusesRemainForAgentReview(string pattern)
     {
         var source = Status.Replace("400 or 403 or 404 or 409 or 412 or 422", pattern);
+        var document = InlineConditionTestFixture.Document(source);
+        await InlineConditionTestFixture.Compiles(document);
+        Assert.Empty(await InlineConditionTestFixture.Diagnostics(document));
+    }
+
+    [Fact]
+    public async Task NarrowingCastIsNotNamed()
+    {
+        var source = Status.Replace("(int)e.HttpStatusCode is 400 or 403 or 404 or 409 or 412 or 422", "(short)e.HttpStatusCode is 400 or 404");
         var document = InlineConditionTestFixture.Document(source);
         await InlineConditionTestFixture.Compiles(document);
         Assert.Empty(await InlineConditionTestFixture.Diagnostics(document));

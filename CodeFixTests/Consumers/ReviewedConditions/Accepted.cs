@@ -27,10 +27,10 @@ internal static class Accepted
 
     private static int Line([CallerLineNumber] int line = 0) => line;
 
-    // No status policy was accepted for this different set. Keep it for agent review.
-    public static void Unreviewed()
+    // 499 is not a declared HttpStatusCode member, so the numeric set cannot be named.
+    public static void UndeclaredStatus()
     {
         try { throw new GoogleApiException(429); }
-        catch (GoogleApiException e) when ((int)e.HttpStatusCode is 408 or 429 or 503) { }
+        catch (GoogleApiException e) when ((int)e.HttpStatusCode is 408 or 429 or 499) { }
     }
 }

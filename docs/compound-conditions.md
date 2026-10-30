@@ -1,4 +1,4 @@
-# Reviewed compound conditions and HTTP status filters
+# Reviewed compound conditions and enum-valued catch filters
 
 ScheduleLib slice 08 reuses CR0200–CR0204. No diagnostic ID or configuration
 switch is added. The warnings remain enabled by default, exclude generated code,
@@ -9,7 +9,7 @@ and support normal `.editorconfig`, pragma and SuppressMessage configuration.
 The source is the [reviewed ScheduleLib commit](https://github.com/AntonC9018/ScheduleLib/tree/12e601e7b62511bdecc44e280407fee12147b230),
 [A3/A11/A15 in #229](https://github.com/AntonC9018/ScheduleLib/issues/229), and the
 [accepted follow-up](schedulelib-follow-up.md). Q15–Q20 change other slices;
-they do not replace these conditions or the reviewed status set.
+they do not replace these conditions.
 The fixtures retain the actual condition expressions, using small host doubles
 for Google exceptions and the application context. They use the real framework
 JSON nodes, CancellationToken and HttpStatusCode.
@@ -27,7 +27,7 @@ The baseline is recorded in commit `1ce6189`.
 | CalendarSync.cs:322, cancellation exception filter | CR0202 | A named local function is invoked inside `when`, with the catch variable passed as its exact type. |
 | CliRemoteFailure.cs:69, cancellation guard | CR0202 | Local-function extraction or explicit control flow. |
 | CliRemoteFailure.cs:78, token exception / Google status property pattern | CR0202 | Local-function extraction or explicit control flow, retaining the original property pattern and getter gating. |
-| CalendarSync.cs:370, numeric rejected-action filter | CR0203 | Extract `IsRejectedHttpStatusCode` and replace the cast/numeric alternatives with named enum members. |
+| CalendarSync.cs:370, numeric rejected-action filter | CR0203 | Extract `MatchesHttpStatusCode` and replace the cast/numeric alternatives with named enum members. |
 
 Leading `&&`/`||` layout remains CR0800's separate responsibility. Rewrapping a
 condition does not discharge these semantic findings. The existing condition
@@ -57,32 +57,25 @@ later members of the document, also prevent expansion because formatting can
 move their call sites. Explicit caller arguments remain supported. General
 multi-statement failure paths remain for agent review.
 
-The status extension recognizes only a whole catch-filter expression of the
-form `(int)<framework HttpStatusCode expression> is ...`, with exactly these six
-integer literal alternatives, each present once (in any order, with optional
-pattern parentheses):
+The enum-member extension recognizes a whole catch-filter expression of the
+form `(<underlying type>)<enum expression> is ...` whose pattern consists only of
+numeric literals combined with `or`, `not` and parentheses. The cast must be to
+the enum's own underlying type, so it preserves every value. Every literal must
+equal an accessible, non-obsolete member of that enum, and no literal may repeat.
+When members alias one value (`MultipleChoices`/`Ambiguous`,
+`UnprocessableEntity`/`UnprocessableContent`), the first declared member is used;
+aliases compile to the same constant. This applies to any enum, including
+`HttpStatusCode` and source enums with other underlying types.
 
-| Value | Named member |
-| --- | --- |
-| 400 | HttpStatusCode.BadRequest |
-| 403 | HttpStatusCode.Forbidden |
-| 404 | HttpStatusCode.NotFound |
-| 409 | HttpStatusCode.Conflict |
-| 412 | HttpStatusCode.PreconditionFailed |
-| 422 | HttpStatusCode.UnprocessableEntity |
-
-The enum type and each member's constant are resolved against the framework.
-The action removes the unnecessary int conversion and returns the named enum
-pattern from a collision-free `IsRejectedHttpStatusCode` local function. The
-original expression, including its receiver/getter, still runs once during
+The action removes the conversion and returns the named enum pattern from a
+collision-free `Matches<EnumName>` local function, e.g. `MatchesHttpStatusCode`.
+The original expression, including its receiver/getter, still runs once during
 filter evaluation. Filter exceptions remain filter exceptions, and evaluation
 still precedes stack unwinding. The action never moves the check into `catch`.
 
-Other status sets, duplicated alternatives, negation, nullable/lookalike types,
-constant aliases, equality chains and status checks outside catch filters do
-not gain this specialized rewrite. They require agent review of their meaning;
-this finite set is not a general definition of retryable or rejected HTTP
-responses. Existing generic condition rules can still recognize other shapes.
+Narrowing casts, duplicated alternatives, literals without a declared member,
+relational or conjunctive patterns, nullable types, constant aliases, equality
+chains and checks outside catch filters do not gain this rewrite.
 Named enum patterns are accepted already. Two same-value simple invariants,
 null guards, ranges and plain two-type alternatives retain their existing
 accepted behavior. Comments/directives, expression trees, caller information,
@@ -92,12 +85,13 @@ conservative safety checks.
 ## Verification and packaged offering
 
 `ReviewedCompoundConditionTests` verifies the pinned expressions, every offered
-action, accepted cases, generated-code forms, comments, lookalikes, unreviewed
-sets and caller-information boundaries. `ReviewedCompoundRuntimeTests` compiles
+action, accepted cases, generated-code forms, comments, lookalikes, other status sets,
+source enums, narrowing casts and caller-information boundaries. `ReviewedCompoundRuntimeTests` compiles
 and executes saved/reparsed fixes, testing JSON success/failure assignments,
 type-pattern scope, short-circuit getter effects, cancellation catch selection,
 filter getter exceptions, and finally ordering. Its status test covers every
-integer from −1 through 600 and a conflicting predicate name.
+integer from −1 through 600 for several sets, including negation, and a
+conflicting predicate name.
 
 `ReviewedCompoundAnalyzerTests` shares the package consumer's positive and
 accepted source files and asserts all six diagnostic IDs and locations plus

@@ -72,14 +72,7 @@ internal static class SentinelFixes
             }
         }
         var proposed = document.WithSyntaxRoot(changed);
-        var options = await proposed.GetOptionsAsync(token).ConfigureAwait(false);
-        var originalText = (await document.GetTextAsync(token).ConfigureAwait(false)).ToString();
-        var firstNewline = originalText.IndexOf('\n');
-        var newline = firstNewline > 0 && originalText[firstNewline - 1] == '\r' ? "\r\n" : "\n";
-        var config = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(expression.SyntaxTree);
-        if (config.TryGetValue("end_of_line", out var configured)) newline = configured switch { "crlf" => "\r\n", "cr" => "\r", _ => "\n" };
-        proposed = await Formatter.FormatAsync(proposed, Formatter.Annotation,
-            options.WithChangedOption(FormattingOptions.NewLine, document.Project.Language, newline), token).ConfigureAwait(false);
+        proposed = await GeneratedSyntaxFormatter.FormatAsync(proposed, document, token).ConfigureAwait(false);
         var text = await proposed.GetTextAsync(token).ConfigureAwait(false);
         proposed = document.WithText(text);
         var afterModel = await proposed.GetSemanticModelAsync(token).ConfigureAwait(false);

@@ -22,15 +22,7 @@ internal static class StatementOperationFixes
             (_, node) => node.WithAdditionalAnnotations(Simplifier.Annotation));
         var changed = document.WithSyntaxRoot(root);
         changed = await Simplifier.ReduceAsync(changed, Simplifier.Annotation, cancellationToken: token).ConfigureAwait(false);
-        var options = await changed.GetOptionsAsync(token).ConfigureAwait(false);
-        var text = (await document.GetTextAsync(token).ConfigureAwait(false)).ToString();
-        var first = text.IndexOf('\n');
-        var newline = first > 0 && text[first - 1] == '\r' ? "\r\n" : "\n";
-        var config = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(plan.Owner.SyntaxTree);
-        if (config.TryGetValue("end_of_line", out var configured))
-            newline = configured switch { "crlf" => "\r\n", "cr" => "\r", _ => "\n" };
-        return await Formatter.FormatAsync(changed, Formatter.Annotation,
-            options.WithChangedOption(FormattingOptions.NewLine, document.Project.Language, newline), token).ConfigureAwait(false);
+        return await GeneratedSyntaxFormatter.FormatAsync(changed, document, token).ConfigureAwait(false);
     }
 
     public static async Task<bool> IsValidAsync(Document document, OperationPlan plan, bool extract, CancellationToken token)

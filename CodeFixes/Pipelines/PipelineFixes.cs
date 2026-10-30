@@ -23,15 +23,8 @@ internal static class PipelineFixes
         var root = selector is not null ? SelectorRewrites.Rewrite(selector) : ProjectionRewrites.Rewrite(projection!, extract);
         root = root.ReplaceNodes(root.GetAnnotatedNodes(ProjectionRewrites.Generated), (_, node) => node.WithAdditionalAnnotations(Formatter.Annotation));
         var changed = document.WithSyntaxRoot(root);
-        var options = await changed.GetOptionsAsync(token).ConfigureAwait(false);
+        changed = await GeneratedSyntaxFormatter.FormatAsync(changed, document, token).ConfigureAwait(false);
         var originalText = await document.GetTextAsync(token).ConfigureAwait(false);
-        var original = originalText.ToString();
-        var firstLine = original.IndexOf('\n');
-        var newline = firstLine > 0 && original[firstLine - 1] == '\r' ? "\r\n" : "\n";
-        if (document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(owner.SyntaxTree).TryGetValue("end_of_line", out var configured))
-            newline = configured switch { "crlf" => "\r\n", "cr" => "\r", _ => "\n" };
-        changed = await Formatter.FormatAsync(changed, Formatter.Annotation, options.WithChangedOption(FormattingOptions.NewLine,
-            document.Project.Language, newline), token).ConfigureAwait(false);
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
         if (originalText.ContentEquals(text)) return null;
         var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)owner.SyntaxTree.Options, owner.SyntaxTree.FilePath, token);

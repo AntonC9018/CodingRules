@@ -130,4 +130,16 @@ public sealed class StatementOperationSafetyTests
         await StatementOperationTestFixture.Compiles(changed);
         Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
     }
+
+    [Fact]
+    public async Task UnrecognisedEndOfLineKeepsTheSavedNewlines()
+    {
+        const string source = "class C\r\n{\r\n    static int Use(int x) => x;\r\n    static int M(int a,int b,int c)\r\n    {\r\n        return Use((a+b)*c);\r\n    }\r\n}\r\n";
+        var document = StatementOperationTestFixture.Document(source, "root = true\n[*.cs]\nend_of_line = unset\n");
+        var changed = await StatementOperationTestFixture.Reparse(
+            await StatementOperationTestFixture.Fix(document, StatementOperationCodeFixProvider.ExtractKey));
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.NotEqual(source, text);
+        Assert.DoesNotContain("\n", text.Replace("\r\n", ""));
+    }
 }

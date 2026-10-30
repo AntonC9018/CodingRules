@@ -24,20 +24,7 @@ internal static class CompoundPredicateFixes
         var root = lambda.SyntaxTree.GetRoot(token);
         var changed = document.WithSyntaxRoot(root.ReplaceNode(lambda,
             lambda.WithBody(body.WithAdditionalAnnotations(Formatter.Annotation))));
-        var source = await document.GetTextAsync(token).ConfigureAwait(false);
-        var original = source.ToString();
-        var firstLine = original.IndexOf('\n');
-        var newline = firstLine > 0 && original[firstLine - 1] == '\r' ? "\r\n" : "\n";
-        if (document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(lambda.SyntaxTree)
-            .TryGetValue("end_of_line", out var configured))
-        {
-            newline = configured switch { "crlf" => "\r\n", "cr" => "\r", _ => "\n" };
-        }
-
-        var options = await document.GetOptionsAsync(token).ConfigureAwait(false);
-        changed = await Formatter.FormatAsync(changed, Formatter.Annotation,
-            options.WithChangedOption(FormattingOptions.NewLine, document.Project.Language, newline), token)
-            .ConfigureAwait(false);
+        changed = await GeneratedSyntaxFormatter.FormatAsync(changed, document, token).ConfigureAwait(false);
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
         var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)lambda.SyntaxTree.Options,
             lambda.SyntaxTree.FilePath, token);

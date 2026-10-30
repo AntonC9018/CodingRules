@@ -106,20 +106,6 @@ internal static class InlineConditionFixes
             (_, node) => node.WithAdditionalAnnotations(Simplifier.Annotation));
         var changed = document.WithSyntaxRoot(root);
         changed = await Simplifier.ReduceAsync(changed, Simplifier.Annotation, cancellationToken: token).ConfigureAwait(false);
-        var options = await changed.GetOptionsAsync(token).ConfigureAwait(false);
-        var language = document.Project.Language;
-        var configured = options.GetOption(FormattingOptions.NewLine, language);
-        var source = await document.GetTextAsync(token).ConfigureAwait(false);
-        var text = source.ToString();
-        var firstNewline = text.IndexOf('\n');
-        var original = firstNewline > 0 && text[firstNewline - 1] == '\r' ? "\r\n" : "\n";
-        var config = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(plan.Expression.SyntaxTree);
-        var newline = original;
-        if (config.TryGetValue("end_of_line", out var configuredConvention))
-        {
-            newline = configuredConvention switch { "lf" => "\n", "crlf" => "\r\n", "cr" => "\r", _ => configured };
-        }
-        return await Formatter.FormatAsync(changed, Formatter.Annotation,
-            options.WithChangedOption(FormattingOptions.NewLine, language, newline), token).ConfigureAwait(false);
+        return await GeneratedSyntaxFormatter.FormatAsync(changed, document, token).ConfigureAwait(false);
     }
 }

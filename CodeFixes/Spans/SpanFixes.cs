@@ -45,14 +45,7 @@ internal static class SpanFixes
         });
         var changedRoot = Rewrite(plan, annotated, model);
         var proposed = document.WithSyntaxRoot(changedRoot);
-        var options = await document.GetOptionsAsync(token).ConfigureAwait(false);
-        var originalText = (await document.GetTextAsync(token).ConfigureAwait(false)).ToString();
-        var firstNewline = originalText.IndexOf('\n');
-        var newline = firstNewline > 0 && originalText[firstNewline - 1] == '\r' ? "\r\n" : "\n";
-        var config = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(trim.SyntaxTree);
-        if (config.TryGetValue("end_of_line", out var configured)) newline = configured switch { "crlf" => "\r\n", "cr" => "\r", _ => "\n" };
-        proposed = await Formatter.FormatAsync(proposed, Formatter.Annotation,
-            options.WithChangedOption(FormattingOptions.NewLine, document.Project.Language, newline), token).ConfigureAwait(false);
+        proposed = await GeneratedSyntaxFormatter.FormatAsync(proposed, document, token).ConfigureAwait(false);
         var formatted = await proposed.GetSyntaxRootAsync(token).ConfigureAwait(false);
         var text = await proposed.GetTextAsync(token).ConfigureAwait(false);
         proposed = document.WithText(text);

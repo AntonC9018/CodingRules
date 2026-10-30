@@ -25,7 +25,7 @@ internal sealed class CompoundPredicateRewrite
             || lambda.ContainsDirectives
             || lambda.DescendantTrivia().Any(trivia => !trivia.IsKind(SyntaxKind.WhitespaceTrivia)
                 && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            || model.GetDiagnostics(lambda.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            || CompilerDiagnostics.HasError(model, lambda, token)
             || NamedArgumentObservers.Affected(lambda, model, token))
         {
             return null;

@@ -223,7 +223,7 @@ internal sealed class ConditionRewritePlan
         if (expression.ContainsDirectives) return false;
         if (expression.DescendantTrivia().Any(IsUnsafeTrivia)) return false;
         if (ConditionFacts.EvaluationNodes(expression).Any(node => node is AwaitExpressionSyntax or RefExpressionSyntax)) return false;
-        if (model.GetDiagnostics(expression.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return false;
+        if (CompilerDiagnostics.HasError(model, expression, token)) return false;
         return true;
     }
 

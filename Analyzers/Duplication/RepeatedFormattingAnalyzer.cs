@@ -63,8 +63,7 @@ public sealed class RepeatedFormattingAnalyzer : DiagnosticAnalyzer
         if (format.IsImplicit || provider.IsImplicit) return null;
         if (!format.Value.ConstantValue.HasValue) return null;
         if (format.Value.ConstantValue.Value is not null and not string) return null;
-        if (context.SemanticModel.GetDiagnostics(syntax.Span, context.CancellationToken)
-            .Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return null;
+        if (CompilerDiagnostics.HasError(context.SemanticModel, syntax, context.CancellationToken)) return null;
         if (!SameProvider(provider.Value, provider.Value)) return null;
 
         var gates = ImmutableArray.CreateBuilder<ITypeSymbol>();

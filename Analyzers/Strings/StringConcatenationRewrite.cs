@@ -21,7 +21,7 @@ internal static class StringConcatenationRewrite
             || HasImplicitCallerObserver(binary, model, token)
             // Implicit collection Add calls can observe their element's source text.
             || binary.Ancestors().Any(node => node.IsKind(SyntaxKind.CollectionInitializerExpression))
-            || model.GetDiagnostics(binary.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return null;
+            || CompilerDiagnostics.HasError(model, binary, token)) return null;
 
         // One diagnostic owns a connected string-only tree, including parentheses.
         SyntaxNode outer = binary;

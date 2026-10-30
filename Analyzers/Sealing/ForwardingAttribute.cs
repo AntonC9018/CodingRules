@@ -64,7 +64,7 @@ internal static class ForwardingAttribute
             if (target.Parameters.Length != 1) return false;
             if (!Same(target.Parameters[0].Type, compilation.GetTypeByMetadataName("System.Type"))) return false;
             if (!Same(model.GetTypeInfo(typeOf.Type, cancellationToken).Type, variant.TypeParameters[0])) return false;
-            if (model.GetDiagnostics(call.Span, cancellationToken).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return false;
+            if (CompilerDiagnostics.HasError(model, call, cancellationToken)) return false;
         }
         return true;
     }

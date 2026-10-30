@@ -284,7 +284,7 @@ internal sealed class OperationPlan
                 || value.Ancestors().OfType<CastExpressionSyntax>().Any(cast => SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(cast).Type, formattable)))) return false;
         }
 
-        return !model.GetDiagnostics(expression.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        return !CompilerDiagnostics.HasError(model, expression, token);
     }
 
     private static bool HasNullableDependency(ExpressionSyntax expression, SemanticModel model) =>

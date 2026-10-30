@@ -63,7 +63,7 @@ internal sealed class UnchangedAssignmentPlan
 
         if (owner is null || owner.ContainsDiagnostics || owner.ContainsDirectives
             || owner.Ancestors().Any(node => node is RefExpressionSyntax)
-            || model.GetDiagnostics(owner.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            || CompilerDiagnostics.HasError(model, owner, token)
             || HasSourceObserver(model, token)) return null;
 
         var unchanged = trueUnchanged ? conditional.WhenTrue : conditional.WhenFalse;

@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -19,6 +21,12 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
         "Separate statement operations", "Calculate this value in named steps");
     internal static readonly ImmutableArray<DiagnosticDescriptor> Priority = ImmutableArray.Create(ConditionalRule, NestedRule, CombinedRule);
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => Priority;
+
+    // Ownership asks every enclosing candidate for its selection, and each
+    // selection plans a rewrite. Without this cache, a nested expression's plan is
+    // rebuilt once per nested descendant. The analyzer driver reuses one semantic
+    // model per tree, so the cache lives exactly as long as that analysis.
+    private static readonly ConditionalWeakTable<SemanticModel, ConcurrentDictionary<ExpressionSyntax, DiagnosticDescriptor?>> Selections = new();
 
     public override void Initialize(AnalysisContext context)
     {
@@ -42,7 +50,8 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
         var expression = Owner(context.Node);
         if (expression is null) return;
         if (context.Node is ExpressionSyntax { Parent: ArgumentSyntax }) return;
-        var rule = Select(expression, context.SemanticModel, context.Options.AnalyzerConfigOptionsProvider, context.CancellationToken);
+        var selections = Selections.GetValue(context.SemanticModel, _ => new());
+        var rule = CachedSelect(expression, context, selections);
         if (rule is null) return;
         // Ownership is independent of callback order. An unsafe outer value does
         // not hide a separately feasible inner argument or combination.
@@ -51,10 +60,15 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
         {
             var enclosing = Owner(ancestor);
             if (enclosing is null || enclosing == expression || !IsCandidate(ancestor)) continue;
-            if (Select(enclosing, context.SemanticModel, context.Options.AnalyzerConfigOptionsProvider, context.CancellationToken) is not null) return;
+            if (CachedSelect(enclosing, context, selections) is not null) return;
         }
         context.ReportDiagnostic(Diagnostic.Create(rule, expression.GetLocation()));
     }
+
+    private static DiagnosticDescriptor? CachedSelect(ExpressionSyntax expression, SyntaxNodeAnalysisContext context,
+        ConcurrentDictionary<ExpressionSyntax, DiagnosticDescriptor?> selections) =>
+        selections.GetOrAdd(expression, value => Select(value, context.SemanticModel,
+            context.Options.AnalyzerConfigOptionsProvider, context.CancellationToken));
 
     internal static bool IsCandidate(SyntaxNode node) => node is ArgumentSyntax or ConditionalExpressionSyntax
         or BinaryExpressionSyntax or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax

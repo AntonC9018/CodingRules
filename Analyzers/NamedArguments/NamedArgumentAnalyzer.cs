@@ -17,7 +17,7 @@ public sealed class NamedArgumentAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.RegisterSyntaxNodeAction(node =>
         {
-            if (!PipelineAnalyzer.Enabled(Rule.Id, node.Node, node.SemanticModel, node.Options.AnalyzerConfigOptionsProvider, node.CancellationToken)) return;
+            if (!RuleSeverity.IsEnabled(Rule.Id, node.Node.SyntaxTree, node.SemanticModel.Compilation, node.Options.AnalyzerConfigOptionsProvider, node.CancellationToken)) return;
             var plan = NamedArgumentPlan.Create(node.Node, node.SemanticModel, node.Options.AnalyzerConfigOptionsProvider, node.CancellationToken);
             if (plan is not null) node.ReportDiagnostic(Diagnostic.Create(Rule, plan.Site.List.GetLocation()));
         }, SyntaxKind.InvocationExpression, SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression,

@@ -70,11 +70,7 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
         foreach (var rule in Priority)
         {
             if (rule == ConditionalRule ? facts.Conditional is null : rule == NestedRule ? !facts.Nested : !facts.Combined) continue;
-            var severity = model.Compilation.Options.SyntaxTreeOptionsProvider?.TryGetDiagnosticValue(expression.SyntaxTree,
-                rule.Id, token, out var treeSeverity) == true ? treeSeverity
-                : model.Compilation.Options.SpecificDiagnosticOptions.TryGetValue(rule.Id, out var value) ? value : ReportDiagnostic.Default;
-            if (severity == ReportDiagnostic.Suppress || options.GetOptions(expression.SyntaxTree)
-                    .TryGetValue("dotnet_diagnostic." + rule.Id + ".severity", out var configured) && configured == "none") continue;
+            if (!RuleSeverity.IsEnabled(rule.Id, expression.SyntaxTree, model.Compilation, options, token)) continue;
             return rule;
         }
         return null;

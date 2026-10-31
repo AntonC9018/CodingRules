@@ -24,7 +24,7 @@ internal sealed class ConditionSubject
 
     public static ConditionSubject? Create(ExpressionSyntax expression, SemanticModel model)
     {
-        expression = ConditionFacts.Unwrap(expression);
+        expression = Parentheses.Unwrap(expression);
         if (expression is ThisExpressionSyntax or BaseExpressionSyntax)
         {
             var type = model.GetEnclosingSymbol(expression.SpanStart)?.ContainingType;
@@ -59,6 +59,28 @@ internal sealed class ConditionSubject
         }
 
         return new ConditionSubject(symbol, null, model);
+    }
+
+    public static ConditionSubject? CreatePropertyPattern(IsPatternExpressionSyntax expression, SemanticModel model)
+    {
+        if (expression.Pattern is not RecursivePatternSyntax
+            {
+                Type: not null, PositionalPatternClause: null, Designation: null,
+                PropertyPatternClause.Subpatterns.Count: 1,
+            } pattern)
+        {
+            return null;
+        }
+
+        var property = pattern.PropertyPatternClause.Subpatterns[0];
+        if (property.Pattern is not ConstantPatternSyntax || property.NameColon is null
+            || model.GetSymbolInfo(property.NameColon.Name).Symbol is not IPropertySymbol symbol)
+        {
+            return null;
+        }
+
+        var receiver = Create(expression.Expression, model);
+        return receiver is null ? null : new ConditionSubject(symbol, receiver, model);
     }
 
     public bool Matches(ConditionSubject? other)

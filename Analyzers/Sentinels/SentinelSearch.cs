@@ -28,10 +28,11 @@ internal static class SentinelSearch
         if (method.ReturnType.SpecialType != SpecialType.System_Int32 || method.Name is not ("IndexOf" or "LastIndexOf")) return false;
         var definition = method.OriginalDefinition;
         var type = definition.ContainingType;
-        var identity = type.ContainingAssembly.Identity;
-        var key = string.Concat(identity.PublicKeyToken.Select(value => value.ToString("x2")));
-        if (identity.Name is not ("mscorlib" or "System.Private.CoreLib" or "System.Collections" or "netstandard" or "System.Runtime")
-            || key is not ("b77a5c561934e089" or "7cec85d7bea7798e" or "b03f5f7f11d50a3a" or "cc7b13ffcd2ddd51")) return false;
+        if (!FrameworkSymbols.IsPlatformAssembly(type.ContainingAssembly))
+        {
+            return false;
+        }
+
         return SymbolEqualityComparer.Default.Equals(type, compilation.GetSpecialType(SpecialType.System_String))
             || SymbolEqualityComparer.Default.Equals(type, compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
     }

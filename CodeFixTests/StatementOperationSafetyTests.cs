@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace CodingRules;
@@ -7,10 +8,40 @@ namespace CodingRules;
 public sealed class StatementOperationSafetyTests
 {
     [Theory]
+    [InlineData("Use(First(1) + Second(2),\n            detail:\n                \"invocation\")", "static string Use(int value, string detail) => detail;", "invocation")]
+    [InlineData("new Item(First(1) + Second(2),\n            detail:\n                \"construction\").Detail", "sealed class Item { public string Detail; public Item(int value, string detail) { Detail = detail; } }", "construction")]
+    public async Task LoweringPreservesArgumentSeparatorsAndExpressionTrivia(string expression, string declarations, string expected)
+    {
+        var source = "class C { static int First(int value)=>value; static int Second(int value)=>value; " + declarations
+            + " public static string Run() { return " + expression + "; } }";
+        var document = StatementOperationTestFixture.Document(source);
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
+        var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
+        Assert.Contains(actions, action => action.EquivalenceKey == StatementOperationCodeFixProvider.ExpandKey);
+        var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document,
+            StatementOperationCodeFixProvider.ExpandKey));
+        await StatementOperationTestFixture.Compiles(changed);
+        Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
+
+        var root = await changed.GetSyntaxRootAsync();
+        var arguments = Assert.Single(root!.DescendantNodes().OfType<ArgumentListSyntax>()
+            .Where(argumentList => argumentList.Arguments.Count == 2));
+        var firstArgumentEnd = arguments.Arguments[0].GetLocation().GetLineSpan().EndLinePosition;
+        var detailArgument = arguments.Arguments[1];
+        var detailLabel = detailArgument.NameColon!.GetLocation().GetLineSpan().StartLinePosition;
+        var detailValue = detailArgument.Expression.GetLocation().GetLineSpan().StartLinePosition;
+        Assert.True(detailLabel.Line > firstArgumentEnd.Line);
+        Assert.True(detailValue.Line > detailLabel.Line);
+        Assert.True(detailValue.Character >= detailLabel.Character);
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(changed));
+    }
+
+    [Theory]
     [InlineData("Use(Get(1, line: 7))", "using System.Runtime.CompilerServices;", "static int Get(int x, [CallerLineNumber] int line = 0) => x;")]
     [InlineData("Use(callback(1))", "using System;", "static Func<int,int> callback = x => x;")]
-    [InlineData("Use(new Item(1))", "", "record Item(int Value); static int Use(Item x) => x.Value;")]
-    [InlineData("UseItem(new(1))", "", "record Item(int Value); static int UseItem(Item x) => x.Value;")]
+    [InlineData("Use(new Item(Get(1)))", "", "record Item(int Value); static int Get(int value) => value; static int Use(Item x) => x.Value;")]
+    [InlineData("UseItem(new(Get(1)))", "", "record Item(int Value); static int Get(int value) => value; static int UseItem(Item x) => x.Value;")]
     [InlineData("Use(System.Convert.ToInt32(\"1\"))", "", "")]
     [InlineData("Use(Extensions.Get(1))", "", "")]
     public async Task ResolvedBindingsAndExplicitCallerConstantsHaveSavedFixes(string expression, string imports, string declarations)
@@ -98,5 +129,17 @@ public sealed class StatementOperationSafetyTests
         Assert.Contains("\n\t", text);
         await StatementOperationTestFixture.Compiles(changed);
         Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
+    }
+
+    [Fact]
+    public async Task UnrecognisedEndOfLineKeepsTheSavedNewlines()
+    {
+        const string source = "class C\r\n{\r\n    static int Use(int x) => x;\r\n    static int M(int a,int b,int c)\r\n    {\r\n        return Use((a+b)*c);\r\n    }\r\n}\r\n";
+        var document = StatementOperationTestFixture.Document(source, "root = true\n[*.cs]\nend_of_line = unset\n");
+        var changed = await StatementOperationTestFixture.Reparse(
+            await StatementOperationTestFixture.Fix(document, StatementOperationCodeFixProvider.ExtractKey));
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.NotEqual(source, text);
+        Assert.DoesNotContain("\n", text.Replace("\r\n", ""));
     }
 }

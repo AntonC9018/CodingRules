@@ -53,7 +53,5 @@ internal sealed class SpanCatalog
         && method.Parameters.Select(parameter => parameter.Type).Zip(types, Same).All(value => value);
     private static bool Same(ITypeSymbol left, ITypeSymbol right) => SymbolEqualityComparer.Default.Equals(left, right);
     private static bool Framework(INamedTypeSymbol? type) => type is not null && !type.Locations.Any(location => location.IsInSource)
-        && type.ContainingAssembly.Identity.Name is "System.Private.CoreLib" or "mscorlib" or "System.Runtime" or "netstandard" or "System.Memory"
-        && new[] { "7cec85d7bea7798e", "b77a5c561934e089", "b03f5f7f11d50a3a", "cc7b13ffcd2ddd51" }
-            .Contains(string.Concat(type.ContainingAssembly.Identity.PublicKeyToken.Select(value => value.ToString("x2"))));
+        && FrameworkSymbols.IsPlatformAssembly(type.ContainingAssembly);
 }

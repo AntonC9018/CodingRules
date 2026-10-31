@@ -71,7 +71,7 @@ internal sealed class SpanPlan
             || inspection.Ancestors().Any(node => node is ConstructorInitializerSyntax or AttributeSyntax or UnsafeStatementSyntax or FixedStatementSyntax
                 || node is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } })
             || inspection.Ancestors().OfType<MemberDeclarationSyntax>().Any(node => node.Modifiers.Any(SyntaxKind.UnsafeKeyword))
-            || model.GetDiagnostics(inspection.Span, token).Any(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)) return null;
+            || CompilerDiagnostics.HasErrorOrWarning(model, inspection, token)) return null;
         // The new parameterized call would introduce a CR0300 operation in an
         // outer argument, or around a producing receiver. Keep older policy intact.
         if (inspection.Ancestors().TakeWhile(node => node is not StatementSyntax and not ArrowExpressionClauseSyntax and not AnonymousFunctionExpressionSyntax)

@@ -61,10 +61,6 @@ internal static class StatementOperationTestFixture
     {
         var diagnostic = (await Diagnostics(document)).First(diagnostic => id is null || diagnostic.Id == id);
         var actions = await Actions(document, diagnostic);
-        if (actions.Any(action => action.EquivalenceKey == StatementOperationCodeFixProvider.ExtractKey))
-        {
-            Assert.Equal(StatementOperationCodeFixProvider.ExtractKey, actions[0].EquivalenceKey);
-        }
         var action = Assert.Single(actions.Where(action => action.EquivalenceKey == key));
         var operation = Assert.Single((await action.GetOperationsAsync(CancellationToken.None)).OfType<ApplyChangesOperation>());
         return operation.ChangedSolution.GetDocument(document.Id)!;

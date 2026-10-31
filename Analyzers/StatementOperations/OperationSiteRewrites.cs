@@ -17,7 +17,7 @@ internal static class OperationSiteRewrites
         var evaluator = new OperationEvaluator(plan, expression);
         var root = expression.SyntaxTree.GetRoot();
         if (!extract) return Expand(plan, evaluator, root, expression);
-        var name = evaluator.Names.Fresh("CalculateValue");
+        var name = evaluator.Names.Fresh(OperationValueNames.Helper(expression, plan.Model));
         var type = plan.Model.GetTypeInfo(expression).Type ?? plan.Model.GetTypeInfo(expression).ConvertedType!;
         var body = evaluator.ReturnBody(expression);
         var parameters = plan.BridgeVariables.Select(symbol => SyntaxFactory.Parameter(SyntaxFactory.Identifier(symbol.Name))

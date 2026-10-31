@@ -20,10 +20,7 @@ internal sealed class PipelineCatalog
         {
             var type = compilation.GetTypeByMetadataName(name);
             if (type is null || type.Locations.Any(location => location.IsInSource)) continue;
-            var assembly = type.ContainingAssembly.Identity;
-            if (assembly.PublicKeyToken.IsDefaultOrEmpty || (name.Contains("Immutable")
-                    ? assembly.Name != "System.Collections.Immutable"
-                    : assembly.Name is not "System.Linq" and not "System.Core" and not "netstandard")) continue;
+            if (!FrameworkSymbols.IsPlatformAssembly(type.ContainingAssembly)) continue;
             foreach (var method in type.GetMembers().OfType<IMethodSymbol>().Where(method => method.IsExtensionMethod && method.IsStatic))
             {
                 if (method.Name == "Select" && method.TypeParameters.Length == 2 && method.Parameters.Length == 2

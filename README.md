@@ -12,7 +12,10 @@ decision forms in returns nested deeper than the function body's top level.
 independent subjects, combined operations, and three or more repeated alternatives.
 They offer local-function extraction first and statement expansion when safe.
 Member initializers use a private static helper; filters and switch guards keep
-their helper invocation at the original guard site.
+their helper invocation at the original guard site. The reviewed ScheduleLib
+config, JSON, cancellation/authentication and numeric status examples reuse these
+families; the [compound-condition boundary](docs/compound-conditions.md) records
+the exact six-status enum predicate, safe flow rewrites and package gate.
 `CR0300` names nested argument operations, `CR0301` names embedded conditional
 values, and `CR0302` separates arithmetic or other mechanically proven combined
 values. Calls and constructors with no explicitly supplied arguments remain
@@ -48,6 +51,63 @@ for Length or equality with a non-null string constant. Its synchronous scalar
 helper avoids the temporary trimmed string while preserving null exceptions,
 ordinal UTF-16 comparison and receiver evaluation. The [span assessment](docs/spans.md)
 records the finite catalogue and manual ownership, API and lifetime boundaries.
+
+The same package now supplies Roslynator `RCS0042` for compact auto-accessors,
+`RCS1016` for multiline-expression block bodies, `CR0800` for leading
+wrapped `&&`/`||`, and `CR0801`/`CR0802` for multiline initializer members and
+adjacent sole constructor arguments. `CR0806` moves the first chopped argument
+below its opening parenthesis. Other upstream diagnostics remain disabled. See
+[packaged formatting](docs/formatting.md) for the required CLI `.editorconfig`
+snippet, formatter interaction, fixer commands, licenses and consumer checks.
+
+`CR0900` reports tuple method results, method inputs and materialized collection
+data that need a named record struct. API migration is manual. Local-function
+results and deconstruction remain allowed; scalar local tuples and swaps remain
+outside the settled scope. The [tuple data contract](docs/tuple-data.md) records
+the finite collection catalogue, Q15/Q16 coverage and isolated package gate.
+
+`CR1000` reports locally owned interface, virtual/abstract, delegate and
+abstract-class constructor contracts with four or more parameters, including
+cancellation. Architectural grouping is manual; implementations and overrides
+receive no duplicate. The [contract parameter boundary](docs/contract-parameters.md)
+records the static-function and external-contract exceptions, accepted
+Finish/Edit fixtures, configuration and isolated package gate.
+
+`CR1001` requires a configuration builder for multi-parameter overload alternatives,
+including static operations. The approved pair has the same declaring type, name,
+staticness, generic arity and parameter count, exactly one differing resolved
+parameter type, and matching ref/params/default presence. One-parameter Parse and
+builder Output overloads remain allowed. The [overload configuration boundary](docs/overload-configuration.md)
+records manual API migration, required-step review and isolated package evidence.
+
+`CR1100` prefers interpolation for runtime built-in string-only concatenations,
+including ScheduleLib's invariant desired identifier and lock path. It preserves
+explicit formatting calls, string overload selection and handler gating. The
+[interpolation contract](docs/string-concatenation.md) records accepted cases,
+reuse evidence and the shared regression reserved for final package validation.
+
+`CR1200` replaces proven unchanged assignment branches with explicit conditional
+updates, including property/accessor arrow hosts. The [assignment contract](docs/unchanged-assignments.md)
+records storage/null proofs, setter and receiver exclusions, returning behavior,
+and the shared regression reserved for final package validation.
+
+`CR1300` identifies repeated timestamp formatting within a method as a duplication
+candidate. Review [shared meaning](docs/agent-coding-rules.md#review-duplication-by-meaning)
+before extracting a helper; independent domain policies may remain separate with
+a justified scoped suppression. The [recognition contract](docs/repeated-formatting.md)
+records exact A14 coverage, accepted distinctions and the deferred package gate.
+
+`CR1400` reviews concrete classes for sealing, including existing inherited test
+seams. The [sealing contract](docs/sealed-classes.md) records adapted MIT MA0053
+source reuse, the type-forwarding attribute exception, concrete external constraints
+and shared positive/accepted regressions. Architecture and sealing changes are
+manual; package validation remains reserved for the final stable candidate.
+
+The package also supplies versioned [agent guidance](docs/agent-coding-rules.md)
+for semantic reuse, repeated plumbing, builder completeness, structured messages
+and accessible exception context. [Export and import it explicitly](docs/consumer-agent-guidance.md)
+through your repository's existing agent instructions; referencing NuGet alone
+does not make agents read it. See `samples/AgentGuidance` for a consuming example.
 
 For a mathematical formula whose shape is useful to retain, use normal scoped
 suppression with a justification. This leaves neighboring methods enabled:

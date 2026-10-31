@@ -32,7 +32,7 @@ internal static class PipelineFacts
         var declarations = nodes.OfType<LocalDeclarationStatementSyntax>().Where(local => local.Modifiers.Count == 0
             && local.UsingKeyword.RawKind == 0 && local.AwaitKeyword.RawKind == 0 && local.Declaration.Variables.Count == 1
             && local.Declaration.Variables[0].Initializer is not null
-            && OperationFacts.Unwrap(local.Declaration.Variables[0].Initializer!.Value) is not IdentifierNameSyntax
+            && Parentheses.Unwrap(local.Declaration.Variables[0].Initializer!.Value) is not IdentifierNameSyntax
             && model.GetDeclaredSymbol(local.Declaration.Variables[0]) is ILocalSymbol { Type.TypeKind: not TypeKind.Delegate })
             .Select(local => local.Declaration.Variables[0]).ToArray();
         var feeding = new HashSet<ISymbol>(SymbolEqualityComparer.Default);

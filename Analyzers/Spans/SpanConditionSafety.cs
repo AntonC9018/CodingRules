@@ -42,10 +42,7 @@ internal static class SpanConditionSafety
         foreach (var rule in InlineConditionAnalyzer.Priority)
         {
             if (!reasons.Contains(rule.Id)) continue;
-            var severity = compilation.Options.SyntaxTreeOptionsProvider?.TryGetDiagnosticValue(expression.SyntaxTree, rule.Id, token, out var treeSeverity) == true
-                ? treeSeverity : compilation.Options.SpecificDiagnosticOptions.TryGetValue(rule.Id, out var configured) ? configured : ReportDiagnostic.Default;
-            var config = options.AnalyzerConfigOptionsProvider.GetOptions(expression.SyntaxTree);
-            if (severity == ReportDiagnostic.Suppress || config.TryGetValue("dotnet_diagnostic." + rule.Id + ".severity", out var value) && value == "none") continue;
+            if (!RuleSeverity.IsEnabled(rule.Id, expression.SyntaxTree, compilation, options.AnalyzerConfigOptionsProvider, token)) continue;
             return rule.Id;
         }
         return null;

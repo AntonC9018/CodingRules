@@ -1,11 +1,40 @@
 <Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
   <ItemGroup>
+    <!-- Patch the test-only Roslyn testing/NuGet.Packaging transitive vulnerability;
+         remove once the shared SDK supplies the patched dependency. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.21" />
     <Compile Remove="Consumers/**/*.cs" />
+    <None Include="Consumers/CompoundPredicates/*.cs" Exclude="Consumers/CompoundPredicates/Program.cs"
+          Link="CompoundPredicates/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/Computations/Findings.cs" Link="Computations/Findings.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/Computations/Accepted.cs" Link="Computations/Accepted.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/UnchangedAssignment/Consumer.cs" Link="UnchangedAssignment/Consumer.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/UnchangedAssignment/.editorconfig" Link="UnchangedAssignment/.editorconfig" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Expected/UnchangedAssignment.Fixed.cs.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/StringConcatenation/Consumer.cs" Link="StringConcatenation/Consumer.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/StringConcatenation/.editorconfig" Link="StringConcatenation/.editorconfig" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Expected/StringConcatenation.Fixed.cs.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/NamedArguments/Consumer.cs" Link="NamedArguments/Consumer.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/NamedArguments/.editorconfig" Link="NamedArguments/.editorconfig" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Expected/NamedArguments.Fixed.cs.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/ReviewedConditions/Findings.cs" Link="ReviewedConditions/Findings.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Consumers/Formatting/TaskLike.cs" Link="Fixtures/TaskLike.cs.txt" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Anton.SourceGeneration.PackageTesting" Version="1.0.0" />
+    <PackageReference Include="Roslynator.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />
+    <PackageReference Include="Roslynator.Formatting.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="none" GeneratePathProperty="true" />
+    <!-- Use the exact same host assets as the packed consumer, without running
+         upstream analyzers against the test project's own source. -->
+    <Reference Include="$(PkgRoslynator_Analyzers)/analyzers/dotnet/roslyn4.7/cs/*.dll"
+               Exclude="$(PkgRoslynator_Analyzers)/analyzers/dotnet/roslyn4.7/cs/Roslynator.CSharp.Analyzers.CodeFixes.dll" />
+    <Reference Include="$(PkgRoslynator_Formatting_Analyzers)/analyzers/dotnet/roslyn4.7/cs/*.dll" />
+    <None Include="../Package/config/CodingRules.globalconfig" Link="CodingRules.globalconfig" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="NETStandard.Library" Version="2.0.3" PrivateAssets="all" GeneratePathProperty="true" />
     <None Include="$(PkgNETStandard_Library)/build/netstandard2.0/ref/netstandard.dll"
           Link="References/netstandard.dll" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="$(NetCoreRoot)packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1/netstandard.dll"
+    <!-- Restore the 2.1 reference surface instead of reading the running SDK's
+         packs folder, which not every SDK installation provides. -->
+    <PackageDownload Include="NETStandard.Library.Ref" Version="[2.1.0]" />
+    <None Include="$([MSBuild]::EnsureTrailingSlash($(NuGetPackageRoot)))netstandard.library.ref/2.1.0/ref/netstandard2.1/netstandard.dll"
           Link="References/netstandard2.1.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

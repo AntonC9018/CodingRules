@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -20,6 +23,12 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
     internal static readonly ImmutableArray<DiagnosticDescriptor> Priority = ImmutableArray.Create(ConditionalRule, NestedRule, CombinedRule);
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => Priority;
 
+    // Ownership asks every enclosing candidate for its selection, and each
+    // selection plans a rewrite. Without this cache, a nested expression's plan is
+    // rebuilt once per nested descendant. The analyzer driver reuses one semantic
+    // model per tree, so the cache lives exactly as long as that analysis.
+    private static readonly ConditionalWeakTable<SemanticModel, ConcurrentDictionary<ExpressionSyntax, DiagnosticDescriptor?>> Selections = new();
+
     public override void Initialize(AnalysisContext context)
     {
         context.EnableConcurrentExecution();
@@ -35,48 +44,85 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
             SyntaxKind.PreDecrementExpression, SyntaxKind.PostDecrementExpression);
     }
 
+    /// <summary>The expression a candidate node reports on; an argument reports on its value.</summary>
     internal static ExpressionSyntax? Owner(SyntaxNode node) => node is ArgumentSyntax argument ? argument.Expression : node as ExpressionSyntax;
 
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var expression = Owner(context.Node);
-        if (expression is null) return;
-        if (context.Node is ExpressionSyntax { Parent: ArgumentSyntax }) return;
-        var rule = Select(expression, context.SemanticModel, context.Options.AnalyzerConfigOptionsProvider, context.CancellationToken);
-        if (rule is null) return;
-        // Ownership is independent of callback order. An unsafe outer value does
-        // not hide a separately feasible inner argument or combination.
-        foreach (var ancestor in expression.Ancestors().TakeWhile(node => node is not AnonymousFunctionExpressionSyntax
-                     and not LocalFunctionStatementSyntax and not StatementSyntax and not MemberDeclarationSyntax))
+        // An argument's expression is analyzed through its ArgumentSyntax.
+        if (context.Node is ExpressionSyntax { Parent: ArgumentSyntax } || Owner(context.Node) is not { } expression)
         {
-            var enclosing = Owner(ancestor);
-            if (enclosing is null || enclosing == expression || !IsCandidate(ancestor)) continue;
-            if (Select(enclosing, context.SemanticModel, context.Options.AnalyzerConfigOptionsProvider, context.CancellationToken) is not null) return;
+            return;
         }
-        context.ReportDiagnostic(Diagnostic.Create(rule, expression.GetLocation()));
+
+        var selections = Selections.GetValue(context.SemanticModel, _ => new());
+        var rule = CachedSelect(expression, context, selections);
+        if (rule is null)
+        {
+            return;
+        }
+
+        // Ownership is independent of callback order: the outermost selected
+        // candidate reports. An unsafe outer value does not hide a separately
+        // feasible inner argument or combination.
+        var hasSelectedOwner = EnclosingCandidates(expression)
+            .Any(enclosing => CachedSelect(enclosing, context, selections) is not null);
+        if (!hasSelectedOwner)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(rule, expression.GetLocation()));
+        }
     }
+
+    // Candidates around the expression within the same statement and function.
+    private static IEnumerable<ExpressionSyntax> EnclosingCandidates(ExpressionSyntax expression) => expression.Ancestors()
+        .TakeWhile(node => node is not AnonymousFunctionExpressionSyntax
+            and not LocalFunctionStatementSyntax
+            and not StatementSyntax
+            and not MemberDeclarationSyntax)
+        .Where(IsCandidate)
+        .Select(Owner)
+        .OfType<ExpressionSyntax>()
+        .Where(enclosing => enclosing != expression);
+
+    private static DiagnosticDescriptor? CachedSelect(ExpressionSyntax expression, SyntaxNodeAnalysisContext context,
+        ConcurrentDictionary<ExpressionSyntax, DiagnosticDescriptor?> selections) =>
+        selections.GetOrAdd(expression, value => Select(value, context.SemanticModel,
+            context.Options.AnalyzerConfigOptionsProvider, context.CancellationToken));
 
     internal static bool IsCandidate(SyntaxNode node) => node is ArgumentSyntax or ConditionalExpressionSyntax
         or BinaryExpressionSyntax or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax
         or CastExpressionSyntax or InterpolatedStringExpressionSyntax or AssignmentExpressionSyntax;
 
+    /// <summary>The highest-priority enabled rule that applies to a feasible rewrite of <paramref name="expression"/>.</summary>
     internal static DiagnosticDescriptor? Select(ExpressionSyntax expression, SemanticModel model,
         AnalyzerConfigOptionsProvider options, CancellationToken token)
     {
-        var facts = OperationFacts.Create(expression, model);
-        if (!facts.HasReason || OperationPlan.Create(expression, model, token) is null) return null;
-        foreach (var rule in Priority)
+        if (IsWithinExceptionMessage(expression, model))
         {
-            if (rule == ConditionalRule ? facts.Conditional is null : rule == NestedRule ? !facts.Nested : !facts.Combined) continue;
-            var severity = model.Compilation.Options.SyntaxTreeOptionsProvider?.TryGetDiagnosticValue(expression.SyntaxTree,
-                rule.Id, token, out var treeSeverity) == true ? treeSeverity
-                : model.Compilation.Options.SpecificDiagnosticOptions.TryGetValue(rule.Id, out var value) ? value : ReportDiagnostic.Default;
-            if (severity == ReportDiagnostic.Suppress || options.GetOptions(expression.SyntaxTree)
-                    .TryGetValue("dotnet_diagnostic." + rule.Id + ".severity", out var configured) && configured == "none") continue;
-            return rule;
+            return null;
         }
-        return null;
+
+        var facts = OperationFacts.Create(expression, model);
+        if (!facts.HasReason || OperationPlan.Create(expression, model, token) is null)
+        {
+            return null;
+        }
+
+        return Priority.FirstOrDefault(rule => Applies(rule, facts)
+            && RuleSeverity.IsEnabled(rule.Id, expression.SyntaxTree, model.Compilation, options, token));
     }
+
+    // Exception messages belong to the exception-context rule.
+    private static bool IsWithinExceptionMessage(ExpressionSyntax expression, SemanticModel model) => expression
+        .DescendantNodesAndSelf()
+        .Concat(expression.Ancestors())
+        .OfType<InterpolatedStringExpressionSyntax>()
+        .Any(message => ExceptionContextAnalyzer.IsMessage(message, model));
+
+    private static bool Applies(DiagnosticDescriptor rule, OperationFacts facts) =>
+        rule == ConditionalRule ? facts.Conditional is not null
+        : rule == NestedRule ? facts.Nested
+        : facts.Combined;
 
     private static DiagnosticDescriptor Rule(string id, string title, string message) =>
         new(id, title, message, "Readability", DiagnosticSeverity.Warning, isEnabledByDefault: true);

@@ -1,0 +1,33 @@
+using System;
+
+public sealed class ChoppedArgumentValue
+{
+    public ChoppedArgumentValue(int first, int second) { }
+}
+
+public static class ChoppedArgumentCases
+{
+    public static void Run()
+    {
+        UseNumbers(
+            first: 1,
+            second: 2);
+        _ = new ChoppedArgumentValue(
+            first: 1,
+            second: 2);
+        ChoppedArgumentValue value = new(
+            first: 1,
+            second: 2);
+        UseTransform(transform => transform + 1,
+            4);
+        UseValue(new ChoppedArgumentValue(
+                first: 5,
+                second: 6));
+
+        _ = value;
+    }
+
+    private static int UseNumbers(int first, int second) => first + second;
+    private static void UseTransform(Func<int, int> transform, int value) { }
+    private static void UseValue(ChoppedArgumentValue value) { }
+}

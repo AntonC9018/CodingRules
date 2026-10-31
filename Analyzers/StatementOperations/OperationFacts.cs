@@ -21,19 +21,56 @@ internal sealed class OperationFacts
     public static OperationFacts Create(ExpressionSyntax expression, SemanticModel model)
     {
         var facts = new OperationFacts(expression);
+        if (expression.Parent is ArgumentSyntax && IsSimpleJsonFieldRead(expression, model))
+        {
+            return facts;
+        }
         var nodes = EvaluationNodes(expression).OfType<ExpressionSyntax>().ToArray();
         var calculations = nodes.Count(node => IsCalculation(node, model));
         facts.Conditional = nodes.OfType<ConditionalExpressionSyntax>()
-            .FirstOrDefault(conditional => !IsNamedOrDirectReturn(conditional));
+            .FirstOrDefault(conditional => !IsNamedOrDirectReturn(conditional)
+                || HasComposedPipelineBranch(conditional, model));
         facts.Combined = calculations > 1 || nodes.Any(node => IsCombination(node, model))
             || nodes.Any(node => IsMutation(node) && IsConsumedMutation(node));
         if (expression.Parent is ArgumentSyntax argument && IsOrdinaryArgument(argument, model))
         {
-            facts.Nested = calculations > 1 || nodes.Any(node => IsProducer(node, model)
-                || node is ConditionalExpressionSyntax);
+            var inlineConstruction = SingleSimpleConstruction(argument, nodes, model);
+            facts.Nested = calculations > 1 || nodes.Any(node => node != inlineConstruction
+                && (IsProducer(node, model) || node is ConditionalExpressionSyntax));
         }
 
         return facts;
+    }
+
+    private static BaseObjectCreationExpressionSyntax? SingleSimpleConstruction(
+        ArgumentSyntax argument,
+        ExpressionSyntax[] evaluated,
+        SemanticModel model)
+    {
+        if (Parentheses.Unwrap(argument.Expression) is not BaseObjectCreationExpressionSyntax creation
+            || model.GetOperation(creation) is not IObjectCreationOperation
+            || argument.Parent is not ArgumentListSyntax arguments)
+        {
+            return null;
+        }
+
+        var constructions = arguments.Arguments.Count(item =>
+            Parentheses.Unwrap(item.Expression) is BaseObjectCreationExpressionSyntax sibling
+            && model.GetOperation(sibling) is IObjectCreationOperation);
+        if (constructions != 1)
+        {
+            return null;
+        }
+
+        // Only the direct construction is allowed. Its input computations retain
+        // their existing diagnostics, including nested construction and arithmetic.
+        if (evaluated.Any(node => node != creation
+                && (node is BaseObjectCreationExpressionSyntax or ConditionalExpressionSyntax
+                    || IsProducer(node, model) || IsCalculation(node, model))))
+        {
+            return null;
+        }
+        return creation;
     }
 
     public static bool IsOrdinaryArgument(ArgumentSyntax argument, SemanticModel model) => argument.Parent?.Parent switch
@@ -54,14 +91,85 @@ internal sealed class OperationFacts
 
     public static bool IsProducer(ExpressionSyntax expression, SemanticModel model) => expression switch
     {
-        InvocationExpressionSyntax invocation => !IsNameof(invocation) && invocation.ArgumentList.Arguments.Count != 0
+        InvocationExpressionSyntax invocation => !IsNameof(invocation)
+            && !IsReviewedRuntimeTypeAssertion(invocation, model)
+            && (invocation.ArgumentList.Arguments.Count != 0 || IsGenericArgumentLookup(invocation, model))
             && model.GetOperation(invocation) is IInvocationOperation && !IsPipeline(invocation, model),
         BaseObjectCreationExpressionSyntax creation => creation.ArgumentList?.Arguments.Count > 0
             && model.GetOperation(creation) is IObjectCreationOperation && creation.Initializer is null,
-        CastExpressionSyntax cast => IsSupportedCast(cast, model),
+        // A cast alone is an accepted argument; computations inside it remain visible.
+        CastExpressionSyntax => false,
         InterpolatedStringExpressionSyntax interpolation => model.GetTypeInfo(interpolation).ConvertedType?.SpecialType == SpecialType.System_String,
         _ => IsMutation(expression),
     };
+
+    private static bool IsSimpleJsonFieldRead(ExpressionSyntax expression, SemanticModel model)
+    {
+        if (Parentheses.Unwrap(expression) is not InvocationExpressionSyntax scalar
+            || scalar.ArgumentList.Arguments.Count != 0
+            || model.GetSymbolInfo(scalar).Symbol is not IMethodSymbol reader
+            || reader.Name is not ("GetString" or "GetBoolean" or "GetInt32" or "GetInt64"
+                or "GetDouble" or "GetDecimal" or "GetArrayLength")
+            || !IsJsonElement(reader.ContainingType, model)
+            || scalar.Expression is not MemberAccessExpressionSyntax access
+            || Parentheses.Unwrap(access.Expression) is not InvocationExpressionSyntax property
+            || property.ArgumentList.Arguments.Count != 1
+            || model.GetSymbolInfo(property).Symbol is not IMethodSymbol { Name: "GetProperty" } lookup
+            || !IsJsonElement(lookup.ContainingType, model)
+            || property.Expression is not MemberAccessExpressionSyntax receiver
+            || !IsDirectJsonInput(receiver.Expression)
+            || !IsDirectJsonInput(property.ArgumentList.Arguments[0].Expression))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsJsonElement(INamedTypeSymbol type, SemanticModel model) =>
+        FrameworkSymbols.IsPlatformType(type, "System.Text.Json.JsonElement", model.Compilation);
+
+    private static bool IsDirectJsonInput(ExpressionSyntax expression) => Parentheses.Unwrap(expression) switch
+    {
+        IdentifierNameSyntax or LiteralExpressionSyntax or ThisExpressionSyntax => true,
+        MemberAccessExpressionSyntax member => IsDirectJsonInput(member.Expression),
+        _ => false,
+    };
+
+    private static bool IsReviewedRuntimeTypeAssertion(InvocationExpressionSyntax invocation, SemanticModel model)
+    {
+        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol { Name: "IsAssignableTo" } method
+            || !FrameworkSymbols.IsPlatformType(method.ContainingType, "System.Type", model.Compilation)
+            || invocation.ArgumentList.Arguments.Count != 1
+            || Parentheses.Unwrap(invocation.ArgumentList.Arguments[0].Expression) is not TypeOfExpressionSyntax
+            || invocation.Expression is not MemberAccessExpressionSyntax access
+            || Parentheses.Unwrap(access.Expression) is not InvocationExpressionSyntax getType
+            || model.GetSymbolInfo(getType).Symbol is not IMethodSymbol
+                { Name: "GetType", Parameters.Length: 0, ContainingType.SpecialType: SpecialType.System_Object }
+            || getType.Expression is not MemberAccessExpressionSyntax receiver
+            || Parentheses.Unwrap(receiver.Expression) is not IdentifierNameSyntax)
+        {
+            return false;
+        }
+
+        var argument = invocation.Ancestors().OfType<ArgumentSyntax>().FirstOrDefault();
+        return argument?.Parent?.Parent is InvocationExpressionSyntax assertion
+            && model.GetOperation(argument) is IArgumentOperation { Parameter.Ordinal: 0 }
+            && model.GetSymbolInfo(assertion).Symbol is IMethodSymbol { Name: "Assert" } assertMethod
+            && FrameworkSymbols.IsPlatformType(assertMethod.ContainingType, "System.Diagnostics.Debug", model.Compilation);
+    }
+
+    // Type metadata calculation is the reviewed parameterless exception. Ordinary
+    // factories and business-service receiver chains retain their existing policy.
+    private static bool IsGenericArgumentLookup(InvocationExpressionSyntax invocation, SemanticModel model) =>
+        model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "GetGenericArguments", Parameters.Length: 0 } method
+        && FrameworkSymbols.IsPlatformType(method.ContainingType, "System.Type", model.Compilation);
+
+    private static bool HasComposedPipelineBranch(ConditionalExpressionSyntax conditional, SemanticModel model) =>
+        HasComposedPipeline(conditional.WhenTrue, model) || HasComposedPipeline(conditional.WhenFalse, model);
+
+    private static bool HasComposedPipeline(ExpressionSyntax expression, SemanticModel model) =>
+        EvaluationNodes(expression).OfType<InvocationExpressionSyntax>().Count(call => IsPipeline(call, model)) > 1;
 
     public static bool IsPipeline(InvocationExpressionSyntax invocation, SemanticModel model)
     {
@@ -78,8 +186,8 @@ internal sealed class OperationFacts
         var method = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
         var type = (method?.ReducedFrom ?? method)?.ContainingType;
         return type?.ContainingNamespace.ToDisplayString() == "System.Linq"
-            && (type.Name is "Enumerable" or "Queryable" && type.ContainingAssembly.Name is "System.Linq" or "System.Linq.Queryable" or "System.Core" or "netstandard"
-                || type.Name == "ImmutableArrayExtensions" && type.ContainingAssembly.Name == "System.Collections.Immutable");
+            && type.Name is "Enumerable" or "Queryable" or "ImmutableArrayExtensions"
+            && FrameworkSymbols.IsPlatformAssembly(type.ContainingAssembly);
     }
 
     public static bool IsCalculation(ExpressionSyntax expression, SemanticModel model)
@@ -97,7 +205,7 @@ internal sealed class OperationFacts
         if (expression is PrefixUnaryExpressionSyntax unary && unary.Kind() is SyntaxKind.UnaryPlusExpression
             or SyntaxKind.UnaryMinusExpression or SyntaxKind.BitwiseNotExpression)
         {
-            if (Unwrap(unary.Operand) is LiteralExpressionSyntax) return false;
+            if (Parentheses.Unwrap(unary.Operand) is LiteralExpressionSyntax) return false;
             return model.GetOperation(unary) is IUnaryOperation { OperatorMethod: null, IsLifted: false } operation
                 && IsNumeric(operation.Type);
         }
@@ -123,8 +231,11 @@ internal sealed class OperationFacts
 
     private static bool IsCombination(ExpressionSyntax expression, SemanticModel model)
     {
-        if (!IsCalculation(expression, model) && expression is not CastExpressionSyntax and not InterpolatedStringExpressionSyntax) return false;
-        if (expression is CastExpressionSyntax cast && !IsSupportedCast(cast, model)) return false;
+        // A lookup followed by a cast still expresses one lookup. Work inside
+        // its arguments is classified independently rather than charging for
+        // the cast as another producer/consumer pair.
+        if (expression is CastExpressionSyntax) return false;
+        if (!IsCalculation(expression, model) && expression is not InterpolatedStringExpressionSyntax) return false;
         if (expression is InterpolatedStringExpressionSyntax interpolation
             && model.GetTypeInfo(interpolation).ConvertedType?.SpecialType != SpecialType.System_String) return false;
         return EvaluationNodes(expression).Skip(1).OfType<ExpressionSyntax>().Any(node => IsProducer(node, model));
@@ -137,6 +248,8 @@ internal sealed class OperationFacts
     private static bool IsConsumedMutation(ExpressionSyntax expression)
     {
         var parent = UnwrapParent(expression).Parent;
+        // Initializer members assign a value without forwarding the assignment's result.
+        if (parent.IsKind(SyntaxKind.ObjectInitializerExpression) || parent.IsKind(SyntaxKind.WithInitializerExpression)) return false;
         return parent is not ExpressionStatementSyntax and not ForStatementSyntax and not EqualsValueClauseSyntax
             and not ReturnStatementSyntax and not ArrowExpressionClauseSyntax
             && (parent is not AssignmentExpressionSyntax assignment || assignment.Right != UnwrapParent(expression));
@@ -148,12 +261,6 @@ internal sealed class OperationFacts
         return expression.Parent is EqualsValueClauseSyntax or ReturnStatementSyntax or ArrowExpressionClauseSyntax
             || expression.Parent is AssignmentExpressionSyntax assignment && assignment.Right == expression
             || expression.Parent is LambdaExpressionSyntax;
-    }
-
-    public static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parentheses) expression = parentheses.Expression;
-        return expression;
     }
 
     private static ExpressionSyntax UnwrapParent(ExpressionSyntax expression)

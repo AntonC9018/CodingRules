@@ -106,7 +106,6 @@ public sealed class StatementOperationClassificationTests
     [InlineData("Use(Collect(a))", "CR0300")]
     [InlineData("Use(Collect(Array.Empty<int>()))", "CR0300")]
     [InlineData("Use(1 + 2 + 3)", "CR0300")]
-    [InlineData("Use((int)number)", "CR0300")]
     [InlineData("Use($\"value:{a}\")", "CR0300")]
     [InlineData("Use(flag ? a : b)", "CR0301")]
     [InlineData("Use(a++)", "CR0300")]

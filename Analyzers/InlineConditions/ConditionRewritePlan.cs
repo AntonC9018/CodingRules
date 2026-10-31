@@ -124,7 +124,7 @@ internal sealed class ConditionRewritePlan
         if (plan.NeedsFlowPreservingIf)
         {
             plan.CanExpand = plan.Statement is IfStatementSyntax { Else: null } flowIf
-                && ConditionFacts.Unwrap(expression) == ConditionFacts.Unwrap(flowIf.Condition)
+                && Parentheses.Unwrap(expression) == Parentheses.Unwrap(flowIf.Condition)
                 && IsFlowPreserving(flowIf, externalDeclarations, plan.DeclarationSpace, model);
             if (WouldHideReturnWarning(plan, token))
             {
@@ -194,6 +194,8 @@ internal sealed class ConditionRewritePlan
                     and not IPropertySymbol { ReturnsByRefReadonly: true },
                 MemberAccessExpressionSyntax => true,
                 CastExpressionSyntax => true,
+                IsPatternExpressionSyntax pattern => ConditionFacts.IsServiceNullTest(pattern, model)
+                    || EnumMemberPattern.Create(expression, model) is not null,
                 _ => false,
             };
             if (!supported)
@@ -221,7 +223,7 @@ internal sealed class ConditionRewritePlan
         if (expression.ContainsDirectives) return false;
         if (expression.DescendantTrivia().Any(IsUnsafeTrivia)) return false;
         if (ConditionFacts.EvaluationNodes(expression).Any(node => node is AwaitExpressionSyntax or RefExpressionSyntax)) return false;
-        if (model.GetDiagnostics(expression.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return false;
+        if (CompilerDiagnostics.HasError(model, expression, token)) return false;
         return true;
     }
 
@@ -244,10 +246,9 @@ internal sealed class ConditionRewritePlan
         foreach (var symbol in symbols)
         {
             if (SymbolType(symbol)?.NullableAnnotation != NullableAnnotation.Annotated) continue;
-            foreach (var identifier in host.DescendantNodes().OfType<IdentifierNameSyntax>())
+            foreach (var identifier in SymbolReferences.In(host, symbol, model))
             {
                 if (expression.Span.Contains(identifier.Span)) continue;
-                if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol)) continue;
                 if (model.GetTypeInfo(identifier).Nullability.FlowState == NullableFlowState.NotNull) return true;
             }
         }
@@ -290,12 +291,11 @@ internal sealed class ConditionRewritePlan
     }
 
     private static bool HasExternalReference(ISymbol symbol, ExpressionSyntax expression, SyntaxNode scope, SemanticModel model) =>
-        scope.DescendantNodes().OfType<IdentifierNameSyntax>().Any(identifier => !expression.Span.Contains(identifier.Span)
-            && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol));
+        SymbolReferences.In(scope, symbol, model).Any(identifier => !expression.Span.Contains(identifier.Span));
 
     private static bool IsFlowPreserving(IfStatementSyntax statement, List<ISymbol> external, SyntaxNode scope, SemanticModel model)
     {
-        var expression = ConditionFacts.Unwrap(statement.Condition);
+        var expression = Parentheses.Unwrap(statement.Condition);
         if (expression is not BinaryExpressionSyntax binary)
         {
             return false;
@@ -304,19 +304,21 @@ internal sealed class ConditionRewritePlan
         if (binary.IsKind(SyntaxKind.LogicalAndExpression))
         {
             var leftmost = binary.Left;
-            while (ConditionFacts.Unwrap(leftmost) is BinaryExpressionSyntax left && left.IsKind(SyntaxKind.LogicalAndExpression))
+            while (Parentheses.Unwrap(leftmost) is BinaryExpressionSyntax left && left.IsKind(SyntaxKind.LogicalAndExpression))
             {
                 leftmost = left.Left;
             }
 
             return external.All(symbol => !HasExternalReference(symbol, statement.Condition, scope, model)
                 || symbol.DeclaringSyntaxReferences.Any(reference => leftmost.Span.Contains(reference.Span))
-                || !scope.DescendantNodes().OfType<IdentifierNameSyntax>().Any(identifier => identifier.SpanStart > statement.Span.End
-                    && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, symbol)));
+                || !SymbolReferences.In(scope, symbol, model).Any(identifier => identifier.SpanStart > statement.Span.End));
         }
 
-        return binary.IsKind(SyntaxKind.LogicalOrExpression) && (statement.Statement is ReturnStatementSyntax
-                || statement.Statement is BlockSyntax { Statements.Count: 1 } block && block.Statements[0] is ReturnStatementSyntax)
+        return binary.IsKind(SyntaxKind.LogicalOrExpression) && (statement.Statement is ReturnStatementSyntax or ThrowStatementSyntax
+                || statement.Statement is BlockSyntax { Statements.Count: 1 } block
+                    && block.Statements[0] is ReturnStatementSyntax or ThrowStatementSyntax)
+            && !CallerInformation.AffectedDefaults(statement.Condition, statement, model)
+            && !HasCallerInformationAt(statement.Statement.DescendantNodesAndSelf().OfType<ExpressionSyntax>(), model)
             && statement.Statement.DescendantTrivia().All(trivia => !trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
                 && !trivia.IsKind(SyntaxKind.MultiLineCommentTrivia));
     }
@@ -326,7 +328,12 @@ internal sealed class ConditionRewritePlan
         var affectedCalls = ConditionFacts.EvaluationNodes(expression).OfType<ExpressionSyntax>()
             .Concat(expression.Ancestors().OfType<ExpressionSyntax>())
             .Where(node => node is InvocationExpressionSyntax or ObjectCreationExpressionSyntax);
-        foreach (var call in affectedCalls)
+        return HasCallerInformationAt(affectedCalls, model);
+    }
+
+    private static bool HasCallerInformationAt(IEnumerable<ExpressionSyntax> calls, SemanticModel model)
+    {
+        foreach (var call in calls)
         {
             var arguments = model.GetOperation(call) switch
             {

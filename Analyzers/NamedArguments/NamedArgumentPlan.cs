@@ -34,7 +34,7 @@ internal sealed class NamedArgumentPlan
                 if (!NamedArgumentSite.Named(site.Arguments[index]) && NamedArgumentTypes.Instance.Equals(site.BoundArguments[index].Parameter!.Type, group.Key)) indices.Add(index);
         }
         if (indices.Count == 0) return null;
-        if (model.GetDiagnostics(owner.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return null;
+        if (CompilerDiagnostics.HasError(model, owner, token)) return null;
         if (((CSharpParseOptions)owner.SyntaxTree.Options).LanguageVersion < LanguageVersion.CSharp7_2)
             for (var index = indices.Min(); index < site.Arguments.Length; index++)
                 if (!NamedArgumentSite.Named(site.Arguments[index]) && !indices.Contains(index)) indices.Add(index);

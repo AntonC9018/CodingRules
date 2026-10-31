@@ -37,23 +37,22 @@ internal sealed class InlineConditionFixAllProvider : FixAllProvider
             while (true)
             {
                 var document = solution.GetDocument(original.Id)!;
-                var compilation = await document.Project.GetCompilationAsync(context.CancellationToken).ConfigureAwait(false);
-                if (compilation is null)
+                var model = await document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+                if (model is null)
                 {
                     break;
                 }
 
-                var diagnostics = await compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new InlineConditionAnalyzer()),
-                    document.Project.AnalyzerOptions).GetAnalyzerDiagnosticsAsync(context.CancellationToken).ConfigureAwait(false);
+                var diagnostics = await model.Compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new InlineConditionAnalyzer()),
+                    document.Project.AnalyzerOptions).GetAnalyzerSemanticDiagnosticsAsync(model, null, context.CancellationToken).ConfigureAwait(false);
                 var root = await document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-                var model = await document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
                 var extract = context.CodeActionEquivalenceKey == InlineConditionCodeFixProvider.ExtractKey;
-                var candidates = diagnostics.Where(diagnostic => diagnostic.Location.SourceTree == model?.SyntaxTree
+                var candidates = diagnostics.Where(diagnostic => diagnostic.Location.SourceTree == model.SyntaxTree
                         && context.DiagnosticIds.Contains(diagnostic.Id))
                     .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)
                     .Select(diagnostic => root!.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) as ExpressionSyntax)
                     .Where(expression => expression is not null)
-                    .Select(expression => ConditionRewritePlan.Create(expression!, model!, context.CancellationToken))
+                    .Select(expression => ConditionRewritePlan.Create(expression!, model, context.CancellationToken))
                     .Where(candidate => candidate is not null && (extract ? candidate.CanExtract : candidate.CanExpand));
                 ConditionRewritePlan? plan = null;
                 foreach (var candidate in candidates)

@@ -78,7 +78,7 @@ internal sealed class ProjectionPlan
         if (lambda.ContainsDiagnostics || lambda.ContainsDirectives || lambda.DescendantTrivia().Any(trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
             || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia) || trivia.IsKind(SyntaxKind.DisabledTextTrivia))
             || lambda.Ancestors().Any(node => node is UnsafeStatementSyntax or FixedStatementSyntax)
-            || model.GetDiagnostics(lambda.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return false;
+            || CompilerDiagnostics.HasError(model, lambda, token)) return false;
         // Moving a whole block also moves its nested callables. Inserting the
         // external helper can move an enclosing call's original source site.
         // Both boundaries must retain caller constants before a plan is offered.

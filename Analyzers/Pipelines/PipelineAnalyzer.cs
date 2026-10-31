@@ -41,11 +41,8 @@ public sealed class PipelineAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(SelectorsRule, call.GetLocation()));
     }
 
-    internal static bool Enabled(string id, SyntaxNode node, SemanticModel model, AnalyzerConfigOptionsProvider options, CancellationToken token)
-    {
-        var severity = model.Compilation.Options.SyntaxTreeOptionsProvider?.TryGetDiagnosticValue(node.SyntaxTree, id, token, out var tree) == true
-            ? tree : model.Compilation.Options.SpecificDiagnosticOptions.TryGetValue(id, out var configured) ? configured : ReportDiagnostic.Default;
-        return severity != ReportDiagnostic.Suppress && !(options.GetOptions(node.SyntaxTree).TryGetValue("dotnet_diagnostic." + id + ".severity", out var value) && value == "none");
-    }
+    private static bool Enabled(string id, SyntaxNode node, SemanticModel model, AnalyzerConfigOptionsProvider options, CancellationToken token) =>
+        RuleSeverity.IsEnabled(id, node.SyntaxTree, model.Compilation, options, token);
+
     private static DiagnosticDescriptor Rule(string id, string title, string message) => new(id, title, message, "Readability", DiagnosticSeverity.Warning, true);
 }

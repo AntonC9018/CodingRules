@@ -164,7 +164,7 @@ internal static class ReturnDecisionRewrites
         ReturnDecisionKind kind,
         SemanticModel semanticModel)
     {
-        var expression = ReturnDecisionAnalysis.Unwrap(returnStatement.Expression!);
+        var expression = Parentheses.Unwrap(returnStatement.Expression!);
         switch (kind)
         {
             case ReturnDecisionKind.Conditional:
@@ -312,8 +312,8 @@ internal static class ReturnDecisionRewrites
         SemanticModel semanticModel)
     {
         var condition = TrimBoundaryLineBreaks(conditional.Condition);
-        var whenTrue = TrimBoundaryLineBreaks(ReturnDecisionAnalysis.Unwrap(conditional.WhenTrue));
-        var whenFalse = TrimBoundaryLineBreaks(ReturnDecisionAnalysis.Unwrap(conditional.WhenFalse));
+        var whenTrue = TrimBoundaryLineBreaks(Parentheses.Unwrap(conditional.WhenTrue));
+        var whenFalse = TrimBoundaryLineBreaks(Parentheses.Unwrap(conditional.WhenFalse));
 
         if (whenTrue is ThrowExpressionSyntax trueThrow)
         {
@@ -363,7 +363,7 @@ internal static class ReturnDecisionRewrites
         var nullableValue = ReturnDecisionAnalysis.IsNullableValueType(leftType);
         var left = TrimBoundaryLineBreaks(coalesce.Left);
 
-        if (ReturnDecisionAnalysis.Unwrap(coalesce.Right) is ThrowExpressionSyntax throwExpression)
+        if (Parentheses.Unwrap(coalesce.Right) is ThrowExpressionSyntax throwExpression)
         {
             // The left side is evaluated once into a local, a null guard
             // throws, and the saved value falls through as the result.
@@ -610,7 +610,7 @@ internal static class ReturnDecisionRewrites
 
     private static ExpressionSyntax Negate(ExpressionSyntax condition, SemanticModel semanticModel)
     {
-        var unwrapped = ReturnDecisionAnalysis.Unwrap(condition);
+        var unwrapped = Parentheses.Unwrap(condition);
         if (unwrapped is BinaryExpressionSyntax binary)
         {
             var operation = semanticModel.GetOperation(binary);

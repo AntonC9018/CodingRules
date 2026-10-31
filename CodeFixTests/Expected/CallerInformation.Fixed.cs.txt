@@ -1,0 +1,39 @@
+using System;
+using System.Runtime.CompilerServices;
+
+#pragma warning disable CR0300, CR0302
+public sealed class CallerPayload
+{
+    public int A;
+    public int B;
+    public int Line;
+    public CallerPayload([CallerLineNumber] int line = 0) { Line = line; }
+}
+
+public static class CallerInformationCases
+{
+    public static void Run()
+    {
+        Use(
+            new CallerPayload());
+        Use(new CallerPayload { A = 3, B = 4 });
+        Console.WriteLine(Later());
+        Safe();
+    }
+
+    private static void Use(CallerPayload value) { Console.WriteLine(value.Line); }
+    private static int Later()
+    {
+        return Line();
+    }
+    private static int Line([CallerLineNumber] int line = 0) { return line; }
+    private static void Safe()
+    {
+        // Explicit caller values permit formatting after the last observer.
+        Use(new CallerPayload(line: 42)
+        {
+            A = 5,
+            B = 6
+        });
+    }
+}

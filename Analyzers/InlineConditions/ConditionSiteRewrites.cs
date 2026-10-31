@@ -99,8 +99,10 @@ internal static class ConditionSiteRewrites
     {
         var expression = plan.Expression;
         var root = expression.SyntaxTree.GetRoot();
-        var name = evaluator.FreshName("CheckCondition");
-        var body = evaluator.ReturnBody(expression);
+        var enumPattern = EnumMemberPattern.Create(expression, plan.Model);
+        var name = evaluator.FreshName(enumPattern?.PredicateName ?? "CheckCondition");
+        var body = enumPattern is null ? evaluator.ReturnBody(expression)
+            : SyntaxFactory.Block(SyntaxFactory.ReturnStatement(enumPattern.Pattern));
         foreach (var ancestor in expression.Ancestors())
         {
             if (ancestor is CheckedStatementSyntax checkedStatement)
@@ -255,7 +257,7 @@ internal static class ConditionSiteRewrites
     private static SyntaxNode ExpandFlowIf(ConditionRewritePlan plan, ConditionEvaluator evaluator)
     {
         var statement = (IfStatementSyntax)plan.Statement!;
-        var condition = ConditionFacts.Unwrap(statement.Condition);
+        var condition = Parentheses.Unwrap(statement.Condition);
         var conjunction = ((BinaryExpressionSyntax)condition).IsKind(SyntaxKind.LogicalAndExpression);
         var leaves = new List<ExpressionSyntax>();
         ConditionFacts.CollectChain(condition, conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression, leaves);

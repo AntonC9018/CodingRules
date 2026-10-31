@@ -46,6 +46,28 @@ public sealed class PlaceholderNameAnalyzerTests
     }
 
     [Fact]
+    public async Task UsingAliasesAndNamespacesAreDeclarations()
+    {
+        const string source = """
+            using TODO_ALIAS = System.String;
+            namespace Outer.TODO_NAMESPACE
+            {
+                class C
+                {
+                    static TODO_ALIAS M() => typeof(Outer.TODO_NAMESPACE.C).Name;
+                }
+            }
+            namespace TODO_FILE_NAMESPACE.Inner
+            {
+            }
+            """;
+        var diagnostics = await Analyze(source);
+        Assert.Equal(
+            new[] { "TODO_ALIAS", "TODO_NAMESPACE", "TODO_FILE_NAMESPACE" },
+            diagnostics.Select(diagnostic => source.Substring(diagnostic.Location.SourceSpan.Start, diagnostic.Location.SourceSpan.Length)));
+    }
+
+    [Fact]
     public async Task ReferencesAndOtherIdentifiersAreAccepted()
     {
         const string source = """

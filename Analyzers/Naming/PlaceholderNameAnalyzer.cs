@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace CodingRules;
@@ -36,12 +38,39 @@ public sealed class PlaceholderNameAnalyzer : DiagnosticAnalyzer
             .Where(token => token.IsKind(SyntaxKind.IdentifierToken) && PlaceholderNames.IsPlaceholder(token.ValueText));
         foreach (var token in declared)
         {
-            var symbol = token.Parent is { } parent ? context.SemanticModel.GetDeclaredSymbol(parent, context.CancellationToken) : null;
-            if (symbol?.Name == token.ValueText)
+            if (IsDeclaration(token, context.SemanticModel, context.CancellationToken))
             {
                 context.ReportDiagnostic(Diagnostic.Create(Rule, token.GetLocation(), Kind(token.ValueText)));
             }
         }
+    }
+
+    // Using aliases and namespace names carry their identifier in a name node rather than
+    // in the declaration itself, so they are resolved explicitly.
+    private static bool IsDeclaration(SyntaxToken token, SemanticModel model, CancellationToken cancellation)
+    {
+        switch (token.Parent)
+        {
+            case IdentifierNameSyntax { Parent: NameEqualsSyntax { Parent: UsingDirectiveSyntax } }:
+                return true;
+            case IdentifierNameSyntax name when IsNamespaceName(name):
+                return true;
+            case { } parent:
+                return model.GetDeclaredSymbol(parent, cancellation)?.Name == token.ValueText;
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsNamespaceName(IdentifierNameSyntax name)
+    {
+        SyntaxNode part = name;
+        while (part.Parent is QualifiedNameSyntax)
+        {
+            part = part.Parent;
+        }
+
+        return part.Parent is BaseNamespaceDeclarationSyntax declaration && declaration.Name == part;
     }
 
     // The placeholder names its extracted role; any other TODO_ name is a plain symbol.

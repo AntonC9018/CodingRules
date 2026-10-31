@@ -16,11 +16,15 @@ public sealed class Utf8LiteralTests
     private const string Prelude = """
         using System;
         using System.IO;
+        using System.Linq.Expressions;
+        using System.Runtime.CompilerServices;
         using System.Text;
         public static class C
         {
             static int Length(ReadOnlySpan<byte> bytes) => bytes.Length;
             static int Count(byte[] bytes) => bytes.Length;
+            static string Text(byte[] bytes, [CallerArgumentExpression("bytes")] string text = "") => text;
+            static string SpanText(ReadOnlySpan<byte> bytes, [CallerArgumentExpression("bytes")] string text = "") => text;
 
         """;
 
@@ -32,12 +36,77 @@ public sealed class Utf8LiteralTests
             "    static int M() => Length(\"abc\"u8);\n}\n");
     }
 
+    [Theory]
+    [InlineData("var bytes = Encoding.UTF8.GetBytes(\"abc\"); return bytes;")]
+    [InlineData("byte[] bytes; bytes = (Encoding.UTF8.GetBytes(\"abc\")); return bytes;")]
+    [InlineData("var holder = new Holder { Bytes = Encoding.UTF8.GetBytes(\"abc\") }; return holder.Bytes;")]
+    [InlineData("var all = new byte[1][]; all[0] = Encoding.UTF8.GetBytes(\"abc\"); return all[0];")]
+    public async Task ArrayStoredInAByteArrayTargetIsNotReported(string body)
+    {
+        var document = Document(Prelude + "    sealed class Holder { public byte[] Bytes = Encoding.UTF8.GetBytes(\"x\"); public byte[] Other { get; } = Encoding.UTF8.GetBytes(\"y\"); }\n"
+            + "    static byte[] M() { " + body + " }\n}\n");
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await Diagnostics(document));
+    }
+
     [Fact]
-    public async Task WholeAssignedOrReturnedArrayCopiesTheLiteral()
+    public async Task ReturnedArrayIsDeclaredAsRet()
     {
         await AssertFix(
-            "    static byte[] M()\n    {\n        var bytes = Encoding.UTF8.GetBytes(\"abc\");\n        return bytes;\n    }\n}\n",
-            "    static byte[] M()\n    {\n        var bytes = \"abc\"u8.ToArray();\n        return bytes;\n    }\n}\n");
+            "    static byte[] M()\n    {\n        return Encoding.UTF8.GetBytes(\"abc\");\n    }\n}\n",
+            "    static byte[] M()\n    {\n        byte[] ret = \"abc\"u8.ToArray();\n        return ret;\n    }\n}\n");
+    }
+
+    [Fact]
+    public async Task ReturnedNameAvoidsACollision()
+    {
+        await AssertFix(
+            "    static object M(int ret)\n    {\n        return (Encoding.UTF8.GetBytes(\"abc\"));\n    }\n}\n",
+            "    static object M(int ret)\n    {\n        byte[] ret2 = \"abc\"u8.ToArray();\n        return (ret2);\n    }\n}\n");
+    }
+
+    [Fact]
+    public async Task ExpressionBodiedMethodReturnsRetFromABlock()
+    {
+        await AssertFix(
+            "    static byte[] M() => Encoding.UTF8.GetBytes(\"abc\"); // marker\n}\n",
+            "    static byte[] M()\n    {\n        byte[] ret = \"abc\"u8.ToArray();\n        return ret;\n    } // marker\n}\n");
+    }
+
+    [Fact]
+    public async Task ExpressionBodiedPropertyReturnsRetFromAGetter()
+    {
+        await AssertFix(
+            "    static byte[] Marker => Encoding.UTF8.GetBytes(\"abc\");\n}\n",
+            "    static byte[] Marker\n    {\n        get\n        {\n            byte[] ret = \"abc\"u8.ToArray();\n            return ret;\n        }\n    }\n}\n");
+    }
+
+    [Fact]
+    public async Task ObjectTargetReadsAPlaceholder()
+    {
+        await AssertFix(
+            "    static object M()\n    {\n        object value = Encoding.UTF8.GetBytes(\"abc\");\n        return value;\n    }\n}\n",
+            "    static object M()\n    {\n        byte[] TODO_VARIABLE = \"abc\"u8.ToArray();\n        object value = TODO_VARIABLE;\n        return value;\n    }\n}\n");
+    }
+
+    [Theory]
+    [InlineData("Text(Encoding.UTF8.GetBytes(\"abc\"))")]
+    [InlineData("SpanText(Encoding.UTF8.GetBytes(\"abc\"))")]
+    public async Task CallerArgumentExpressionTextIsPreservedByDecliningTheFix(string expression)
+    {
+        var document = Document(Prelude + "    static string M()\n    {\n        var text = " + expression + ";\n        return text;\n    }\n}\n");
+        await StatementOperationTestFixture.Compiles(document);
+        var diagnostic = Assert.Single(await Diagnostics(document));
+        Assert.Empty(await Actions(document, diagnostic));
+    }
+
+    [Fact]
+    public async Task ExpressionTreeIsNotReported()
+    {
+        var document = Document(Prelude
+            + "    static Expression<Func<int>> M() => () => Count(Encoding.UTF8.GetBytes(\"abc\"));\n}\n");
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await Diagnostics(document));
     }
 
     [Fact]

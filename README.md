@@ -57,7 +57,8 @@ helper avoids the temporary trimmed string while preserving null exceptions,
 ordinal UTF-16 comparison and receiver evaluation. The [span assessment](docs/spans.md)
 records the finite catalogue and manual ownership, API and lifetime boundaries.
 `CR0701` replaces `Encoding.UTF8.GetBytes("literal")` with a `u8` literal on
-C# 11 and later.
+C# 11 and later. An array stored directly in a `byte[]` target is not reported;
+other array uses declare `"literal"u8.ToArray()` before their statement.
 
 Generated steps use `TODO_CALCULATION`, `TODO_VARIABLE` and `TODO_CONDITION`
 placeholder names. `CR1700` reports each placeholder as a warning until it is

@@ -31,7 +31,7 @@ public sealed class Utf8LiteralAnalyzer : DiagnosticAnalyzer
             start.RegisterSyntaxNodeAction(node =>
             {
                 var call = (InvocationExpressionSyntax)node.Node;
-                if (Utf8LiteralFacts.EncodedLiteral(call, node.SemanticModel) is not null)
+                if (Utf8LiteralFacts.ReportedLiteral(call, node.SemanticModel) is not null)
                 {
                     node.ReportDiagnostic(Diagnostic.Create(Rule, call.GetLocation()));
                 }
@@ -42,6 +42,43 @@ public sealed class Utf8LiteralAnalyzer : DiagnosticAnalyzer
 
 internal static class Utf8LiteralFacts
 {
+    /// <summary>
+    /// The literal of a reported call. An array that is only stored in a
+    /// <c>byte[]</c> variable, field, property or element keeps its plain call:
+    /// replacing it would only add a copy.
+    /// </summary>
+    public static LiteralExpressionSyntax? ReportedLiteral(InvocationExpressionSyntax call, SemanticModel model) =>
+        EncodedLiteral(call, model) is { } literal && (AcceptsSpan(call, model) || !IsStoredArray(call, model)) ? literal : null;
+
+    public static bool AcceptsSpan(InvocationExpressionSyntax call, SemanticModel model) =>
+        model.GetTypeInfo(call).ConvertedType is INamedTypeSymbol { TypeArguments: [{ SpecialType: SpecialType.System_Byte }] } type
+        && SymbolEqualityComparer.Default.Equals(type.OriginalDefinition,
+            model.Compilation.GetTypeByMetadataName("System.ReadOnlySpan`1"));
+
+    /// <summary><paramref name="call"/> with any parentheses around it.</summary>
+    public static SyntaxNode Value(InvocationExpressionSyntax call)
+    {
+        SyntaxNode value = call;
+        while (value.Parent is ParenthesizedExpressionSyntax parentheses)
+        {
+            value = parentheses;
+        }
+
+        return value;
+    }
+
+    private static bool IsStoredArray(InvocationExpressionSyntax call, SemanticModel model)
+    {
+        var value = Value(call);
+        var stored = value.Parent switch
+        {
+            EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax or PropertyDeclarationSyntax } => true,
+            AssignmentExpressionSyntax assignment => assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) && assignment.Right == value,
+            _ => false,
+        };
+        return stored && model.GetTypeInfo(call).ConvertedType is IArrayTypeSymbol { Rank: 1, ElementType.SpecialType: SpecialType.System_Byte };
+    }
+
     /// <summary>The string literal <paramref name="call"/> encodes with <c>Encoding.UTF8.GetBytes</c>.</summary>
     public static LiteralExpressionSyntax? EncodedLiteral(InvocationExpressionSyntax call, SemanticModel model)
     {

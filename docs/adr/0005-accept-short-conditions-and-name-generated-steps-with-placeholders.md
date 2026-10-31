@@ -14,6 +14,12 @@ Findings:
   expression body nests another lambda, except catalogued predicates.
 - Index arithmetic such as `a[j - 1]` and identity aliases are accepted.
 - CR0701 replaces `Encoding.UTF8.GetBytes("literal")` with a `u8` literal.
+  A `ReadOnlySpan<byte>` target receives the literal itself. An array stored in
+  a `byte[]` variable, field, property or element is not reported. A returned
+  array is declared as `byte[] ret = "text"u8.ToArray();` before the return; any
+  other array use reads a `TODO_VARIABLE` declared before its statement. The copy
+  never appears inline, and the fix is declined when it would change
+  caller-argument text or caller line numbers.
 - Expression-tree lambdas and query clauses stay inline: CR02, CR03, CR0404 and
   CR0701 neither report nor rewrite code inside them.
 

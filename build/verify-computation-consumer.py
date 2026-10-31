@@ -43,7 +43,7 @@ static class Generated {
             code, markers = line.split("// ", 1)
             for rule, anchor in re.findall(r"(CR\d+): ([^|]+)", markers):
                 expected.add(("Findings.cs", str(number), str(code.index(anchor.strip()) + 1), "warning", rule))
-        assert len(expected) == 6, expected
+        assert len(expected) == 5, expected
         run(["dotnet", "restore", "Consumer.csproj"], consumer, environment)
         build = ["dotnet", "build", "Consumer.csproj", "--no-restore", "--no-incremental"]
         assert set(REPORT.findall(run(build, consumer, environment))) == expected

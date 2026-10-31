@@ -30,7 +30,6 @@ public sealed class ReviewedComputationTests
     public static TheoryData<string, string> Cases => new()
     {
         { "static Exception M(string[] outcomes, Exception inner) => new CalendarStreamingException(new Result(outcomes.Any(x => x == \"completed\") ? 6 : 1, [\"Output streaming failed.\"], false), inner);", "CR0301" },
-        { "static string M(string? selected) { var path = selected is { } cache ? ResolvePath(cache) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), \"ScheduleLib\", \"cache\"); return path; }", "CR0300" },
         { "static object M<T>(Node node, JsonObject action) => node.GetOrAdd(new NodeDataKey<T>(new(action[\"key\"]!.GetValue<string>().Split('.')[0])));", "CR0300" },
         { "static string[] M(string? profile, string[] parts) { var path = profile is null ? new[] { \"defaults\" }.Concat(parts).ToArray() : new[] { \"profiles\", profile }.Concat(parts).ToArray(); return path; }", "CR0301" },
         { "static int M(Type value) => value.GetGenericArguments().Length + 1;", "CR0302" },
@@ -63,6 +62,7 @@ public sealed class ReviewedComputationTests
     [InlineData("static string[] M(string[] parts) => new[] { \"defaults\" }.Concat(parts).ToArray();")]
     [InlineData("static int M(string[] values) => values.Any(x => x.Length > 0) ? 6 : 1;")]
     [InlineData("static TimeSpan M() => TimeSpan.FromMinutes(90);")]
+    [InlineData("static string M(string? selected) { var path = selected is { } cache ? ResolvePath(cache) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), \"ScheduleLib\", \"cache\"); return path; }")]
     [InlineData("static Type[] M(Type value) { var arguments = value.GetGenericArguments(); return arguments; }")]
     public async Task SimpleNamedValuesAndLinearPipelinesRemainAccepted(string member)
     {
@@ -102,7 +102,7 @@ public sealed class ReviewedComputationTests
         var document = StatementOperationTestFixture.Document(source);
         var before = await StatementOperationTestFixture.Run(document);
         var diagnostics = await StatementOperationTestFixture.Diagnostics(document);
-        Assert.Equal(5, diagnostics.Length);
+        Assert.Equal(4, diagnostics.Length);
         var conditions = await InlineConditionTestFixture.Diagnostics(document);
         Assert.Equal("CR0203", Assert.Single(conditions).Id);
         foreach (var diagnostic in diagnostics.Concat(conditions))

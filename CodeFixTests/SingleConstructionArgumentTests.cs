@@ -27,7 +27,7 @@ public sealed class SingleConstructionArgumentTests
     [InlineData("Use(new Item(Get(1), [2]))", "CR0300")]
     [InlineData("Use(new Item(flag ? 1 : 2, [3]))", "CR0301")]
     [InlineData("Use(new Item(1 + 2, [3]))", "CR0300")]
-    [InlineData("Use(new Item(1, [2]), Get(3))", "CR0300")]
+    [InlineData("Use(new Item(1, [2]), Get(3))", "CR0300,CR0300")]
     public async Task RemainingComputationsHaveBehaviorPreservingSavedFixes(string expression, string expectedIds)
     {
         var document = StatementOperationTestFixture.Document(Source(expression));

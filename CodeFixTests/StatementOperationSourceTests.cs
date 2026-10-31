@@ -108,7 +108,7 @@ public sealed class StatementOperationSourceTests
                 public static string Run()
                 {
                     events.Clear();
-                    string[] paths = [First(), Second(), Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "wwwroot"))];
+                    string[] paths = [First(), Second(), Path.GetFullPath(Path.Combine(AppContext.BaseDirectory.Trim(), "..", "..", "..", "wwwroot"))];
                     return string.Join(",", events) + ":" + paths.Length;
                 }
             }

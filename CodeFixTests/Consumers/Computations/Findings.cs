@@ -32,7 +32,7 @@ public static class C
     private static string DirectoryPath(string? selected)
     {
         var path = selected is { } cache ? ResolvePath(cache) : Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), // CR0300: Environment.GetFolderPath
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), // Accepted: one simple call argument.
             "ScheduleLib", "cache");
         return path;
     }

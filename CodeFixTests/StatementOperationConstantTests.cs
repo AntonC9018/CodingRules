@@ -49,8 +49,8 @@ public sealed class StatementOperationConstantTests
     }
 
     [Theory]
-    [InlineData("object", "produce,use")]
-    [InlineData("Tag", "convert,produce,use")]
+    [InlineData("object", "produce,produce,use")]
+    [InlineData("Tag", "convert,produce,produce,use")]
     public async Task BoxingAndUserConversionsKeepTheirEarlierArgumentSnapshot(string parameterType, string expected)
     {
         var source = $$"""
@@ -70,7 +70,7 @@ public sealed class StatementOperationConstantTests
                 public static string Run()
                 {
                     events = "";
-                    Use(1, Produce(2));
+                    Use(1, Produce(Produce(2)));
                     return events;
                 }
             }

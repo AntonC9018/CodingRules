@@ -38,13 +38,13 @@ public sealed class PipelineClassificationTests
         Assert.Empty(await PipelineTestFixture.Diagnostics(document));
     }
     [Theory]
-    [InlineData("xs.Select(x=>new Item(F(x),x))", "CR0400")]
-    [InlineData("xs.Select((x,i)=>new Item(F(x),i))", "CR0400")]
-    [InlineData("Enumerable.Select(xs,static x=>new Item(F(x),x))", "CR0400")]
-    [InlineData("xs.ToImmutableArray().Select(x=>new Item(F(x),x))", "CR0400")]
+    [InlineData("xs.Select(x=>new Item(F(F(x)),x))", "CR0400")]
+    [InlineData("xs.Select((x,i)=>new Item(F(F(x)),i))", "CR0400")]
+    [InlineData("Enumerable.Select(xs,static x=>new Item(F(F(x)),x))", "CR0400")]
+    [InlineData("xs.ToImmutableArray().Select(x=>new Item(F(F(x)),x))", "CR0400")]
     [InlineData("xs.Select(x=>F(x)+1)", "CR0400")]
-    [InlineData("xs.Select(x=>(F(F(x)),x))", "CR0400")]
-    [InlineData("xs.Select(x=>new Box { A=F(F(x)), B=x })", "CR0400")]
+    [InlineData("xs.Select(x=>(F(F(F(x))),x))", "CR0400")]
+    [InlineData("xs.Select(x=>new Box { A=F(F(F(x))), B=x })", "CR0400")]
     [InlineData("xs.Select(x=>{var a=F(x);var b=F(a);return new Item(b,x);})", "CR0401")]
     [InlineData("xs.Select(x=>{if(x>0){if(x<10)return 1;}return 0;})", "CR0401")]
     public async Task CompositionsAndClosedStageImplementationsHaveSavedSourceFixes(string expression, string id)

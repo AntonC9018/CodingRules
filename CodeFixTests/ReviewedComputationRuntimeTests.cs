@@ -119,7 +119,7 @@ public sealed class ReviewedComputationRuntimeTests
     [Theory]
     [InlineData(false, true, "ctor;append;")]
     [InlineData(true, false, "ctor;literal;append;")]
-    [InlineData(true, true, "ctor;literal;get;use;format;append;")]
+    [InlineData(true, true, "ctor;literal;get;get;use;format;append;")]
     public async Task InnerExtractionKeepsHandlerGating(bool enabled, bool appendEnabled, string expected)
     {
         var source = """
@@ -146,7 +146,7 @@ public sealed class ReviewedComputationRuntimeTests
                     Enabled = ENABLED;
                     AppendEnabled = APPEND_ENABLED;
                     var list = new ListStringBuilder();
-                    list.Append($"value:{Use(Get(1))}");
+                    list.Append($"value:{Use(Get(Get(1)))}");
                     return Events;
                 }
             }

@@ -38,12 +38,12 @@ public sealed class StatementOperationSafetyTests
     }
 
     [Theory]
-    [InlineData("Use(Get(1, line: 7))", "using System.Runtime.CompilerServices;", "static int Get(int x, [CallerLineNumber] int line = 0) => x;")]
-    [InlineData("Use(callback(1))", "using System;", "static Func<int,int> callback = x => x;")]
+    [InlineData("Use(Get(1 + 1, line: 7))", "using System.Runtime.CompilerServices;", "static int Get(int x, [CallerLineNumber] int line = 0) => x;")]
+    [InlineData("Use(callback(1 + 1))", "using System;", "static Func<int,int> callback = x => x;")]
     [InlineData("Use(new Item(Get(1)))", "", "record Item(int Value); static int Get(int value) => value; static int Use(Item x) => x.Value;")]
     [InlineData("UseItem(new(Get(1)))", "", "record Item(int Value); static int Get(int value) => value; static int UseItem(Item x) => x.Value;")]
-    [InlineData("Use(System.Convert.ToInt32(\"1\"))", "", "")]
-    [InlineData("Use(Extensions.Get(1))", "", "")]
+    [InlineData("Use(System.Convert.ToInt32(\"1\".Trim()))", "", "")]
+    [InlineData("Use(Extensions.Get(1 + 1))", "", "")]
     public async Task ResolvedBindingsAndExplicitCallerConstantsHaveSavedFixes(string expression, string imports, string declarations)
     {
         var source = imports + "static class Extensions { public static int Get(this int x, int optional=0) => x; } class C { static int Use(int x)=>x; "
@@ -100,7 +100,7 @@ public sealed class StatementOperationSafetyTests
     [Fact]
     public async Task MutableStructReceiverStaysAtTheOriginalCallLocation()
     {
-        const string source = "struct S { public void Use(int x) { } } class C { static int Get(int x)=>x; static void M(ref S value) { value.Use(Get(1)); } }";
+        const string source = "struct S { public void Use(int x) { } } class C { static int Get(int x)=>x; static void M(ref S value) { value.Use(Get(1 + 1)); } }";
         var document = StatementOperationTestFixture.Document(source);
         var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
         var actions = await StatementOperationTestFixture.Actions(document, diagnostic);

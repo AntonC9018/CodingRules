@@ -51,7 +51,7 @@ public sealed class StatementOperationInitializerTests
     [Theory]
     [InlineData("new C { Value = Get(1) + 2 }", "CR0302")]
     [InlineData("new C { Value = 1 + 2 + 3 }", "CR0302")]
-    [InlineData("new C { Value = Use(Get(1)) }", "CR0300")]
+    [InlineData("new C { Value = Use(Get(Get(1))) }", "CR0300")]
     [InlineData("new C { Child = new C { Value = Get(1) + 2 } }", "CR0302")]
     [InlineData("new C { Child = { Value = Get(1) + 2 } }", "CR0302")]
     public async Task CombinedInitializerRightHandSidesStillReport(string expression, string expectedId)

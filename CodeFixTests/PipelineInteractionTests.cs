@@ -18,7 +18,7 @@ public sealed class PipelineInteractionTests
     [InlineData(PipelineCodeFixProvider.BlockKey)]
     public async Task FrozenOperationsRemainIndependentAndBothFixOrdersProgress(string key)
     {
-        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(x)));static bool Other(bool a){if(a)return false;return a?true:false;}}";
+        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(F(x))));static bool Other(bool a){if(a)return false;return a?true:false;}}";
         var document=PipelineTestFixture.Document(source);
         Assert.Equal(new[]{"CR0001","CR0300","CR0400"},(await PipelineTestFixture.Diagnostics(document,true)).Select(item=>item.Id).OrderBy(id=>id));
         var projectionFirst=await PipelineTestFixture.Fix(document,key);
@@ -42,13 +42,13 @@ public sealed class PipelineInteractionTests
     [InlineData("dotnet_diagnostic.CR0300.severity = none",new[]{"CR0400"})]
     public async Task DisablingOneFamilyLeavesTheOtherEnabled(string config,string[] ids)
     {
-        var document=PipelineTestFixture.Document("using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(x)));}","root=true\n[*.cs]\n"+config);
+        var document=PipelineTestFixture.Document("using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(F(x))));}","root=true\n[*.cs]\n"+config);
         Assert.Equal(ids,(await PipelineTestFixture.Diagnostics(document,true)).Select(item=>item.Id));
     }
     [Fact]
     public async Task MaterializerAndStageFixOrdersPreserveEachIndependentOwner()
     {
-        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(x))).ToDictionary(x=>x);}";
+        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(F(x)))).ToDictionary(x=>x);}";
         var document=PipelineTestFixture.Document(source);
         var shapeFirst=await PipelineTestFixture.Fix(document,PipelineCodeFixProvider.SelectorsKey,"CR0402");
         Assert.Equal("CR0400",Assert.Single(await PipelineTestFixture.Diagnostics(shapeFirst)).Id);
@@ -62,7 +62,7 @@ public sealed class PipelineInteractionTests
     [Fact]
     public async Task ConditionAndStageFixOrdersPreserveIndependentReporting()
     {
-        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs,string text)=>xs.Select(x=>string.IsNullOrEmpty(text.Trim()) ? F(x) : F(F(x)));}";
+        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs,string text)=>xs.Select(x=>string.IsNullOrEmpty(text.Trim()) ? F(x) : F(F(F(x))));}";
         var document=PipelineTestFixture.Document(source);
         Assert.Contains(await PipelineTestFixture.Diagnostics(document,true),diagnostic=>diagnostic.Id=="CR0203");
         var stageFirst=await PipelineTestFixture.Fix(document,PipelineCodeFixProvider.BlockKey);
@@ -87,7 +87,7 @@ public sealed class PipelineInteractionTests
     [InlineData("[System.Diagnostics.CodeAnalysis.SuppressMessage(\"Readability\",\"CR0400\",Justification=\"Retain projection\")]\n","")]
     public async Task OrdinaryDriverSuppressionsRemainScoped(string before,string after)
     {
-        var document=PipelineTestFixture.Document("using System.Linq;class C{static int F(int x)=>x;\n"+before+"static object Kept(int[] xs)=>xs.Select(x=>F(F(x)));\n"+after+"static object Neighbor(int[] xs)=>xs.Select(x=>F(F(x)));}");
+        var document=PipelineTestFixture.Document("using System.Linq;class C{static int F(int x)=>x;\n"+before+"static object Kept(int[] xs)=>xs.Select(x=>F(F(F(x))));\n"+after+"static object Neighbor(int[] xs)=>xs.Select(x=>F(F(F(x))));}");
         Assert.Single(await PipelineTestFixture.Diagnostics(document));
         Assert.Equal(2,(await StatementOperationTestFixture.Diagnostics(document)).Length);
         var compilation=await document.Project.GetCompilationAsync();
@@ -107,7 +107,7 @@ public sealed class PipelineInteractionTests
     [InlineData(PipelineCodeFixProvider.SelectorsKey, FixAllScope.Solution)]
     public async Task SequentialFixAllMultipleDocumentsOverlapFreshNamesAndSecondPass(string key, FixAllScope scope)
     {
-        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs){int ProjectValue=1;var first=xs.Select(x=>F(F(x))).ToDictionary(x=>x);var second=xs.Select(x=>F(x)+1);return second;}}";
+        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs){int ProjectValue=1;var first=xs.Select(x=>F(F(F(x)))).ToDictionary(x=>x);var second=xs.Select(x=>F(x)+1);return second;}}";
         var document=PipelineTestFixture.Document(source);
         var second=document.Project.AddDocument("Second.cs",source.Replace("class C","class D"),filePath:"/Second.cs");
         var otherProject=ProjectId.CreateNewId();
@@ -140,7 +140,7 @@ public sealed class PipelineInteractionTests
     [Fact]
     public async Task FixAllHonorsCancellation()
     {
-        var document=PipelineTestFixture.Document("using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(x)));}");
+        var document=PipelineTestFixture.Document("using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs)=>xs.Select(x=>F(F(F(x))));}");
         using var cancellation=new CancellationTokenSource();
         cancellation.Cancel();
         var provider=new PipelineCodeFixProvider();

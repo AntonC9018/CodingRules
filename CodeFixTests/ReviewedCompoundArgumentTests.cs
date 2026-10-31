@@ -76,7 +76,7 @@ public sealed class ReviewedCompoundArgumentTests
                         local.Value = 50;
                         return delta;
                     }
-                    var result = Use(RECEIVER.Read(Mutate(2)));
+                    var result = Use(RECEIVER.Read(Mutate(Mutate(2))));
                     return result + ":" + stored.Value + ":" + local.Value;
                 }
             }

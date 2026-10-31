@@ -34,44 +34,83 @@ internal sealed class OperationFacts
             || nodes.Any(node => IsMutation(node) && IsConsumedMutation(node));
         if (expression.Parent is ArgumentSyntax argument && IsOrdinaryArgument(argument, model))
         {
-            var inlineConstruction = SingleSimpleConstruction(argument, nodes, model);
-            facts.Nested = calculations > 1 || nodes.Any(node => node != inlineConstruction
+            var allowed = SingleSimpleValue(argument, nodes, model);
+            facts.Nested = calculations > 1 || nodes.Any(node => !allowed.Contains(node)
                 && (IsProducer(node, model) || node is ConditionalExpressionSyntax));
         }
 
         return facts;
     }
 
-    private static BaseObjectCreationExpressionSyntax? SingleSimpleConstruction(
-        ArgumentSyntax argument,
-        ExpressionSyntax[] evaluated,
-        SemanticModel model)
+    /// <summary>
+    /// The work an argument may do inline: the only call, construction or
+    /// interpolation among its siblings, when every input it reads is simple.
+    /// A call may continue a chain on one simple receiver; each link is allowed.
+    /// </summary>
+    private static IReadOnlyCollection<SyntaxNode> SingleSimpleValue(ArgumentSyntax argument, ExpressionSyntax[] evaluated, SemanticModel model)
     {
-        if (Parentheses.Unwrap(argument.Expression) is not BaseObjectCreationExpressionSyntax creation
-            || model.GetOperation(creation) is not IObjectCreationOperation
-            || argument.Parent is not ArgumentListSyntax arguments)
+        var none = System.Array.Empty<SyntaxNode>();
+        if (argument.Parent is not ArgumentListSyntax arguments
+            || arguments.Arguments.Count(item => IsComposite(Parentheses.Unwrap(item.Expression), model)) != 1)
         {
-            return null;
+            return none;
         }
 
-        var constructions = arguments.Arguments.Count(item =>
-            Parentheses.Unwrap(item.Expression) is BaseObjectCreationExpressionSyntax sibling
-            && model.GetOperation(sibling) is IObjectCreationOperation);
-        if (constructions != 1)
+        var value = Parentheses.Unwrap(argument.Expression);
+        if (value is BaseObjectCreationExpressionSyntax creation && model.GetOperation(creation) is IObjectCreationOperation)
         {
-            return null;
-        }
-
-        // Only the direct construction is allowed. Its input computations retain
-        // their existing diagnostics, including nested construction and arithmetic.
-        if (evaluated.Any(node => node != creation
+            // Only the direct construction is allowed. Its input computations retain
+            // their existing diagnostics, including nested construction and arithmetic.
+            return evaluated.Any(node => node != creation
                 && (node is BaseObjectCreationExpressionSyntax or ConditionalExpressionSyntax
-                    || IsProducer(node, model) || IsCalculation(node, model))))
-        {
-            return null;
+                    || IsProducer(node, model) || IsCalculation(node, model))) ? none : new SyntaxNode[] { creation };
         }
-        return creation;
+
+        if (value is InterpolatedStringExpressionSyntax interpolation)
+        {
+            return interpolation.Contents.OfType<InterpolationSyntax>().All(hole => IsSimpleInput(hole.Expression, model))
+                ? new SyntaxNode[] { interpolation } : none;
+        }
+
+        var chain = new List<SyntaxNode>();
+        return value is InvocationExpressionSyntax call && IsSimpleChain(call, chain, model) ? chain : none;
     }
+
+    private static bool IsComposite(ExpressionSyntax value, SemanticModel model) =>
+        value is BaseObjectCreationExpressionSyntax creation && model.GetOperation(creation) is IObjectCreationOperation
+        || EvaluationNodes(value).OfType<ExpressionSyntax>().Any(node => IsProducer(node, model));
+
+    // A call whose arguments are simple inputs, on a simple receiver or on another such call.
+    private static bool IsSimpleChain(InvocationExpressionSyntax call, List<SyntaxNode> chain, SemanticModel model)
+    {
+        if (model.GetOperation(call) is not IInvocationOperation
+            || call.ArgumentList.Arguments.Any(argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None)
+                || !IsSimpleInput(argument.Expression, model)))
+        {
+            return false;
+        }
+
+        chain.Add(call);
+        return call.Expression switch
+        {
+            IdentifierNameSyntax => true,
+            MemberAccessExpressionSyntax { Expression: var receiver } => Parentheses.Unwrap(receiver) is InvocationExpressionSyntax previous
+                ? IsSimpleChain(previous, chain, model) : IsSimpleInput(receiver, model),
+            _ => false,
+        };
+    }
+
+    /// <summary>A literal, variable, member read, type name or lambda: an input that does no work of its own.</summary>
+    internal static bool IsSimpleInput(ExpressionSyntax expression, SemanticModel model) => Parentheses.Unwrap(expression) switch
+    {
+        LiteralExpressionSyntax or IdentifierNameSyntax or ThisExpressionSyntax or PredefinedTypeSyntax
+            or AnonymousFunctionExpressionSyntax or TypeOfExpressionSyntax or DefaultExpressionSyntax => true,
+        PrefixUnaryExpressionSyntax { Operand: LiteralExpressionSyntax } negative => negative.IsKind(SyntaxKind.UnaryMinusExpression),
+        MemberAccessExpressionSyntax member => model.GetSymbolInfo(member).Symbol is not IMethodSymbol
+            && IsSimpleInput(member.Expression, model),
+        InvocationExpressionSyntax invocation => IsNameof(invocation),
+        _ => false,
+    };
 
     public static bool IsOrdinaryArgument(ArgumentSyntax argument, SemanticModel model) => argument.Parent?.Parent switch
     {
@@ -192,6 +231,7 @@ internal sealed class OperationFacts
 
     public static bool IsCalculation(ExpressionSyntax expression, SemanticModel model)
     {
+        if (IsSimpleIndexArithmetic(expression, model)) return false;
         if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.AddExpression
             or SyntaxKind.SubtractExpression or SyntaxKind.MultiplyExpression or SyntaxKind.DivideExpression
             or SyntaxKind.ModuloExpression or SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression
@@ -212,6 +252,14 @@ internal sealed class OperationFacts
 
         return false;
     }
+
+    // a[j - 1] reads one element: an index offset of simple inputs is part of the access.
+    private static bool IsSimpleIndexArithmetic(ExpressionSyntax expression, SemanticModel model) =>
+        expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.AddExpression or SyntaxKind.SubtractExpression
+        && UnwrapParent(binary).Parent is ArgumentSyntax { Parent: BracketedArgumentListSyntax }
+        && IsSimpleInput(binary.Left, model) && IsSimpleInput(binary.Right, model)
+        && Parentheses.Unwrap(binary.Left) is not AnonymousFunctionExpressionSyntax
+        && Parentheses.Unwrap(binary.Right) is not AnonymousFunctionExpressionSyntax;
 
     private static bool IsNumeric(ITypeSymbol? type) => type?.SpecialType is SpecialType.System_SByte
         or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16

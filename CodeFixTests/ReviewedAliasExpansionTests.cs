@@ -23,7 +23,7 @@ public sealed class ReviewedAliasExpansionTests
                     string course = "course";
                     string[] groups = ["group"];
                     Action inspect = () => { _ = reporter; _ = course; _ = groups; };
-                    return Use(reporter, course, groups, inspect, int.Parse("7"));
+                    return Use(reporter, course, groups, inspect, int.Parse("7".Trim()));
                 }
             }
             """;
@@ -47,7 +47,7 @@ public sealed class ReviewedAliasExpansionTests
                 {
                     string value = "before";
                     string Mutate(int valueToIgnore) { value = "after"; return value; }
-                    return Use(value, Mutate(1));
+                    return Use(value, Mutate(int.Parse("1")));
                 }
             }
             """;
@@ -77,7 +77,7 @@ public sealed class ReviewedAliasExpansionTests
                 {
                     var counter = new Counter(10);
                     int Mutate(int valueToIgnore) { counter.Value = 50; return 2; }
-                    var result = Use(counter, Mutate(1));
+                    var result = Use(counter, Mutate(int.Parse("1")));
                     return result + ":" + counter.Value;
                 }
             }

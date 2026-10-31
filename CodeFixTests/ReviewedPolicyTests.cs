@@ -22,7 +22,7 @@ public sealed class ReviewedPolicyTests
     [Fact]
     public async Task OrdinaryComputationPrefersLocalAndSimplifiesTypes()
     {
-        var document = StatementOperationTestFixture.Document("using System.Text; class C { static string Use(StringBuilder value) => value.Capacity.ToString(); static StringBuilder Create(int capacity) => new(capacity); public static string Run() => Use(Create(4)); }");
+        var document = StatementOperationTestFixture.Document("using System.Text; class C { static string Use(StringBuilder value) => value.Capacity.ToString(); static StringBuilder Create(int capacity) => new(capacity); public static string Run() => Use(Create(Create(4).Capacity)); }");
         var before = await StatementOperationTestFixture.Run(document);
         var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
         var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
@@ -50,7 +50,7 @@ public sealed class ReviewedPolicyTests
     [Fact]
     public async Task SimplifiedTypeStillDisambiguatesAConflictingShortName()
     {
-        var document = StatementOperationTestFixture.Document("class StringBuilder {} class C { static string Use(System.Text.StringBuilder value) => value.Capacity.ToString(); static System.Text.StringBuilder Create(int capacity) => new(capacity); public static string Run() => Use(Create(4)); }");
+        var document = StatementOperationTestFixture.Document("class StringBuilder {} class C { static string Use(System.Text.StringBuilder value) => value.Capacity.ToString(); static System.Text.StringBuilder Create(int capacity) => new(capacity); public static string Run() => Use(Create(Create(4).Capacity)); }");
         var changed = await StatementOperationTestFixture.Fix(document, StatementOperationCodeFixProvider.ExpandKey);
         var text = (await changed.GetTextAsync()).ToString();
         Assert.Contains("System.Text.StringBuilder", text);
@@ -81,11 +81,11 @@ public sealed class ReviewedPolicyTests
     [Fact]
     public async Task StableParameterIsReusedButCapturedParameterIsFrozen()
     {
-        var stable = StatementOperationTestFixture.Document("class C { static int Get(int value) => value + 1; static string Use(string text,int value) => text + value; public static string Run() { string text = \"before\"; return Use(text, Get(1)); } }");
+        var stable = StatementOperationTestFixture.Document("class C { static int Get(int value) => value + 1; static string Use(string text,int value) => text + value; public static string Run() { string text = \"before\"; return Use(text, Get(Get(1))); } }");
         var changed = await StatementOperationTestFixture.Fix(stable, StatementOperationCodeFixProvider.ExpandKey);
         Assert.DoesNotContain("text2 = text", (await changed.GetTextAsync()).ToString());
         Assert.Equal(await StatementOperationTestFixture.Run(stable), await StatementOperationTestFixture.Run(await StatementOperationTestFixture.Reparse(changed)));
-        var captured = StatementOperationTestFixture.Document("class C { static string Use(string text,int value) => text + value; public static string Run() { string text = \"before\"; int Get(int value) { text = \"after\"; return value; } return Use(text, Get(1)); } }");
+        var captured = StatementOperationTestFixture.Document("class C { static string Use(string text,int value) => text + value; public static string Run() { string text = \"before\"; int Get(int value) { text = \"after\"; return value; } return Use(text, Get(Get(1))); } }");
         changed = await StatementOperationTestFixture.Fix(captured, StatementOperationCodeFixProvider.ExpandKey);
         Assert.Equal("before1", await StatementOperationTestFixture.Run(await StatementOperationTestFixture.Reparse(changed)));
     }

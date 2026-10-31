@@ -64,17 +64,17 @@ public sealed class StatementOperationRuntimeTests
                 {
                     Events.Clear();
                     bool flag = {{flag.ToString().ToLowerInvariant()}};
-                    int result = flag ? Use(Get(1)) : 0;
+                    int result = flag ? Use(Get(Get(1))) : 0;
                     return result + ":" + string.Join(",", Events);
                 }
             }
             """;
-        await AssertRuntime(source, flag ? "1:get1,use1" : "0:");
+        await AssertRuntime(source, flag ? "1:get1,get1,use1" : "0:");
     }
 
     [Theory]
-    [InlineData("Target().Value = Use(Get(2));", "receiver,get2,use2,set2")]
-    [InlineData("Target().array[Index()] = Use(Get(2));", "receiver,index,get2,use2")]
+    [InlineData("Target().Value = Use(Get(Get(2)));", "receiver,get2,get2,use2,set2")]
+    [InlineData("Target().array[Index()] = Use(Get(Get(2)));", "receiver,index,get2,get2,use2")]
     public async Task AssignmentLocationsAreEvaluatedBeforeTheRhs(string statement, string expected)
     {
         var source = $$"""
@@ -117,7 +117,7 @@ public sealed class StatementOperationRuntimeTests
                 public static string Run()
                 {
                     current = 1;
-                    int result = Use(current, Change(2), current);
+                    int result = Use(current, Change(Change(2)), current);
                     return result.ToString();
                 }
             }

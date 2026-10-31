@@ -22,7 +22,7 @@ public sealed class PipelineRuntimeTests
                 static IEnumerable<int> Get(){trace.Add("source");return Source();}
                 public static string Run(){
                     trace.Clear();capture=1;
-                    var sequence=Get().Select((x,index)=>new Item(F(x),index,Later));
+                    var sequence=Get().Select((x,index)=>new Item(F(F(x)),index,Later));
                     trace.Add("constructed");capture=10;
                     using(var iterator=sequence.GetEnumerator()){trace.Add("iterator");iterator.MoveNext();trace.Add(iterator.Current.ToString());}
                     capture=20; foreach(var value in sequence)trace.Add(value.ToString());

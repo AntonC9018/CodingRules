@@ -42,7 +42,7 @@ public sealed class StatementOperationInteractionTests
     [InlineData(StatementOperationCodeFixProvider.ExpandKey)]
     public async Task UnrelatedFrozenWarningsRemainVisible(string key)
     {
-        const string source = "class C { static int Get(int x)=>x; static int Use(int x)=>x; static int M(bool a,bool b,bool c,bool d) { var value=Use(Get(1)); if(a&&b&&c&&d) return value; return a ? 2 : 3; } }";
+        const string source = "class C { static int Get(int x)=>x; static int Use(int x)=>x; static int M(bool a,bool b,bool c,bool d) { var value=Use(Get(Get(1))); if(a&&b&&c&&d) return value; return a ? 2 : 3; } }";
         var document = StatementOperationTestFixture.Document(source);
         var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document, key));
         Assert.Equal(new[] { "CR0201", "CR0001" }, (await All(changed)).Select(diagnostic => diagnostic.Id));
@@ -62,12 +62,12 @@ public sealed class StatementOperationInteractionTests
                 {
                     int operationValue = 1;
                     int CalculateValue = 2;
-                    for (int i=0; i<1; i++) Use(Get(i));
-                    var first = Use(Get(CalculateValue));
+                    for (int i=0; i<1; i++) Use(Get(Get(i)));
+                    var first = Use(Get(Get(CalculateValue)));
                     switch (mode)
                     {
-                        case 1: var one = Use(Get(1)); break;
-                        case 2: var two = Use(Get(2)); break;
+                        case 1: var one = Use(Get(Get(1))); break;
+                        case 2: var two = Use(Get(Get(2))); break;
                     }
                     Use(operationValue);
                 }

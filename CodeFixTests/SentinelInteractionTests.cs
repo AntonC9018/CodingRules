@@ -22,7 +22,7 @@ public sealed class SentinelInteractionTests
                 static bool Condition(bool a, bool b, bool c, bool d) => a && b && c && d;
                 static int Get(int a) => a;
                 static void Use(int a) {}
-                static void Operations() => Use(Get(1));
+                static void Operations() => Use(Get(Get(1)));
                 static object Pipeline(int[] values) => values.Select(x => (x + 1) * 2).ToArray();
                 static void SameType(int first, int second) {}
                 static void Names() => SameType(1, 2);

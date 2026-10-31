@@ -54,7 +54,7 @@ public sealed class CompoundPredicateIntegrationTests
             class C {
                 sealed record Item(int Value);
                 static int Read(int value) => value;
-                static object Projection(int[] ids) => ids.Select(id => new Item(Read(id)));
+                static object Projection(int[] ids) => ids.Select(id => new Item(Read(Read(id))));
                 static bool Predicate(int[] ids) => ids.Any(id => id > 0 && ids.Any(p => p == id));
             }
             """;

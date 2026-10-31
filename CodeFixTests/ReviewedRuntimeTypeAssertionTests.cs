@@ -18,8 +18,8 @@ public sealed class ReviewedRuntimeTypeAssertionTests
     }
 
     [Theory]
-    [InlineData("Check(value.GetType().IsAssignableTo(typeof(string)))")]
-    [InlineData("System.Diagnostics.Debug.Assert(GetValue().GetType().IsAssignableTo(typeof(string)), \"message\")")]
+    [InlineData("Check(GetContract(1).IsAssignableFrom(value.GetType()))")]
+    [InlineData("System.Diagnostics.Debug.Assert(GetValue().GetType().IsAssignableTo(GetContract(1)), \"message\")")]
     [InlineData("System.Diagnostics.Debug.Assert(value.GetType().IsAssignableTo(GetContract(1)), \"message\")")]
     public async Task OtherComputedAssertionsRetainFindings(string call)
     {

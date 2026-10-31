@@ -168,77 +168,26 @@ settled independently. Static parameter-count exemptions do not exempt overload
 configuration or repeated plumbing. RequiredStep analysis remains deferred:
 do not introduce its annotations, an analyzer or a staged-builder generator.
 
-## Keep generated steps readable and shared APIs purposeful
+## Keep generated steps readable
 
-Use the shortest type name that binds unambiguously at the insertion point, or
-var when suitable. Prefer a local variable for a one-off computed value. Use a
-local function with explicit returns for a branching decision. Preserve captures
-needed for evaluation order, but do not copy an unchanged, uncaptured local just
-to pass it to the next call. Keep aliases that clarify a domain or configuration
-role, such as `var appConfigBuilder = builder` before configuring its Console.
-Single use alone does not make a local useless. Prefer the smallest meaningful
-scope, and give branching helpers names that describe their decisions. Do not
-move computations into a narrower scope when doing so delays, repeats or skips
-observable work. Review a local captured solely by one local function: move it inside that
-function only when its original evaluation timing is unimportant, or pass its
-earlier value explicitly when it is a deliberate snapshot. Review generic names
-such as CheckCondition and CalculateArgs against the operation's domain meaning;
-do not guess a semantic name from syntax alone. These remain agent judgments in
-CodingRules #37; no scope or helper-name diagnostic is approved.
-A function chosen by an automatic refactoring is not evidence that the function
-improves readability.
+- Prefer a local variable for a one-off computed value, and a local function with
+  guard clauses and explicit returns for a branching decision. Name helpers after
+  their domain decision, not generically (`CheckCondition`, `CalculateArgs`).
+- Do not copy an unchanged local just to pass it on, but keep aliases that clarify
+  a role. Single use alone does not make a local useless.
+- Do not move a computation into a narrower scope when that delays, repeats or
+  skips observable work.
+- An automatic refactoring's output is not evidence of readability; review it.
+- Do not add shared API members solely for tests. Keep fixture construction in
+  tests.
 
-A direct JSON scalar field read may remain inline, such as
-`root.GetProperty("command").GetString()`. Name the scalar before comparing or
-calculating with it inside a call argument. Do not introduce extra locals solely
-to split the accepted short field read.
+## Keep predicates and branches simple
 
-One simple directly constructed argument may remain inline per call, including
-explicit and target-typed `new(...)` with other simple arguments. Multiple direct
-constructions still need named steps or an appropriate builder. For the reviewed
-params fixture calls, construct a named array and pass that array. Keep nested input
-computations visible under the existing rules.
-
-Do not add shared API members solely for tests unless they are intended consumer
-APIs or planned production capabilities. Change tests to exercise the actual API
-and keep fixture construction inside tests. This extends the existing constructor
-policy; referenced-assembly consumers cannot be inferred from an absence of local
-call sites alone.
-
-## Keep predicate lambdas readable
-
-Use a block lambda with guard clauses when one predicate combines `&&` or `||`
-with another LINQ predicate. Preserve short-circuit reads and give each final
-Boolean outcome an explicit return. Do not replace the expression with a mutable
-Boolean scratch tree or a generically named helper.
-
-Simple compact Any/All/Where predicates may nest through two levels. At a third
-compact level, introduce a block or a meaningful named stage. A block or named
-stage separates the compact expression; it does not justify hiding complex
-logic inside another single expression. The simple group/lesson query remains
-accepted: `groups.Any(g => g.Lessons.Any(l => l.IsLab))`.
-
-## Prefer early exits and compact safe expressions
-
-Do not retain an else branch after a branch that unconditionally returns or
-throws. Express Boolean decisions with early returns; avoid nested constant
-true/false branches and reassigned Boolean scratch variables for one predicate.
-Negate built-in equality comparisons by using their opposite operator, and
-remove redundant Boolean negation parentheses. Do not invert user-defined
-operators or floating-point relational comparisons without proving equivalence.
-
-Use a record struct for the approved tuple data concepts, with domain-specific
-names and unchanged ownership and representation semantics. Method-local
-transient grouping does not establish that unrelated concepts share a record.
-
-Object initializers expand onto new lines even with one member. Up to two
-receiver-chain calls may stay on one line only when the full line is at most
-90 characters. Longer chains wrap. When an ordinary argument list is chopped,
-place every argument below the opening parenthesis, including the first. Preserve
-the lambda exception and keep a sole positional constructor adjacent to its outer
-call; chop the constructor's own arguments below `new(` when needed. The reviewed GetType/IsAssignableTo Debug.Assert checks remain readable inline,
-including their null guard; do not introduce staging locals solely for those
-checks. Debug assertions should supply a meaningful explicit message rather than depending
-on incidental caller-expression source text. Replacing public API assertions
-with configurable safe-by-default checks is tracked separately in ScheduleLib
-issue #249; that migration is not a formatting action.
+- Use a block lambda with guard clauses when a predicate mixes `&&` or `||` with
+  another LINQ predicate. Do not replace it with mutable Boolean scratch state.
+- Compact `Any`/`All`/`Where` predicates may nest two levels; use a block or a
+  named stage at the third.
+- Do not keep an `else` after a branch that returns or throws. Do not invert
+  user-defined operators or floating-point comparisons without proving
+  equivalence.
+- Give debug assertions an explicit, meaningful message.

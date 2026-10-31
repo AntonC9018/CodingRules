@@ -26,6 +26,7 @@ CR0500 | Readability | Warning | Name arguments with ambiguous same-type roles, 
 CR0600 | Readability | Warning | Represent proven index-search absence in the return type
 CR0601 | Readability | Warning | Check a private helper's proven index-search sentinel before forwarding
 CR0700 | Readability | Warning | Use a span for transient text inspection
+CR0701 | Performance | Warning | Use a UTF-8 string literal instead of Encoding.UTF8.GetBytes on a string literal (C# 11+)
 CR0800 | Formatting | Warning | Place wrapped Boolean operators at the start of the continuation line
 CR0801 | Formatting | Warning | Place object initializer members on separate lines
 CR0802 | Formatting | Warning | Keep a sole constructor argument adjacent to the call parenthesis

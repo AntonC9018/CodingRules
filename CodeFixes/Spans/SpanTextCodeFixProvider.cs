@@ -14,12 +14,14 @@ public sealed class SpanTextCodeFixProvider : CodeFixProvider
 {
     public const string Key = "Spans.InspectText";
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(DiagnosticIds.TransientTextInspection);
-    public override FixAllProvider GetFixAllProvider() => new SpanFixAllProvider();
+    public const string Title = "Inspect text with a span";
+    public override FixAllProvider GetFixAllProvider() => new SequentialFixAllProvider(Title, Key,
+        DiagnosticIds.TransientTextInspection, () => new SpanTextAnalyzer(), Change);
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         if (context.Diagnostics[0].Id != DiagnosticIds.TransientTextInspection) return;
         var changed = await Change(context.Document, context.Diagnostics[0], context.CancellationToken).ConfigureAwait(false);
-        if (changed is not null) context.RegisterCodeFix(CodeAction.Create("Inspect text with a span",
+        if (changed is not null) context.RegisterCodeFix(CodeAction.Create(Title,
             token => Apply(context.Document, context.Diagnostics[0], token), Key), context.Diagnostics);
     }
     internal static async Task<Document?> Change(Document document, Diagnostic diagnostic, CancellationToken token)

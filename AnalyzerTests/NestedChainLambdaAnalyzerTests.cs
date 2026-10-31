@@ -16,6 +16,7 @@ public sealed class NestedChainLambdaAnalyzerTests
     [InlineData("rows.Select(row => Apply(row, cell => cell + 1))", "row =>")]
     [InlineData("rows.Where(row => row.Length > 0).Select(row => row.Select(cell => cell.ToString()))", "row => row.Select")]
     [InlineData("rows.Select(row => rows.Select(other => other.Select(cell => cell)))", "row =>")]
+    [InlineData("rows.Select<int[], Func<int, int>>(row => cell => cell + row.Length)", "row =>")]
     public async Task ChainLambdaWithAnotherLambdaInItsExpressionBodyIsReported(string expression, string anchor)
     {
         var source = Source(expression);

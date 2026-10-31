@@ -78,7 +78,7 @@ public sealed class InlineConditionInteractionTests
                 static bool Use(bool x) => x;
                 void M(bool a, bool b, bool c, int mode)
                 {
-                    bool CheckCondition = false;
+                    bool TODO_CONDITION = false;
                     var first = a && b && c;
                     if (Use(a && b && c) && b && c) { }
                     switch (mode)
@@ -86,7 +86,7 @@ public sealed class InlineConditionInteractionTests
                         case 1: if (a && b && c) { } break;
                         case 2: if (a && b && c) { } break;
                     }
-                    bool conditionResult = CheckCondition;
+                    bool TODO_VARIABLE = TODO_CONDITION;
                 }
             }
             """;
@@ -102,7 +102,7 @@ public sealed class InlineConditionInteractionTests
         Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed, true));
         var fixedText = (await changed.GetTextAsync()).ToString();
         Assert.DoesNotContain("a && b && c", fixedText);
-        Assert.Contains(key == InlineConditionCodeFixProvider.ExtractKey ? "CheckCondition2" : "conditionResult2", fixedText);
+        Assert.Contains(key == InlineConditionCodeFixProvider.ExtractKey ? "TODO_CONDITION_1" : "TODO_VARIABLE_1", fixedText);
     }
 
     [Theory]

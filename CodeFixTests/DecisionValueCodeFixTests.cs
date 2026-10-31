@@ -36,7 +36,7 @@ public sealed class DecisionValueCodeFixTests
         Assert.Equal("check;second;False", before);
         Assert.Equal(before, await StatementOperationTestFixture.Run(changed));
         Assert.Empty(await Diagnostics(changed));
-        Assert.Contains("bool CalculateResult()", (await changed.GetTextAsync()).ToString());
+        Assert.Contains("bool TODO_CONDITION()", (await changed.GetTextAsync()).ToString());
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public sealed class DecisionValueCodeFixTests
         var changed = await StatementOperationTestFixture.Reparse(operation.ChangedSolution.GetDocument(document.Id)!);
         await StatementOperationTestFixture.Compiles(changed);
         Assert.Empty(await Diagnostics(changed));
-        Assert.Contains("CalculateV2", (await changed.GetTextAsync()).ToString());
+        Assert.Contains("TODO_CONDITION_1", (await changed.GetTextAsync()).ToString());
     }
 
     [Fact]

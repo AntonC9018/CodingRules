@@ -61,7 +61,7 @@ public sealed class PolicyRefinementTests
         var before = await StatementOperationTestFixture.Run(document);
         var changed = await StatementOperationTestFixture.Fix(document, StatementOperationCodeFixProvider.ExtractKey);
         var text = (await changed.GetTextAsync()).ToString();
-        Assert.True(text.Contains("CalculateDirectory"), text);
+        Assert.True(text.Contains("TODO_CALCULATION"), text);
         Assert.DoesNotContain("operationValue", text);
         Assert.Equal(before, await StatementOperationTestFixture.Run(await StatementOperationTestFixture.Reparse(changed)));
     }

@@ -114,7 +114,7 @@ public sealed class ReviewedCompoundRuntimeTests
             }
             """;
         var fixedText = await VerifyEveryAction(source, "CR0202", InlineConditionCodeFixProvider.ExtractKey);
-        Assert.Contains("when (CheckCondition(error))", fixedText);
+        Assert.Contains("when (TODO_CONDITION(error))", fixedText);
     }
 
     [Fact]

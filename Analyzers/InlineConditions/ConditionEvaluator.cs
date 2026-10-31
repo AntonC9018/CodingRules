@@ -11,34 +11,17 @@ internal sealed class ConditionEvaluator
 {
     internal static readonly SyntaxAnnotation Linearized = new("InlineConditionLinearized");
     private readonly SemanticModel model;
-    private readonly HashSet<string> names;
+    private readonly EvaluationNames names;
 
     public ConditionEvaluator(SemanticModel model, SyntaxNode declarationSpace)
     {
         this.model = model;
-        names = new HashSet<string>(declarationSpace.DescendantTokens().Where(token => token.IsKind(SyntaxKind.IdentifierToken))
-            .Select(token => token.ValueText));
-        var typeDeclaration = declarationSpace.FirstAncestorOrSelf<TypeDeclarationSyntax>();
-        if (typeDeclaration is not null && model.GetDeclaredSymbol(typeDeclaration) is INamedTypeSymbol type)
-        {
-            foreach (var member in type.GetMembers())
-            {
-                names.Add(member.Name);
-            }
-        }
+        names = new EvaluationNames(declarationSpace, model);
     }
 
-    public string FreshName(string stem)
-    {
-        var name = stem;
-        var suffix = 2;
-        while (!names.Add(name))
-        {
-            name = stem + suffix++;
-        }
+    public string FreshName(Placeholder placeholder) => names.Fresh(placeholder);
 
-        return name;
-    }
+    public string FreshName(string domainName) => names.Fresh(domainName);
 
     public List<StatementSyntax> Evaluate(ExpressionSyntax expression, string result)
     {
@@ -156,7 +139,7 @@ internal sealed class ConditionEvaluator
         {
             // A gate with a mixed left subtree must not duplicate its body.
             // A local function owns that decision and retains lazy evaluation.
-            var name = FreshName("CheckCondition");
+            var name = FreshName(Placeholder.Condition);
             var helper = SyntaxFactory.LocalFunctionStatement(
                 SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)), name)
                 .WithBody(ReturnBody(expression));
@@ -206,7 +189,7 @@ internal sealed class ConditionEvaluator
             return LowerLeaf(expression, statements, saveProducer: false);
         }
 
-        var result = FreshName("conditionResult");
+        var result = FreshName(Placeholder.Variable);
         statements.Add(DeclareBool(result));
         statements.AddRange(Evaluate(expression, result));
         return SyntaxFactory.IdentifierName(result);
@@ -226,7 +209,7 @@ internal sealed class ConditionEvaluator
         var producer = ConditionFacts.IsProducer(expression, model);
         if (expression is BinaryExpressionSyntax lazy && lazy.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
-            var result = FreshName("conditionResult");
+            var result = FreshName(Placeholder.Variable);
             statements.Add(DeclareBool(result));
             statements.AddRange(Evaluate(lazy, result));
             return SyntaxFactory.IdentifierName(result);
@@ -234,7 +217,7 @@ internal sealed class ConditionEvaluator
 
         if (expression is ConditionalExpressionSyntax conditional && HasProducer(conditional))
         {
-            var result = FreshName("conditionValue");
+            var result = FreshName(Placeholder.Variable);
             statements.Add(SyntaxFactory.LocalDeclarationStatement(SyntaxFactory.VariableDeclaration(
                 TypeSyntax(model.GetTypeInfo(conditional).Type), SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator(result)))));
             var condition = LowerCondition(conditional.Condition, statements);
@@ -335,7 +318,7 @@ internal sealed class ConditionEvaluator
 
     public ExpressionSyntax Save(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
     {
-        var name = FreshName("conditionValue");
+        var name = FreshName(Placeholder.Variable);
         type ??= model.GetTypeInfo(original).Type;
         var declaration = SyntaxFactory.VariableDeclaration(type is null ? TypeSyntax(type)
             : EvaluationSyntax.Type(type, model, original.SpanStart), SyntaxFactory.SingletonSeparatedList(

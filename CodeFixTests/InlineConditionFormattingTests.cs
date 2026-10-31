@@ -21,7 +21,7 @@ public sealed class InlineConditionFormattingTests
             {
                 bool M(bool a, bool b, bool c)
                 {
-                    bool CheckCondition()
+                    bool TODO_CONDITION()
                     {
                         if (!a)
                         {
@@ -41,7 +41,7 @@ public sealed class InlineConditionFormattingTests
                         return true;
                     }
 
-                    return CheckCondition();
+                    return TODO_CONDITION();
                 }
             }
             """;

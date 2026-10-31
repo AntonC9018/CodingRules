@@ -53,11 +53,11 @@ public sealed class InlineConditionSafetyTests
     [Fact]
     public async Task PartialMemberHelperNameCannotShadowExistingMember()
     {
-        var source = "partial class C { static bool A()=>true; static bool B()=>true; static bool D()=>true; static bool Flag = A() && B() && D(); } partial class C { static bool CheckCondition()=>false; }";
+        var source = "partial class C { static bool A()=>true; static bool B()=>true; static bool D()=>true; static bool Flag = A() && B() && D(); } partial class C { static bool TODO_CONDITION()=>false; }";
         var document = InlineConditionTestFixture.Document(source);
         var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
         await InlineConditionTestFixture.Compiles(changed);
-        Assert.Contains("private static bool CheckCondition2()", (await changed.GetTextAsync()).ToString());
+        Assert.Contains("private static bool TODO_CONDITION_1()", (await changed.GetTextAsync()).ToString());
     }
 
     [Fact]

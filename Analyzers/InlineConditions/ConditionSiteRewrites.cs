@@ -100,7 +100,7 @@ internal static class ConditionSiteRewrites
         var expression = plan.Expression;
         var root = expression.SyntaxTree.GetRoot();
         var enumPattern = EnumMemberPattern.Create(expression, plan.Model);
-        var name = evaluator.FreshName(enumPattern?.PredicateName ?? "CheckCondition");
+        var name = enumPattern is null ? evaluator.FreshName(Placeholder.Condition) : evaluator.FreshName(enumPattern.PredicateName);
         var body = enumPattern is null ? evaluator.ReturnBody(expression)
             : SyntaxFactory.Block(SyntaxFactory.ReturnStatement(enumPattern.Pattern));
         foreach (var ancestor in expression.Ancestors())
@@ -183,7 +183,7 @@ internal static class ConditionSiteRewrites
             return ExpandFlowIf(plan, evaluator);
         }
 
-        var result = evaluator.FreshName("conditionResult");
+        var result = evaluator.FreshName(Placeholder.Variable);
         var prefixes = new List<StatementSyntax>();
         var changedStatement = PrepareEarlierArguments(plan, evaluator, prefixes);
         prefixes.Add(ConditionEvaluator.DeclareBool(result));

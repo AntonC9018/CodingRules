@@ -86,7 +86,7 @@ internal sealed class OperationEvaluator
         {
             var condition = Lower(conditional.Condition, statements);
             var type = model.GetTypeInfo(conditional).Type ?? model.GetTypeInfo(conditional).ConvertedType!;
-            var name = Names.Fresh(OperationValueNames.Stem(expression, model));
+            var name = Names.Fresh(Placeholder.Variable);
             statements.Add(Declare(type, name));
             savedValues.Add(name, type);
             var whenTrue = Branch(conditional.WhenTrue, name, type);
@@ -98,7 +98,7 @@ internal sealed class OperationEvaluator
         if (expression is BinaryExpressionSyntax lazy && lazy.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
             var left = Lower(lazy.Left, statements);
-            var name = Names.Fresh(OperationValueNames.Stem(expression, model));
+            var name = Names.Fresh(Placeholder.Variable);
             statements.Add(Declare(model.GetTypeInfo(lazy).Type!, name));
             savedValues.Add(name, model.GetTypeInfo(lazy).Type!);
             var rightStatements = new List<StatementSyntax>();
@@ -271,7 +271,7 @@ internal sealed class OperationEvaluator
         var conversion = value is IdentifierNameSyntax identifier && savedValues.TryGetValue(identifier.Identifier.ValueText, out var savedType)
             ? new SyntaxAnnotation(ConversionAnnotation, ConversionFingerprint(((CSharpCompilation)model.Compilation).ClassifyConversion(savedType, type)))
             : Conversion(original, type);
-        var name = Names.Fresh(OperationValueNames.Stem(original, model));
+        var name = Names.Fresh(Placeholder.Variable);
         var declaration = SyntaxFactory.VariableDeclaration(EvaluationSyntax.Type(type, model, original.SpanStart), SyntaxFactory.SingletonSeparatedList(
             SyntaxFactory.VariableDeclarator(name).WithInitializer(SyntaxFactory.EqualsValueClause(value.WithoutTrivia()
                 .WithAdditionalAnnotations(conversion, new SyntaxAnnotation(LinearizedAnnotation))))));

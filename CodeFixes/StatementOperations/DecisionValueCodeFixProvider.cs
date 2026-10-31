@@ -52,8 +52,7 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
         var space = declaration.Ancestors().FirstOrDefault(node => node is BaseMethodDeclarationSyntax
             or LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax or AccessorDeclarationSyntax) ?? block;
         var names = new EvaluationNames(space, model);
-        var stem = "Calculate" + char.ToUpperInvariant(symbol.Name[0]) + symbol.Name.Substring(1);
-        var name = names.Fresh(stem);
+        var name = names.Fresh(Placeholder.Condition);
         var evaluator = new ConditionEvaluator(model, space);
         var marker = new SyntaxAnnotation(Generated);
         var helper = SyntaxFactory.LocalFunctionStatement(

@@ -99,7 +99,7 @@ public sealed class InlineConditionRuntimeTests
         var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExpandKey);
         Assert.Equal(before, await InlineConditionTestFixture.Run(changed));
         Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed));
-        Assert.Contains("conditionValue = ++count", (await changed.GetTextAsync()).ToString());
+        Assert.Contains("TODO_VARIABLE_1 = ++count", (await changed.GetTextAsync()).ToString());
     }
 
     [Theory]

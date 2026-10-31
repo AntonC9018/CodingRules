@@ -13,7 +13,7 @@ namespace CodingRules;
 
 public sealed class StatementOperationClassificationTests
 {
-    private const string Prelude = "using System; using System.Linq; class C { static int Use(int value) => value; static string Use(string value) => value; static int Get(int value = 1) => value; static int Collect(params int[] values) => 1; ";
+    private const string Prelude = "using System; using System.Linq; class C { static int Use(int value) => value; static string Use(string value) => value; static int Get(int value = 1) => value; static int Collect(params int[] values) => 1; static T Identity<T>(T value) => value; ";
 
     [Theory]
     [InlineData("string.Join(\",\", values.Select(x => x))", "Enumerable", "")]
@@ -95,6 +95,7 @@ public sealed class StatementOperationClassificationTests
     [InlineData("Use(values[a + 1])")]
     [InlineData("Use(values[a - 1] + values[a + 1])")]
     [InlineData("Use(Collect(a))")]
+    [InlineData("Use(Identity<int>(a))")]
     [InlineData("Use(int.Parse(text))")]
     [InlineData("Use($\"value:{a}:{text.Length}\")")]
     [InlineData("Use(text.Replace(\"a\", \"b\").Trim())")]

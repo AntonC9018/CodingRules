@@ -99,7 +99,7 @@ internal sealed class OperationFacts
         chain.Add(call);
         return call.Expression switch
         {
-            IdentifierNameSyntax => true,
+            SimpleNameSyntax => true,
             MemberAccessExpressionSyntax { Expression: var receiver } => Parentheses.Unwrap(receiver) is InvocationExpressionSyntax previous
                 ? IsSimpleChain(previous, chain, model) : IsSimpleInput(receiver, model),
             _ => false,

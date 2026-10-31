@@ -117,9 +117,9 @@ A simple explicit cast such as `(int) pid` is accepted in an argument. A factory
 such as `TimeSpan.FromSeconds(2)` with simple arguments is accepted since ADR 0005;
 `TimeSpan.FromSeconds(pid * 2)` still requires a named local or helper. Nested work
 inside a cast remains independently visible.
-Generated names prefer the bound argument parameter, then the operation name,
-then its result type. Names are collision-safe; captured values with the same
-resolved type are reused rather than copied into another generated local.
+Generated names are `TODO_` placeholders, as described under
+[readable generated steps](#readable-generated-steps--2026-10-31). Unchanged
+values are passed directly rather than copied into another generated local.
 Exception interpolation belongs to CR1600, and does not receive a CR03 string
 extraction action.
 

@@ -3,8 +3,7 @@ public static class Consumer
     private static int Use(int value) => value;
     public static int Compute(int value)
     {
-        int value2 = value++;
-        int use = Use(value2);
-        return use;
+        int TODO_VARIABLE = value++;
+        return Use(TODO_VARIABLE);
     }
 }

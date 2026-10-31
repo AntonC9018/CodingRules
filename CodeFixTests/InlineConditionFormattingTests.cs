@@ -27,25 +27,20 @@ public sealed class InlineConditionFormattingTests
                         {
                             return false;
                         }
-
                         if (!b)
                         {
                             return false;
                         }
-
                         if (!c)
                         {
                             return false;
                         }
-
                         if (!d)
                         {
                             return false;
                         }
-
                         return true;
                     }
-
                     return TODO_CONDITION();
                 }
             }
@@ -77,22 +72,18 @@ public sealed class InlineConditionFormattingTests
                     {
                         return false;
                     }
-
                     if (!b)
                     {
                         return false;
                     }
-
                     if (!c)
                     {
                         return false;
                     }
-
                     if (!d)
                     {
                         return false;
                     }
-
                     return true;
                 }
             }

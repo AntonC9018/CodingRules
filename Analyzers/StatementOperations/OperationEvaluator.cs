@@ -33,7 +33,7 @@ internal sealed class OperationEvaluator
         var original = expression;
         if (expression is ParenthesizedExpressionSyntax parentheses)
         {
-            return parentheses.WithExpression(Lower(parentheses.Expression, statements, save)).WithoutTrivia();
+            return Parentheses.Rewrap(parentheses, Lower(parentheses.Expression, statements, save));
         }
 
         // A conditional value or decision with work in a lazily reached operand
@@ -165,6 +165,11 @@ internal sealed class OperationEvaluator
         return expression.WithoutTrivia();
     }
 
+    // A condition the inline-condition rules report still separates its operations.
+    private bool IsAcceptedInline(ArgumentSyntax argument) => !lowerConditionProducers
+        && OperationFacts.IsOrdinaryArgument(argument, model)
+        && !OperationFacts.Create(argument.Expression, model).HasReason;
+
     private bool HasWork(ExpressionSyntax expression) => OperationPlan.HasLowering(expression, model, lowerConditionProducers);
 
     private static bool IsDecision(BinaryExpressionSyntax binary) =>
@@ -189,8 +194,10 @@ internal sealed class OperationEvaluator
         for (var index = 0; index < arguments.Count; index++)
         {
             var argument = arguments[index];
-            var value = Lower(argument.Expression, statements, save: true);
-            if (laterWork || arguments.Skip(index + 1).Any(later => HasWork(later.Expression)))
+            var snapshot = laterWork || arguments.Skip(index + 1).Any(later => HasWork(later.Expression));
+            // An argument the rules accept inline, such as one simple call, stays in place.
+            var value = Lower(argument.Expression, statements, save: snapshot || !IsAcceptedInline(argument));
+            if (snapshot)
             {
                 var type = model.GetTypeInfo(argument.Expression).ConvertedType ?? model.GetTypeInfo(argument.Expression).Type!;
                 value = Save(argument.Expression, value, statements, type);
@@ -261,7 +268,10 @@ internal sealed class OperationEvaluator
         var type = returnType ?? model.GetTypeInfo(expression).Type ?? model.GetTypeInfo(expression).ConvertedType!;
         if (discard || type.SpecialType == SpecialType.System_Void) statements.Add(SyntaxFactory.ExpressionStatement(Lower(expression, statements)));
         else AddReturn(expression, type, statements);
-        var body = SyntaxFactory.Block(statements);
+        // Statements start at the column of the moved source line, so the formatter
+        // keeps the relative indentation of its continuation lines.
+        var indentation = ConditionSiteRewrites.SourceIndentation(expression);
+        var body = SyntaxFactory.Block(statements.Select(statement => statement.WithLeadingTrivia(indentation)));
         var checkedContext = expression.Ancestors().FirstOrDefault(node => node is CheckedExpressionSyntax or CheckedStatementSyntax);
         if (checkedContext is not null)
         {
@@ -330,10 +340,15 @@ internal sealed class OperationEvaluator
             var start = changed.SpanStart;
             changed = changed.ReplaceNodes(changed.DescendantNodes().OfType<ExpressionSyntax>()
                 .Where(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax),
-                (node, rewritten) => rewritten.WithAdditionalAnnotations(new SyntaxAnnotation(BindingAnnotation, keys[(node.SpanStart - start, node.Span.Length, node.RawKind)])));
+                (node, rewritten) => Bind(rewritten, keys[(node.SpanStart - start, node.Span.Length, node.RawKind)]));
         }
         if (original is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)
-            changed = changed.WithAdditionalAnnotations(new SyntaxAnnotation(BindingAnnotation, Key(original)));
+            changed = Bind(changed, Key(original));
         return changed;
     }
+
+    // A call kept in place by an inner lowering already carries its identity.
+    private static ExpressionSyntax Bind(ExpressionSyntax call, string key) => call.HasAnnotations(BindingAnnotation)
+        ? call
+        : call.WithAdditionalAnnotations(new SyntaxAnnotation(BindingAnnotation, key));
 }

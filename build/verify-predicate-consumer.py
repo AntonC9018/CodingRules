@@ -76,7 +76,7 @@ static class Generated {
         assert fixed["Findings.cs"] != sources["Findings.cs"]
         assert "return true;" in fixed["Findings.cs"].decode()
         assert "return false;" in fixed["Findings.cs"].decode()
-        assert "CheckCondition" not in fixed["Findings.cs"].decode()
+        assert "TODO_CONDITION" not in fixed["Findings.cs"].decode()
         run(command, consumer, environment)
         assert {path.name: path.read_bytes() for path in consumer.glob("*.cs")} == fixed
         run([*command, "--verify-no-changes"], consumer, environment)

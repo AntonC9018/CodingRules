@@ -59,22 +59,28 @@ internal sealed class OperationFacts
         var value = Parentheses.Unwrap(argument.Expression);
         if (value is BaseObjectCreationExpressionSyntax creation && model.GetOperation(creation) is IObjectCreationOperation)
         {
-            // Only the direct construction is allowed. Its input computations retain
-            // their existing diagnostics, including nested construction and arithmetic.
-            return evaluated.Any(node => node != creation
+            // The direct construction and one simple interpolation among its own
+            // arguments are allowed. Other input computations retain their existing
+            // diagnostics, including nested construction and arithmetic.
+            var message = creation.ArgumentList?.Arguments.Select(item => Parentheses.Unwrap(item.Expression))
+                .OfType<InterpolatedStringExpressionSyntax>().Where(item => IsSimpleInterpolation(item, model)).Take(2).ToArray();
+            var allowed = message is { Length: 1 } ? new SyntaxNode[] { creation, message[0] } : new SyntaxNode[] { creation };
+            return evaluated.Any(node => !allowed.Contains(node)
                 && (node is BaseObjectCreationExpressionSyntax or ConditionalExpressionSyntax
-                    || IsProducer(node, model) || IsCalculation(node, model))) ? none : new SyntaxNode[] { creation };
+                    || IsProducer(node, model) || IsCalculation(node, model))) ? none : allowed;
         }
 
         if (value is InterpolatedStringExpressionSyntax interpolation)
         {
-            return interpolation.Contents.OfType<InterpolationSyntax>().All(hole => IsSimpleInput(hole.Expression, model))
-                ? new SyntaxNode[] { interpolation } : none;
+            return IsSimpleInterpolation(interpolation, model) ? new SyntaxNode[] { interpolation } : none;
         }
 
         var chain = new List<SyntaxNode>();
         return value is InvocationExpressionSyntax call && IsSimpleChain(call, chain, model) ? chain : none;
     }
+
+    private static bool IsSimpleInterpolation(InterpolatedStringExpressionSyntax interpolation, SemanticModel model) =>
+        interpolation.Contents.OfType<InterpolationSyntax>().All(hole => IsSimpleInput(hole.Expression, model));
 
     private static bool IsComposite(ExpressionSyntax value, SemanticModel model) =>
         value is BaseObjectCreationExpressionSyntax creation && model.GetOperation(creation) is IObjectCreationOperation

@@ -142,10 +142,7 @@ internal sealed class ConditionEvaluator
         var original = expression;
         if (expression is ParenthesizedExpressionSyntax parentheses)
         {
-            var inner = LowerOriginal(parentheses.Expression, statements, saveProducer);
-            // A name that replaced the parenthesized work needs no parentheses.
-            return inner is IdentifierNameSyntax or InvocationExpressionSyntax { Expression: IdentifierNameSyntax }
-                && !inner.IsEquivalentTo(parentheses.Expression) ? inner : parentheses.WithExpression(inner).WithoutTrivia();
+            return Parentheses.Rewrap(parentheses, LowerOriginal(parentheses.Expression, statements, saveProducer));
         }
 
         var producer = ConditionFacts.IsProducer(expression, model);

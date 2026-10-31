@@ -113,7 +113,7 @@ public sealed class Utf8LiteralCodeFixProvider : CodeFixProvider
         SyntaxNode space = statement.Ancestors().OfType<MemberDeclarationSyntax>().FirstOrDefault() ?? (SyntaxNode)statement;
         var name = new EvaluationNames(space, model).Fresh(Placeholder.Variable);
         var leading = statement.GetLeadingTrivia();
-        var indentation = SyntaxFactory.TriviaList(leading.Reverse().TakeWhile(trivia => trivia.IsKind(SyntaxKind.WhitespaceTrivia)).Reverse());
+        var indentation = ConditionSiteRewrites.Indentation(leading);
         var lineBreak = statement.GetTrailingTrivia().LastOrDefault(trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia));
         var separator = lineBreak.IsKind(SyntaxKind.EndOfLineTrivia) ? lineBreak : SyntaxFactory.Space;
         var declaration = SyntaxFactory.ParseStatement($"byte[] {name} = {copy.ToFullString()};")

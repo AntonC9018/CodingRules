@@ -42,7 +42,7 @@ public static class Generated {
         fixed = {path.name: path.read_bytes() for path in consumer.glob('*.cs')}
         assert fixed['Accepted.cs'] == sources['Accepted.cs']
         assert fixed['Generated.g.cs'] == sources['Generated.g.cs']
-        assert b'bool CalculateValue()' in fixed['Findings.cs'] and b'return true;' in fixed['Findings.cs']
+        assert b'bool TODO_CONDITION()' in fixed['Findings.cs'] and b'return true;' in fixed['Findings.cs']
         run([*command, '--verify-no-changes'], consumer, environment)
         assert {path.name: path.read_bytes() for path in consumer.glob('*.cs')} == fixed
         print('PASS: two decision findings; severity; generated/accepted boundaries; saved extraction and stable second pass.')

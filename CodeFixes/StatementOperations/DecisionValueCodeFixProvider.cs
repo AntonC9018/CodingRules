@@ -63,14 +63,16 @@ public sealed class DecisionValueCodeFixProvider : CodeFixProvider
         var variable = declaration.Declaration.Variables[0].WithInitializer(SyntaxFactory.EqualsValueClause(
             SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name), SyntaxFactory.ArgumentList())));
         var initialized = declaration.WithDeclaration(declaration.Declaration.WithVariables(SyntaxFactory.SingletonSeparatedList(variable)))
-            .WithoutLeadingTrivia().WithTrailingTrivia(declaration.GetTrailingTrivia().AddRange(decision.GetTrailingTrivia()))
+            .WithoutLeadingTrivia()
+            .WithTrailingTrivia(declaration.GetTrailingTrivia().Where(trivia => !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+                .Concat(decision.GetTrailingTrivia()))
             .WithAdditionalAnnotations(Formatter.Annotation);
         var index = block.Statements.IndexOf(declaration);
         var statements = block.Statements.RemoveAt(index + 1).RemoveAt(index).InsertRange(index,
             new StatementSyntax[] { helper, initialized });
         var root = (await document.GetSyntaxRootAsync(token).ConfigureAwait(false))!;
         var changed = document.WithSyntaxRoot(root.ReplaceNode(block, block.WithStatements(statements)));
-        changed = await Formatter.FormatAsync(changed, Formatter.Annotation, cancellationToken: token).ConfigureAwait(false);
+        changed = await GeneratedSyntaxFormatter.FormatAsync(changed, document, token).ConfigureAwait(false);
         var changedRoot = (await changed.GetSyntaxRootAsync(token).ConfigureAwait(false))!;
         var helperSpan = changedRoot.GetAnnotatedNodes(marker).Single().Span;
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);

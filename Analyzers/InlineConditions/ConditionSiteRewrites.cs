@@ -290,11 +290,32 @@ internal static class ConditionSiteRewrites
         return root.ReplaceNode(arrow.Parent!, replacement.WithAdditionalAnnotations(Generated));
     }
 
+    /// <summary>The whitespace that indents the line a statement with <paramref name="leading"/> trivia starts on.</summary>
+    internal static SyntaxTriviaList Indentation(SyntaxTriviaList leading) => SyntaxFactory.TriviaList(
+        leading.Reverse().TakeWhile(trivia => trivia.IsKind(SyntaxKind.WhitespaceTrivia)).Reverse());
+
+    /// <summary>The whitespace that indents the source line <paramref name="node"/> starts on.</summary>
+    internal static SyntaxTriviaList SourceIndentation(SyntaxNode node)
+    {
+        var text = node.SyntaxTree.GetText();
+        var line = text.Lines.GetLineFromPosition(node.SpanStart).ToString();
+        var width = line.Length - line.TrimStart(' ', '\t').Length;
+        return width == 0 ? SyntaxFactory.TriviaList() : SyntaxFactory.TriviaList(SyntaxFactory.Whitespace(line.Substring(0, width)));
+    }
+
     internal static SyntaxNode ReplaceStatement(SyntaxNode root, StatementSyntax statement, List<StatementSyntax> statements)
     {
-        if (statements.Count > 1)
+        // Each statement starts its own line at the original column, so the
+        // formatter keeps the relative indentation of continuation lines.
+        var indentation = Indentation(statement.GetLeadingTrivia());
+        var lineBreak = statement.GetTrailingTrivia().LastOrDefault(trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia));
+        for (var index = 1; index < statements.Count; index++)
         {
-            statements[statements.Count - 1] = statements[statements.Count - 1].WithoutLeadingTrivia();
+            statements[index] = statements[index].WithLeadingTrivia(indentation);
+            if (lineBreak.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                statements[index - 1] = statements[index - 1].WithTrailingTrivia(lineBreak);
+            }
         }
 
         statements[0] = statements[0].WithLeadingTrivia(statement.GetLeadingTrivia());

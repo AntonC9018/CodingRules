@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CodingRules;
@@ -14,4 +15,14 @@ internal static class Parentheses
 
         return expression;
     }
+
+    /// <summary>
+    /// <paramref name="parentheses"/> around a lowered <paramref name="inner"/>
+    /// expression, or the bare name when a fix replaced the parenthesized work with one.
+    /// </summary>
+    public static ExpressionSyntax Rewrap(ParenthesizedExpressionSyntax parentheses, ExpressionSyntax inner) =>
+        inner is IdentifierNameSyntax or InvocationExpressionSyntax { Expression: IdentifierNameSyntax }
+        && !inner.IsEquivalentTo(parentheses.Expression)
+            ? inner
+            : parentheses.WithExpression(inner).WithoutTrivia();
 }

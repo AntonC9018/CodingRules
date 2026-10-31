@@ -3,16 +3,14 @@ public static class Consumer
     private static int Use(int value) => value;
     public static int Compute(bool flag)
     {
-        int CalculateValue()
+        int TODO_CALCULATION()
         {
             if (flag)
             {
                 return 1;
             }
-
             return 2;
         }
-
-        return Use(CalculateValue());
+        return Use(TODO_CALCULATION());
     }
 }

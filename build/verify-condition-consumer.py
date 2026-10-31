@@ -42,7 +42,7 @@ class Generated {
             if marker:
                 anchor = line[:marker.start()].index(marker[2]) + 1
                 expected.add(("Findings.cs", str(number), str(anchor), "warning", marker[1]))
-        assert len(expected) == 6, expected
+        assert len(expected) == 2, expected
         run(["dotnet", "restore", "Consumer.csproj"], consumer, environment)
         build = ["dotnet", "build", "Consumer.csproj", "--no-restore", "--no-incremental"]
         output = run(build, consumer, environment)
@@ -89,7 +89,7 @@ class Generated {
         run(command, consumer, environment)
         assert {path.name: path.read_bytes() for path in consumer.glob("*.cs")} == fixed
         run([*command, "--verify-no-changes"], consumer, environment)
-        print("PASS: six exact findings, accepted/generated cases, severity transport, packaged semantic fixes, "
+        print("PASS: two exact findings, accepted/generated cases, severity transport, packaged semantic fixes, "
               "all status matches and runtime trace, second-pass stability; isolated package.")
 
 

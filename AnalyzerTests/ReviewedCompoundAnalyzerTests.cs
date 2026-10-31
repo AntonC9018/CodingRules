@@ -25,7 +25,7 @@ public sealed class ReviewedCompoundAnalyzerTests
             .Where(item => item.match.Success)
             .Select(item => (item.match.Groups[1].Value, item.number,
                 item.line.IndexOf(item.match.Groups[2].Value.Trim(), StringComparison.Ordinal))).ToArray();
-        Assert.Equal(6, expected.Length);
+        Assert.Equal(2, expected.Length);
         Assert.Equal(expected, diagnostics.Select(d => (d.Id, d.Location.GetLineSpan().StartLinePosition.Line,
             d.Location.GetLineSpan().StartLinePosition.Character)));
         Assert.All(diagnostics, d => Assert.Equal(DiagnosticSeverity.Warning, d.Severity));
@@ -37,7 +37,7 @@ public sealed class ReviewedCompoundAnalyzerTests
     public async Task SharedFixturesHonorSeverity(ReportDiagnostic severity)
     {
         var diagnostics = await Analyze(Fixture("Findings.cs"), Fixture("Accepted.cs"), severity);
-        Assert.Equal(severity == ReportDiagnostic.Suppress ? 0 : 6, diagnostics.Length);
+        Assert.Equal(severity == ReportDiagnostic.Suppress ? 0 : 2, diagnostics.Length);
         Assert.All(diagnostics, d => Assert.Equal(DiagnosticSeverity.Error, d.Severity));
     }
 

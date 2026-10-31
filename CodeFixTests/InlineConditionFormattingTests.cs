@@ -13,13 +13,13 @@ public sealed class InlineConditionFormattingTests
         var source = """
             class C
             {
-                bool M(bool a, bool b, bool c) => {|CR0201:a && b && c|};
+                bool M(bool a, bool b, bool c, bool d) => {|CR0201:a && b && c && d|};
             }
             """;
         var expected = """
             class C
             {
-                bool M(bool a, bool b, bool c)
+                bool M(bool a, bool b, bool c, bool d)
                 {
                     bool TODO_CONDITION()
                     {
@@ -34,6 +34,11 @@ public sealed class InlineConditionFormattingTests
                         }
 
                         if (!c)
+                        {
+                            return false;
+                        }
+
+                        if (!d)
                         {
                             return false;
                         }
@@ -60,13 +65,13 @@ public sealed class InlineConditionFormattingTests
         var source = """
             class C
             {
-                bool M(bool a, bool b, bool c) => {|CR0201:a && b && c|};
+                bool M(bool a, bool b, bool c, bool d) => {|CR0201:a && b && c && d|};
             }
             """;
         var expected = """
             class C
             {
-                bool M(bool a, bool b, bool c)
+                bool M(bool a, bool b, bool c, bool d)
                 {
                     if (!a)
                     {
@@ -79,6 +84,11 @@ public sealed class InlineConditionFormattingTests
                     }
 
                     if (!c)
+                    {
+                        return false;
+                    }
+
+                    if (!d)
                     {
                         return false;
                     }
@@ -101,7 +111,7 @@ public sealed class InlineConditionFormattingTests
     [InlineData(InlineConditionCodeFixProvider.ExpandKey)]
     public async Task GeneratedCodeUsesConfiguredTabsBracesAndLf(string key)
     {
-        var source = "class C\r\n{\r\n    bool M(bool a, bool b, bool c) => a && b && c;\r\n}\r\n";
+        var source = "class C\r\n{\r\n    bool M(bool a, bool b, bool c, bool d) => a && b && c && d;\r\n}\r\n";
         var config = "root = true\n[*]\nindent_style = tab\nindent_size = 4\nend_of_line = lf\ncsharp_new_line_before_open_brace = none\n";
         var document = InlineConditionTestFixture.Document(source, config);
         var changed = await InlineConditionTestFixture.Fix(document, key);

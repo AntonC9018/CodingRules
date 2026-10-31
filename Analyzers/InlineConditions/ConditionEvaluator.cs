@@ -6,75 +6,31 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CodingRules;
 
-/// <summary>Evaluates the original tree once, in order, without Boolean algebra.</summary>
+/// <summary>
+/// Evaluates the original tree once, in order, without Boolean algebra. Decisions
+/// become guard clauses with literal returns; no mutable result variable is used.
+/// </summary>
 internal sealed class ConditionEvaluator
 {
     internal static readonly SyntaxAnnotation Linearized = new("InlineConditionLinearized");
     private readonly SemanticModel model;
     private readonly EvaluationNames names;
+    private readonly StableValues? stable;
+    private readonly HashSet<string> settled = new();
 
-    public ConditionEvaluator(SemanticModel model, SyntaxNode declarationSpace)
+    public ConditionEvaluator(SemanticModel model, SyntaxNode declarationSpace, ExpressionSyntax? site = null)
     {
         this.model = model;
         names = new EvaluationNames(declarationSpace, model);
+        stable = site is null ? null : new StableValues(model, declarationSpace, site);
     }
 
     public string FreshName(Placeholder placeholder) => names.Fresh(placeholder);
 
     public string FreshName(string domainName) => names.Fresh(domainName);
 
-    public List<StatementSyntax> Evaluate(ExpressionSyntax expression, string result)
-    {
-        expression = Parentheses.Unwrap(expression);
-        if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
-        {
-            var leaves = new List<ExpressionSyntax>();
-            ConditionFacts.CollectChain(binary, binary.Kind(), leaves);
-            return EvaluateChain(leaves, 0, binary.Kind(), result);
-        }
-
-        if (expression is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression))
-        {
-            var statements = Evaluate(unary.Operand, result);
-            statements.Add(Assign(result, Negate(SyntaxFactory.IdentifierName(result))));
-            return statements;
-        }
-
-        var prefixes = new List<StatementSyntax>();
-        var leaf = LowerLeaf(expression, prefixes, saveProducer: false);
-        prefixes.Add(Assign(result, leaf));
-        return prefixes;
-    }
-
-    private List<StatementSyntax> EvaluateChain(List<ExpressionSyntax> leaves, int index, SyntaxKind kind, string result)
-    {
-        if (index == leaves.Count - 1)
-        {
-            return Evaluate(leaves[index], result);
-        }
-
-        var statements = new List<StatementSyntax>();
-        ExpressionSyntax condition;
-        if (IsAtomic(leaves[index]) && !model.GetConstantValue(leaves[index]).HasValue)
-        {
-            condition = LowerLeaf(leaves[index], statements, saveProducer: false);
-        }
-        else
-        {
-            statements.AddRange(Evaluate(leaves[index], result));
-            condition = SyntaxFactory.IdentifierName(result);
-        }
-
-        var next = SyntaxFactory.Block(EvaluateChain(leaves, index + 1, kind, result));
-        var terminal = SyntaxFactory.Block(Assign(result, SyntaxFactory.LiteralExpression(
-            kind == SyntaxKind.LogicalAndExpression ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)));
-        var trueBranch = kind == SyntaxKind.LogicalAndExpression ? next : terminal;
-        var falseBranch = kind == SyntaxKind.LogicalAndExpression ? terminal : next;
-        statements.Add(SyntaxFactory.IfStatement(condition, trueBranch, SyntaxFactory.ElseClause(falseBranch)));
-        return statements;
-    }
-
-    private static bool IsAtomic(ExpressionSyntax expression)
+    /// <summary>A leaf that is not itself a short-circuit decision, possibly negated.</summary>
+    internal static bool IsAtomic(ExpressionSyntax expression)
     {
         expression = Parentheses.Unwrap(expression);
         if (expression is BinaryExpressionSyntax binary && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
@@ -122,7 +78,7 @@ internal sealed class ConditionEvaluator
         }
         var prefixes = new List<StatementSyntax>();
         var condition = LowerLeaf(expression, prefixes, saveProducer: false);
-        if (model.GetConstantValue(expression).HasValue) condition = Save(expression, condition, prefixes);
+        if (model.GetConstantValue(expression).HasValue) condition = Declare(expression, condition, prefixes);
         if (!exitWhenTrue) condition = NegateCondition(expression, condition);
         prefixes.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(SyntaxFactory.ReturnStatement(
             SyntaxFactory.LiteralExpression(result ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression)))));
@@ -139,17 +95,15 @@ internal sealed class ConditionEvaluator
         {
             // A gate with a mixed left subtree must not duplicate its body.
             // A local function owns that decision and retains lazy evaluation.
-            var name = FreshName(Placeholder.Condition);
-            var helper = SyntaxFactory.LocalFunctionStatement(
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)), name)
-                .WithBody(ReturnBody(expression));
-            var condition = (ExpressionSyntax)SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name));
+            var statements = new List<StatementSyntax>();
+            var condition = Decide(expression, statements);
             if (!whenTrue) condition = Negate(condition);
-            return new List<StatementSyntax> { helper, SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(body)) };
+            statements.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(body)));
+            return statements;
         }
         var prefixes = new List<StatementSyntax>();
         var leaf = LowerLeaf(expression, prefixes, saveProducer: false);
-        if (model.GetConstantValue(expression).HasValue) leaf = Save(expression, leaf, prefixes);
+        if (model.GetConstantValue(expression).HasValue) leaf = Declare(expression, leaf, prefixes);
         if (!whenTrue) leaf = NegateCondition(expression, leaf);
         prefixes.Add(SyntaxFactory.IfStatement(leaf, SyntaxFactory.Block(body)));
         return prefixes;
@@ -176,24 +130,9 @@ internal sealed class ConditionEvaluator
         return Negate(lowered);
     }
 
-    private static bool CollectGuards(ExpressionSyntax expression, SyntaxKind kind, List<ExpressionSyntax> leaves)
-    {
-        ConditionFacts.CollectChain(expression, kind, leaves);
-        return leaves.All(IsAtomic);
-    }
-
-    public ExpressionSyntax LowerCondition(ExpressionSyntax expression, List<StatementSyntax> statements)
-    {
-        if (IsAtomic(expression) && !model.GetConstantValue(expression).HasValue)
-        {
-            return LowerLeaf(expression, statements, saveProducer: false);
-        }
-
-        var result = FreshName(Placeholder.Variable);
-        statements.Add(DeclareBool(result));
-        statements.AddRange(Evaluate(expression, result));
-        return SyntaxFactory.IdentifierName(result);
-    }
+    /// <summary>A flow-preserving guard leaf; the plan admits only atomic, non-constant leaves.</summary>
+    public ExpressionSyntax LowerCondition(ExpressionSyntax expression, List<StatementSyntax> statements) =>
+        LowerLeaf(expression, statements, saveProducer: false);
 
     private ExpressionSyntax LowerLeaf(ExpressionSyntax expression, List<StatementSyntax> statements, bool saveProducer) =>
         LowerOriginal(expression, statements, saveProducer).WithAdditionalAnnotations(Linearized);
@@ -203,33 +142,24 @@ internal sealed class ConditionEvaluator
         var original = expression;
         if (expression is ParenthesizedExpressionSyntax parentheses)
         {
-            return parentheses.WithExpression(LowerOriginal(parentheses.Expression, statements, saveProducer)).WithoutTrivia();
+            var inner = LowerOriginal(parentheses.Expression, statements, saveProducer);
+            // A name that replaced the parenthesized work needs no parentheses.
+            return inner is IdentifierNameSyntax or InvocationExpressionSyntax { Expression: IdentifierNameSyntax }
+                && !inner.IsEquivalentTo(parentheses.Expression) ? inner : parentheses.WithExpression(inner).WithoutTrivia();
         }
 
         var producer = ConditionFacts.IsProducer(expression, model);
+        // A nested decision or conditional value keeps its own short-circuiting.
+        // A nested decision with work becomes a guard-clause local function called
+        // in place; a nested conditional value with work is saved whole.
         if (expression is BinaryExpressionSyntax lazy && lazy.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
         {
-            var result = FreshName(Placeholder.Variable);
-            statements.Add(DeclareBool(result));
-            statements.AddRange(Evaluate(lazy, result));
-            return SyntaxFactory.IdentifierName(result);
+            return HasProducer(expression) ? Decide(expression, statements) : expression.WithoutTrivia();
         }
 
-        if (expression is ConditionalExpressionSyntax conditional && HasProducer(conditional))
+        if (expression is ConditionalExpressionSyntax)
         {
-            var result = FreshName(Placeholder.Variable);
-            statements.Add(SyntaxFactory.LocalDeclarationStatement(SyntaxFactory.VariableDeclaration(
-                TypeSyntax(model.GetTypeInfo(conditional).Type), SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator(result)))));
-            var condition = LowerCondition(conditional.Condition, statements);
-            var whenTrue = new List<StatementSyntax>();
-            var trueValue = LowerOriginal(conditional.WhenTrue, whenTrue, saveProducer: true);
-            whenTrue.Add(Assign(result, trueValue));
-            var whenFalse = new List<StatementSyntax>();
-            var falseValue = LowerOriginal(conditional.WhenFalse, whenFalse, saveProducer: true);
-            whenFalse.Add(Assign(result, falseValue));
-            statements.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(whenTrue),
-                SyntaxFactory.ElseClause(SyntaxFactory.Block(whenFalse))));
-            return SyntaxFactory.IdentifierName(result);
+            return saveProducer && HasProducer(expression) ? Save(original, expression, statements) : expression.WithoutTrivia();
         }
 
         if (expression is PrefixUnaryExpressionSyntax unary && unary.Kind() is SyntaxKind.LogicalNotExpression
@@ -307,10 +237,39 @@ internal sealed class ConditionEvaluator
 
         if (producer && saveProducer)
         {
+            if (stable?.HoistableTarget(original) is { } target)
+            {
+                // Run the mutation as its own statement and read its result back,
+                // rather than chaining it into another declaration.
+                statements.Add(SyntaxFactory.ExpressionStatement(expression.WithoutTrivia().WithAdditionalAnnotations(Linearized)));
+                settled.Add(target.Name);
+                return SyntaxFactory.IdentifierName(target.Name);
+            }
+
             return Save(original, expression, statements);
         }
 
         return expression.WithoutTrivia();
+    }
+
+    /// <summary>Defines a <c>TODO_CONDITION</c> guard-clause local function for a nested decision and calls it.</summary>
+    private ExpressionSyntax Decide(ExpressionSyntax decision, List<StatementSyntax> statements)
+    {
+        var name = FreshName(Placeholder.Condition);
+        statements.Add(SyntaxFactory.LocalFunctionStatement(
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)), name)
+            .WithBody(ReturnBody(decision)));
+        return SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name));
+    }
+
+    // A value needs no copy when later work cannot change it: a constant, a
+    // variable this evaluator already saved or hoisted, or an unchanged local.
+    private bool IsSettled(ExpressionSyntax original, ExpressionSyntax value)
+    {
+        if (model.GetConstantValue(original).HasValue && original.IsEquivalentTo(value)) return true;
+        if (Parentheses.Unwrap(value) is not IdentifierNameSyntax identifier) return false;
+        if (settled.Contains(identifier.Identifier.ValueText)) return true;
+        return stable is not null && original.IsEquivalentTo(value) && stable.IsStable(original);
     }
 
     private bool HasProducer(ExpressionSyntax expression) =>
@@ -318,7 +277,14 @@ internal sealed class ConditionEvaluator
 
     public ExpressionSyntax Save(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
     {
+        return IsSettled(original, value) ? value : Declare(original, value, statements, type);
+    }
+
+    // A constant guard leaf is declared too, so the guard does not test a constant.
+    private ExpressionSyntax Declare(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
+    {
         var name = FreshName(Placeholder.Variable);
+        settled.Add(name);
         type ??= model.GetTypeInfo(original).Type;
         var declaration = SyntaxFactory.VariableDeclaration(type is null ? TypeSyntax(type)
             : EvaluationSyntax.Type(type, model, original.SpanStart), SyntaxFactory.SingletonSeparatedList(
@@ -330,14 +296,6 @@ internal sealed class ConditionEvaluator
 
     internal static TypeSyntax TypeSyntax(ITypeSymbol? type) => type is null
         ? SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)) : EvaluationSyntax.Type(type);
-
-    internal static LocalDeclarationStatementSyntax DeclareBool(string name) => SyntaxFactory.LocalDeclarationStatement(
-        SyntaxFactory.VariableDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)),
-            SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator(name))));
-
-    private static ExpressionStatementSyntax Assign(string name, ExpressionSyntax expression) => SyntaxFactory.ExpressionStatement(
-        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName(name),
-            expression.WithAdditionalAnnotations(Linearized)));
 
     internal static ExpressionSyntax Negate(ExpressionSyntax expression)
     {

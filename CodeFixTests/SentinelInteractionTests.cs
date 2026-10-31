@@ -19,7 +19,7 @@ public sealed class SentinelInteractionTests
                 static int Forward(string text) => Search(text, 0, 1);
                 static bool ReturnRule(bool a, bool b) { if (a) return true; return b && a; }
                 static int Nested(bool a) { if (a) { return a ? 1 : 2; } return 0; }
-                static bool Condition(bool a, bool b, bool c) => a && b && c;
+                static bool Condition(bool a, bool b, bool c, bool d) => a && b && c && d;
                 static int Get(int a) => a;
                 static void Use(int a) {}
                 static void Operations() => Use(Get(1));

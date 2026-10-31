@@ -17,8 +17,7 @@ internal sealed class OperationEvaluator
     private readonly Dictionary<string, ITypeSymbol> savedValues = new();
     private readonly SemanticModel model;
     private readonly bool lowerConditionProducers;
-    private readonly HashSet<ISymbol> changingValues;
-    private readonly bool canReuseValues;
+    private readonly StableValues stable;
     public EvaluationNames Names { get; }
 
     public OperationEvaluator(OperationPlan plan, ExpressionSyntax expression)
@@ -26,52 +25,7 @@ internal sealed class OperationEvaluator
         model = plan.Model;
         Names = new EvaluationNames(plan.DeclarationSpace, model);
         lowerConditionProducers = OperationPlan.HasConditionReason(expression, model);
-        changingValues = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        var flow = model.AnalyzeDataFlow(expression);
-        canReuseValues = flow is { Succeeded: true };
-        if (flow is { Succeeded: true }) changingValues.UnionWith(flow.WrittenInside);
-        foreach (var closure in plan.DeclarationSpace.DescendantNodes()
-                     .Where(node => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
-            AddClosureWrites(closure);
-    }
-
-    private void AddClosureWrites(SyntaxNode closure)
-    {
-        var body = closure switch
-        {
-            AnonymousFunctionExpressionSyntax { Body: { } lambdaBody } => lambdaBody,
-            LocalFunctionStatementSyntax { Body: { } localBody } => localBody,
-            LocalFunctionStatementSyntax { ExpressionBody: { } expressionBody } => expressionBody.Expression,
-            _ => null,
-        };
-        var flow = body is null ? null : model.AnalyzeDataFlow(body);
-        if (flow is { Succeeded: true })
-        {
-            changingValues.UnionWith(flow.WrittenInside);
-            foreach (var argument in body!.DescendantNodes().OfType<ArgumentSyntax>()
-                         .Where(IsReferenceArgument))
-            {
-                foreach (var identifier in argument.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
-                {
-                    if (model.GetSymbolInfo(identifier).Symbol is { } symbol) changingValues.Add(symbol);
-                }
-            }
-            return;
-        }
-
-        // A failed body analysis cannot prove that a captured value stays stable.
-        foreach (var identifier in closure.DescendantNodes().OfType<IdentifierNameSyntax>())
-        {
-            if (model.GetSymbolInfo(identifier).Symbol is { } symbol) changingValues.Add(symbol);
-        }
-    }
-
-    private bool IsReferenceArgument(ArgumentSyntax argument)
-    {
-        var refKind = (model.GetOperation(argument) as IArgumentOperation)?.Parameter?.RefKind;
-        return refKind is not null and not RefKind.None || argument.RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword)
-            || argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
-            || argument.RefOrOutKeyword.IsKind(SyntaxKind.InKeyword);
+        stable = new StableValues(model, plan.DeclarationSpace, expression);
     }
 
     public ExpressionSyntax Lower(ExpressionSyntax expression, List<StatementSyntax> statements, bool save = false)
@@ -255,14 +209,9 @@ internal sealed class OperationEvaluator
         if (model.GetConstantValue(original).HasValue && !HasWork(original)
             && model.ClassifyConversion(original, type).IsIdentity)
             return value.WithAdditionalAnnotations(Conversion(original, type));
-        if (canReuseValues && original is IdentifierNameSyntax source && value is IdentifierNameSyntax same
-            && same.Identifier.ValueText == source.Identifier.ValueText)
-        {
-            var symbol = model.GetSymbolInfo(original).Symbol;
-            if (symbol is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None }
-                && !changingValues.Contains(symbol)
-                && SymbolEqualityComparer.IncludeNullability.Equals(OperationPlan.SymbolType(symbol), type)) return value;
-        }
+        // An unchanged local or parameter is read in place; copying it would only add an alias.
+        if (original is IdentifierNameSyntax source && value is IdentifierNameSyntax same
+            && same.Identifier.ValueText == source.Identifier.ValueText && stable.IsStable(original)) return value;
         if (value is IdentifierNameSyntax saved && savedValues.TryGetValue(saved.Identifier.ValueText, out var existingType)
             && SymbolEqualityComparer.IncludeNullability.Equals(existingType, type)) return value;
         // Lower may already have staged a target-typed construction. Its

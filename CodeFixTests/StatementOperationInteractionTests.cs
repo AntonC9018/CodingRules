@@ -42,7 +42,7 @@ public sealed class StatementOperationInteractionTests
     [InlineData(StatementOperationCodeFixProvider.ExpandKey)]
     public async Task UnrelatedFrozenWarningsRemainVisible(string key)
     {
-        const string source = "class C { static int Get(int x)=>x; static int Use(int x)=>x; static int M(bool a,bool b,bool c) { var value=Use(Get(1)); if(a&&b&&c) return value; return a ? 2 : 3; } }";
+        const string source = "class C { static int Get(int x)=>x; static int Use(int x)=>x; static int M(bool a,bool b,bool c,bool d) { var value=Use(Get(1)); if(a&&b&&c&&d) return value; return a ? 2 : 3; } }";
         var document = StatementOperationTestFixture.Document(source);
         var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document, key));
         Assert.Equal(new[] { "CR0201", "CR0001" }, (await All(changed)).Select(diagnostic => diagnostic.Id));

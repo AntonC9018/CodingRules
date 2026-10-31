@@ -17,6 +17,8 @@ internal sealed class ConditionRewritePlan
     public bool CanExtract { get; private set; }
     public bool CanExpand { get; private set; }
     public bool NeedsFlowPreservingIf { get; private set; }
+    /// <summary>A leading assignment or prefix increment that expansion runs before the <c>if</c>.</summary>
+    public ExpressionSyntax? HoistedMutation { get; private set; }
     public List<ILocalSymbol> BridgeVariables { get; } = new();
 
     private ConditionRewritePlan(ExpressionSyntax expression, SemanticModel model)
@@ -125,6 +127,7 @@ internal sealed class ConditionRewritePlan
         {
             plan.CanExpand = plan.Statement is IfStatementSyntax { Else: null } flowIf
                 && Parentheses.Unwrap(expression) == Parentheses.Unwrap(flowIf.Condition)
+                && HasSimpleGuardLeaves(expression, model)
                 && IsFlowPreserving(flowIf, externalDeclarations, plan.DeclarationSpace, model);
             if (WouldHideReturnWarning(plan, token))
             {
@@ -158,12 +161,29 @@ internal sealed class ConditionRewritePlan
             plan.CanExpand = false;
         }
 
+        plan.HoistedMutation = ConditionSiteRewrites.FindHoistableMutation(expression, plan.Statement, model, plan.DeclarationSpace);
+        if (plan.HoistedMutation is not null)
+        {
+            plan.CanExpand = true;
+        }
+
         if (plan.CanExpand && !ConditionSiteRewrites.SupportsExpansion(plan))
         {
             plan.CanExpand = false;
         }
 
         return plan;
+    }
+
+    // Separate guards test each leaf directly; a nested decision or a constant
+    // would need a result variable, which expansion never introduces.
+    private static bool HasSimpleGuardLeaves(ExpressionSyntax expression, SemanticModel model)
+    {
+        var condition = Parentheses.Unwrap(expression);
+        if (condition is not BinaryExpressionSyntax binary) return false;
+        var leaves = new List<ExpressionSyntax>();
+        ConditionFacts.CollectChain(condition, binary.Kind(), leaves);
+        return leaves.All(leaf => ConditionEvaluator.IsAtomic(leaf) && !model.GetConstantValue(leaf).HasValue);
     }
 
     private static bool CanLowerOperations(ExpressionSyntax expression, SemanticModel model)

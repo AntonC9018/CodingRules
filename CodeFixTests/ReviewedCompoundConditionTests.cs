@@ -77,10 +77,10 @@ public sealed class ReviewedCompoundConditionTests
         """;
 
     [Theory]
-    [InlineData("config", "CR0201")]
+    [InlineData("config", null)]
     [InlineData("json", "CR0203")]
-    [InlineData("cancellation", "CR0202")]
-    [InlineData("authentication", "CR0202")]
+    [InlineData("cancellation", null)]
+    [InlineData("authentication", null)]
     [InlineData("status", "CR0203")]
     public async Task ExistingFamiliesFixPinnedExamples(string example, string? expected)
     {
@@ -232,7 +232,7 @@ public sealed class ReviewedCompoundConditionTests
         var document = InlineConditionTestFixture.Document(source);
         var before = await InlineConditionTestFixture.Run(document);
         var diagnostics = await InlineConditionTestFixture.Diagnostics(document);
-        Assert.Equal(6, diagnostics.Length);
+        Assert.Equal(2, diagnostics.Length);
         foreach (var diagnostic in diagnostics)
         {
             var actions = await InlineConditionTestFixture.Actions(document, diagnostic);

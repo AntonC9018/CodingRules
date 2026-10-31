@@ -15,83 +15,60 @@ internal static class ConditionSiteRewrites
     public static bool SupportsExtraction(ExpressionSyntax expression) =>
         ConditionHosts.FindStatement(expression) is not null || IsMemberInitializer(expression) || FindExpressionBody(expression) is not null;
 
-    public static bool SupportsExpansion(ConditionRewritePlan plan)
+    /// <summary>
+    /// Statement expansion never introduces a mutable result variable. A whole
+    /// returned condition becomes guard clauses with literal returns, a leading
+    /// mutation is hoisted before its <c>if</c>, and a condition whose declarations
+    /// or nullable state flow onward becomes separate guards.
+    /// </summary>
+    public static bool SupportsExpansion(ConditionRewritePlan plan) =>
+        IsWholeReturnedCondition(plan) || plan.HoistedMutation is not null || plan.NeedsFlowPreservingIf;
+
+    private static bool IsWholeReturnedCondition(ConditionRewritePlan plan)
     {
         var expression = plan.Expression;
-        if (expression.Parent is CatchFilterClauseSyntax or WhenClauseSyntax)
-        {
-            return false;
-        }
-
-        if (plan.NeedsFlowPreservingIf)
-        {
-            return true;
-        }
-
-        if (expression.Parent is ArrowExpressionClauseSyntax or LambdaExpressionSyntax)
-        {
-            return true;
-        }
-
-        var statement = plan.Statement;
-        if (statement is null)
-        {
-            return false;
-        }
-
-        if (expression.Parent is ArgumentSyntax argument)
-        {
-            var call = argument.Parent?.Parent;
-            var assignedCall = call?.Parent is AssignmentExpressionSyntax callAssignment && callAssignment.Right == call
-                && callAssignment.Parent is ExpressionStatementSyntax
-                && plan.Model.GetSymbolInfo(callAssignment.Left).Symbol is ILocalSymbol { RefKind: RefKind.None };
-            var ifCall = call?.Parent is IfStatementSyntax ifHost && ifHost.Condition == call;
-            if (call is not InvocationExpressionSyntax and not ObjectCreationExpressionSyntax
-                || call.Parent is not ExpressionStatementSyntax and not EqualsValueClauseSyntax && !assignedCall && !ifCall)
-            {
-                return false;
-            }
-
-            var operation = plan.Model.GetOperation(call);
-            var arguments = operation switch
-            {
-                IInvocationOperation invocation => invocation.Arguments,
-                IObjectCreationOperation creation => creation.Arguments,
-                _ => default,
-            };
-            if (arguments.IsDefault || arguments.Any(item => item.Parameter?.RefKind != RefKind.None
-                || item.ArgumentKind == ArgumentKind.ParamArray || item.Parameter?.Type.IsRefLikeType == true))
-            {
-                return false;
-            }
-
-            return operation is not IInvocationOperation { Instance.Type.IsValueType: true };
-        }
-
-        if (expression.Parent is AssignmentExpressionSyntax assignment)
-        {
-            return assignment.Parent is ExpressionStatementSyntax && plan.Model.GetSymbolInfo(assignment.Left).Symbol
-                is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None };
-        }
-
-        if (expression.Parent is EqualsValueClauseSyntax)
-        {
-            return statement is LocalDeclarationStatementSyntax { Declaration.Variables.Count: 1 };
-        }
-
-        if (expression.Parent is ConditionalExpressionSyntax conditional)
-        {
-            return conditional.Parent is EqualsValueClauseSyntax or ReturnStatementSyntax
-                || conditional.Parent is AssignmentExpressionSyntax { Parent: ExpressionStatementSyntax };
-        }
-
-        return expression.Parent is IfStatementSyntax or ReturnStatementSyntax or WhileStatementSyntax
-            or ForStatementSyntax or DoStatementSyntax;
+        return expression.Parent is ArrowExpressionClauseSyntax or LambdaExpressionSyntax
+            || plan.Statement is ReturnStatementSyntax statement && statement.Expression == expression;
     }
+
+    /// <summary>
+    /// The simple assignment or prefix increment evaluated first by an <c>if</c>
+    /// condition, when it can run as its own statement before the <c>if</c>.
+    /// </summary>
+    public static ExpressionSyntax? FindHoistableMutation(ExpressionSyntax condition, StatementSyntax? statement,
+        SemanticModel model, SyntaxNode declarationSpace)
+    {
+        if (statement is not IfStatementSyntax ifStatement || ifStatement.Condition != condition
+            || statement.Parent is not (BlockSyntax or SwitchSectionSyntax or GlobalStatementSyntax))
+        {
+            return null;
+        }
+
+        var node = Parentheses.Unwrap(condition);
+        while (!IsHoistableMutationKind(node))
+        {
+            // Follow the operand C# evaluates first; anything else may be skipped or reordered.
+            ExpressionSyntax? first = node switch
+            {
+                BinaryExpressionSyntax binary => binary.Left,
+                IsPatternExpressionSyntax pattern => pattern.Expression,
+                PrefixUnaryExpressionSyntax unary => unary.Operand,
+                CastExpressionSyntax cast => cast.Expression,
+                _ => null,
+            };
+            if (first is null) return null;
+            node = Parentheses.Unwrap(first);
+        }
+
+        return new StableValues(model, declarationSpace, condition).HoistableTarget(node) is null ? null : node;
+    }
+
+    private static bool IsHoistableMutationKind(ExpressionSyntax node) => node.Kind() is SyntaxKind.SimpleAssignmentExpression
+        or SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression;
 
     public static SyntaxNode Rewrite(ConditionRewritePlan plan, bool extract)
     {
-        var evaluator = new ConditionEvaluator(plan.Model, plan.DeclarationSpace);
+        var evaluator = new ConditionEvaluator(plan.Model, plan.DeclarationSpace, plan.Expression);
         return extract ? Extract(plan, evaluator) : Expand(plan, evaluator);
     }
 
@@ -178,80 +155,63 @@ internal static class ConditionSiteRewrites
             return ReplaceStatement(root, statement, evaluator.ReturnBody(plan.Expression).Statements.ToList());
         }
 
-        if (plan.NeedsFlowPreservingIf)
+        if (plan.HoistedMutation is not null)
         {
-            return ExpandFlowIf(plan, evaluator);
+            return HoistMutation(plan, root);
         }
 
-        var result = evaluator.FreshName(Placeholder.Variable);
-        var prefixes = new List<StatementSyntax>();
-        var changedStatement = PrepareEarlierArguments(plan, evaluator, prefixes);
-        prefixes.Add(ConditionEvaluator.DeclareBool(result));
-        prefixes.AddRange(evaluator.Evaluate(plan.Expression, result));
-        var replacementExpression = SyntaxFactory.IdentifierName(result).WithTriviaFrom(plan.Expression);
-        changedStatement = changedStatement.ReplaceNode(changedStatement.DescendantNodesAndSelf().OfType<ExpressionSyntax>()
-            .First(node => node.HasAnnotation(Selected)), replacementExpression);
-
-        if (plan.Statement is WhileStatementSyntax whileLoop && plan.Expression.Parent == whileLoop)
-        {
-            prefixes.Add(FalseBreak(result));
-            prefixes.Add(whileLoop.Statement);
-            var loop = whileLoop.WithCondition(SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression))
-                .WithStatement(SyntaxFactory.Block(prefixes)).WithAdditionalAnnotations(Generated);
-            return root.ReplaceNode(whileLoop, loop);
-        }
-
-        if (plan.Statement is ForStatementSyntax forLoop && plan.Expression.Parent == forLoop)
-        {
-            prefixes.Add(FalseBreak(result));
-            prefixes.Add(forLoop.Statement);
-            return root.ReplaceNode(forLoop, forLoop.WithCondition(null).WithStatement(SyntaxFactory.Block(prefixes))
-                .WithAdditionalAnnotations(Generated));
-        }
-
-        if (plan.Statement is DoStatementSyntax doLoop && plan.Expression.Parent == doLoop)
-        {
-            prefixes.Insert(0, doLoop.Statement);
-            prefixes.Add(FalseBreak(result));
-            var loop = SyntaxFactory.WhileStatement(SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression), SyntaxFactory.Block(prefixes));
-            return root.ReplaceNode(doLoop, loop.WithTriviaFrom(doLoop).WithAdditionalAnnotations(Generated));
-        }
-
-        prefixes.Add(changedStatement);
-        return ReplaceStatement(root, plan.Statement!, prefixes);
+        return ExpandFlowIf(plan, evaluator);
     }
 
-    private static readonly SyntaxAnnotation Selected = new("InlineConditionSelected");
-
-    private static StatementSyntax PrepareEarlierArguments(ConditionRewritePlan plan, ConditionEvaluator evaluator, List<StatementSyntax> prefixes)
+    // if ((c = Compare(a, b)) != 0) becomes c = Compare(a, b); if (c != 0). An
+    // immediately preceding uninitialized declaration of c takes the value instead.
+    private static SyntaxNode HoistMutation(ConditionRewritePlan plan, SyntaxNode root)
     {
-        if (plan.Expression.Parent is not ArgumentSyntax selectedArgument)
+        var statement = (IfStatementSyntax)plan.Statement!;
+        var mutation = plan.HoistedMutation!;
+        var variable = (IdentifierNameSyntax)(mutation is AssignmentExpressionSyntax assignment
+            ? assignment.Left : ((PrefixUnaryExpressionSyntax)mutation).Operand);
+        SyntaxNode replaced = mutation;
+        while (replaced.Parent is ParenthesizedExpressionSyntax parentheses) replaced = parentheses;
+        var read = SyntaxFactory.IdentifierName(variable.Identifier.ValueText).WithTriviaFrom(replaced);
+        var changedIf = statement.ReplaceNode(replaced, read);
+        changedIf = changedIf.WithCondition(changedIf.Condition.WithAdditionalAnnotations(ConditionEvaluator.Linearized));
+        if (mutation is AssignmentExpressionSyntax initializer
+            && PrecedingUninitializedDeclaration(statement, variable, plan.Model) is { } declaration)
         {
-            return plan.Statement!.ReplaceNode(plan.Expression, plan.Expression.WithAdditionalAnnotations(Selected));
+            var declarator = declaration.Declaration.Variables[0].WithInitializer(
+                SyntaxFactory.EqualsValueClause(initializer.Right.WithoutTrivia()));
+            var initialized = declaration.WithDeclaration(declaration.Declaration.WithVariables(
+                SyntaxFactory.SingletonSeparatedList(declarator)));
+            return root.ReplaceNodes(new SyntaxNode[] { declaration, statement },
+                (original, _) => original == declaration ? initialized : changedIf);
         }
 
-        var call = selectedArgument.Parent!.Parent!;
-        var replacements = new Dictionary<SyntaxNode, ExpressionSyntax>();
-        if (call is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } invocation
-            && plan.Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { IsStatic: false })
+        var hoisted = SyntaxFactory.ExpressionStatement(mutation.WithoutTrivia());
+        return ReplaceStatement(root, statement, new List<StatementSyntax> { hoisted, changedIf });
+    }
+
+    private static LocalDeclarationStatementSyntax? PrecedingUninitializedDeclaration(StatementSyntax statement,
+        IdentifierNameSyntax variable, SemanticModel model)
+    {
+        var statements = statement.Parent switch
         {
-            replacements.Add(access.Expression, evaluator.Save(access.Expression, access.Expression, prefixes));
+            BlockSyntax block => block.Statements,
+            SwitchSectionSyntax section => section.Statements,
+            _ => default,
+        };
+        var index = statements.IndexOf(statement);
+        if (index <= 0 || statements[index - 1] is not LocalDeclarationStatementSyntax declaration
+            || declaration.Declaration.Variables.Count != 1 || declaration.Declaration.Variables[0].Initializer is not null
+            || declaration.Modifiers.Count != 0 || declaration.ContainsDirectives
+            || statement.GetLeadingTrivia().Any(trivia => trivia.Kind() is SyntaxKind.SingleLineCommentTrivia
+                or SyntaxKind.MultiLineCommentTrivia))
+        {
+            return null;
         }
 
-        foreach (var argument in ((BaseArgumentListSyntax)selectedArgument.Parent).Arguments)
-        {
-            if (argument == selectedArgument)
-            {
-                break;
-            }
-
-            replacements.Add(argument.Expression, evaluator.Save(argument.Expression, argument.Expression, prefixes,
-                plan.Model.GetTypeInfo(argument.Expression).ConvertedType));
-        }
-
-        var nodes = replacements.Keys.Concat(new[] { plan.Expression });
-        return plan.Statement!.ReplaceNodes(nodes, (node, rewritten) => node == plan.Expression
-            ? rewritten.WithAdditionalAnnotations(Selected) : replacements[node]);
+        var declared = model.GetDeclaredSymbol(declaration.Declaration.Variables[0]);
+        return SymbolEqualityComparer.Default.Equals(declared, model.GetSymbolInfo(variable).Symbol) ? declaration : null;
     }
 
     private static SyntaxNode ExpandFlowIf(ConditionRewritePlan plan, ConditionEvaluator evaluator)
@@ -285,9 +245,6 @@ internal static class ConditionSiteRewrites
 
         return ReplaceStatement(statement.SyntaxTree.GetRoot(), statement, guards);
     }
-
-    private static IfStatementSyntax FalseBreak(string result) => SyntaxFactory.IfStatement(
-        ConditionEvaluator.Negate(SyntaxFactory.IdentifierName(result)), SyntaxFactory.Block(SyntaxFactory.BreakStatement()));
 
     internal static BlockSyntax AddElasticLineBreaks(BlockSyntax body)
     {

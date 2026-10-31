@@ -32,6 +32,13 @@ internal sealed class ConditionFacts
             return null;
         }
 
+        // A short decision over plain values is already one readable expression;
+        // splitting it only adds state or indirection without sequencing anything.
+        if (facts.Leaves.Count <= MaximumAcceptedSimpleOperands && facts.Leaves.All(IsSimpleOperand))
+        {
+            return facts;
+        }
+
         if (facts.hasAnd && facts.hasOr)
         {
             facts.Reasons.Add(DiagnosticIds.MixedConditionOperators);
@@ -72,6 +79,29 @@ internal sealed class ConditionFacts
 
         return facts;
     }
+
+    /// <summary>The most simple operands an accepted <c>&amp;&amp;</c>/<c>||</c> condition may combine.</summary>
+    internal const int MaximumAcceptedSimpleOperands = 3;
+
+    /// <summary>
+    /// A leaf that reads values and compares or pattern-matches them, with no call,
+    /// construction, mutation, conversion or nested decision whose order matters.
+    /// Property reads and pattern variables are simple.
+    /// </summary>
+    internal static bool IsSimpleOperand(ExpressionSyntax leaf) => EvaluationNodes(leaf).All(node => node switch
+    {
+        InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } } => true,
+        InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ArrayCreationExpressionSyntax
+            or ImplicitArrayCreationExpressionSyntax or ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
+            or ConditionalExpressionSyntax or AnonymousFunctionExpressionSyntax or AwaitExpressionSyntax
+            or AssignmentExpressionSyntax or CastExpressionSyntax or SwitchExpressionSyntax or QueryExpressionSyntax
+            or ThrowExpressionSyntax or WithExpressionSyntax or CollectionExpressionSyntax
+            or InterpolatedStringExpressionSyntax or StackAllocArrayCreationExpressionSyntax
+            or ImplicitStackAllocArrayCreationExpressionSyntax or RefExpressionSyntax => false,
+        PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => node.Kind() is not (SyntaxKind.PreIncrementExpression
+            or SyntaxKind.PreDecrementExpression or SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression),
+        _ => true,
+    });
 
     private static ExpressionSyntax UnwrapNegation(ExpressionSyntax expression) =>
         Parentheses.Unwrap(expression) is PrefixUnaryExpressionSyntax unary && unary.IsKind(SyntaxKind.LogicalNotExpression)

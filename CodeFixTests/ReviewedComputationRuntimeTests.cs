@@ -63,16 +63,14 @@ public sealed class ReviewedComputationRuntimeTests
         document = await FixOperations(document, StatementOperationCodeFixProvider.ExtractKey);
         Assert.Equal(expected, await StatementOperationTestFixture.Run(document));
         Assert.Equal("CR0203", Assert.Single(await InlineConditionTestFixture.Diagnostics(document)).Id);
-        foreach (var key in new[] { InlineConditionCodeFixProvider.ExtractKey, InlineConditionCodeFixProvider.ExpandKey })
-        {
-            var changed = await InlineConditionTestFixture.Reparse(await InlineConditionTestFixture.Fix(document, key));
-            Assert.Equal(expected, await StatementOperationTestFixture.Run(changed));
-            Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed));
-            // The lookup is a named producer before the null test, still reached
-            // only in the original short-circuited branch.
-            var text = (await changed.GetTextAsync()).ToString();
-            Assert.Contains(" = provider.GetService(", text);
-        }
+        // The guard is an if condition, which only extraction rewrites.
+        var changed = await InlineConditionTestFixture.Reparse(await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey));
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(changed));
+        Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed));
+        // The lookup is a named producer before the null test, still reached
+        // only in the original short-circuited branch.
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains(" = provider.GetService(", text);
     }
 
     [Theory]

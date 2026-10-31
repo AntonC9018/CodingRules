@@ -12,9 +12,6 @@ public sealed class InlineConditionHostTests
         var declarations = "static bool A() => true; static bool B() => true; static bool D() => true; static void Work() { }";
         var bodies = new[]
         {
-            "void M() { if (A() && B() && D()) Work(); }",
-            "void M() { var ok = A() && B() && D(); }",
-            "void M() { bool ok = A() && B() && D(); }",
             "bool M() { return A() && B() && D(); }",
             "bool M() { lock (new object()) { return A() && B() && D(); } }",
             "bool M() => A() && B() && D();",
@@ -23,14 +20,9 @@ public sealed class InlineConditionHostTests
             "void M() { bool Local() => A() && B() && D(); Work(); }",
             "void M() { System.Func<bool> f = () => A() && B() && D(); }",
             "void M() { System.Func<bool> f = static () => A() && B() && D(); }",
-            "void M() { bool ok = false; ok = A() && B() && D(); }",
-            "static void Use(bool b) { } void M() { Use(A() && B() && D()); }",
-            "public C(bool b) { } void M() { var c = new C(A() && B() && D()); }",
-            "void M() { var value = (A() && B() && D()) ? 1 : 2; }",
-            "void M() { while (A() && B() && D()) { break; } }",
-            "void M(int limit) { for (int i = 0; i < limit && B() && D(); i++) { Work(); } }",
-            "void M() { do { Work(); } while (A() && B() && D()); }",
         };
+        // Statement expansion replaces only a whole returned condition with guard
+        // clauses; other hosts use the guard-clause local function.
         foreach (var body in bodies)
         {
             yield return new object[] { "class C { " + declarations + " " + body + " }", true };
@@ -38,6 +30,16 @@ public sealed class InlineConditionHostTests
 
         var extractionOnly = new[]
         {
+            "void M() { if (A() && B() && D()) Work(); }",
+            "void M() { var ok = A() && B() && D(); }",
+            "void M() { bool ok = A() && B() && D(); }",
+            "void M() { bool ok = false; ok = A() && B() && D(); }",
+            "static void Use(bool b) { } void M() { Use(A() && B() && D()); }",
+            "public C(bool b) { } void M() { var c = new C(A() && B() && D()); }",
+            "void M() { var value = (A() && B() && D()) ? 1 : 2; }",
+            "void M() { while (A() && B() && D()) { break; } }",
+            "void M(int limit) { for (int i = 0; i < limit && B() && D(); i++) { Work(); } }",
+            "void M() { do { Work(); } while (A() && B() && D()); }",
             "void M() { try { Work(); } catch (System.Exception e) when (e.Message.Length > 0 && B() && D()) { } }",
             "void M() { try { Work(); } catch (System.Exception) when (A() && B() && D()) { } }",
             "void M(object value) { switch(value) { case int n when n > 0 && B() && D(): Work(); break; } }",

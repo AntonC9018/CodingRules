@@ -11,7 +11,7 @@ public sealed class InlineConditionSafetyTests
     [InlineData("string? Text { get; set; } = \"x\";", "Text")]
     public async Task NullableMemberNarrowingUsesFlowPreservingExpansion(string declaration, string name)
     {
-        var source = "class C { " + declaration + " void M(bool a, bool b) { if (" + name + " is not null && a && b) { System.Console.WriteLine(" + name + ".Length); } } }";
+        var source = "class C { " + declaration + " void M(bool a, bool b) { if (" + name + " is not null && a && b && " + name + ".Length > 0) { System.Console.WriteLine(" + name + ".Length); } } }";
         var document = InlineConditionTestFixture.Document(source);
         await InlineConditionTestFixture.Compiles(document);
         var diagnostic = Assert.Single(await InlineConditionTestFixture.Diagnostics(document));
@@ -43,11 +43,8 @@ public sealed class InlineConditionSafetyTests
         var document = InlineConditionTestFixture.Document(source);
         var before = await InlineConditionTestFixture.Run(document);
         Assert.Equal("True0", before);
-        foreach (var key in new[] { InlineConditionCodeFixProvider.ExtractKey, InlineConditionCodeFixProvider.ExpandKey })
-        {
-            var changed = await InlineConditionTestFixture.Fix(document, key);
-            Assert.Equal(before, await InlineConditionTestFixture.Run(changed));
-        }
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        Assert.Equal(before, await InlineConditionTestFixture.Run(changed));
     }
 
     [Fact]
@@ -63,14 +60,11 @@ public sealed class InlineConditionSafetyTests
     [Fact]
     public async Task SwitchSectionInitializerRetainsFollowingLocalReferences()
     {
-        var source = "class C { void M(int mode, bool a, bool b, bool c) { switch(mode) { case 1: var ok = a && b && c; System.Console.WriteLine(ok); break; case 2: break; } } }";
+        var source = "class C { void M(int mode, bool a, bool b, bool c, bool d) { switch(mode) { case 1: var ok = a && b && c && d; System.Console.WriteLine(ok); break; case 2: break; } } }";
         var document = InlineConditionTestFixture.Document(source);
-        foreach (var key in new[] { InlineConditionCodeFixProvider.ExtractKey, InlineConditionCodeFixProvider.ExpandKey })
-        {
-            var changed = await InlineConditionTestFixture.Fix(document, key);
-            await InlineConditionTestFixture.Compiles(changed);
-            Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed));
-        }
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        await InlineConditionTestFixture.Compiles(changed);
+        Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed));
     }
 
     [Fact]
@@ -110,18 +104,15 @@ public sealed class InlineConditionSafetyTests
         var document = InlineConditionTestFixture.Document("bool A()=>true; bool B()=>true; bool D()=>true; if(A() && B() && D()) System.Console.WriteLine(\"work\");");
         document = document.Project.WithCompilationOptions(new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
             Microsoft.CodeAnalysis.OutputKind.ConsoleApplication)).GetDocument(document.Id)!;
-        foreach (var key in new[] { InlineConditionCodeFixProvider.ExtractKey, InlineConditionCodeFixProvider.ExpandKey })
-        {
-            var changed = await InlineConditionTestFixture.Fix(document, key);
-            await InlineConditionTestFixture.Compiles(changed);
-            Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed));
-        }
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        await InlineConditionTestFixture.Compiles(changed);
+        Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed));
     }
 
     [Fact]
     public async Task UncheckedHelperOverridesProjectOverflowChecking()
     {
-        var document = InlineConditionTestFixture.Document("public class C { public static string Run() { int value=int.MaxValue; bool a=true,b=true; unchecked { if(value+1>0 && a && b) return \"true\"; } return \"false\"; } }");
+        var document = InlineConditionTestFixture.Document("public class C { public static string Run() { int value=int.MaxValue; bool a=true,b=true; unchecked { if(value+1>0 && a && b && value != 0) return \"true\"; } return \"false\"; } }");
         var options = (Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions)document.Project.CompilationOptions!;
         document = document.Project.WithCompilationOptions(options.WithOverflowChecks(true)).GetDocument(document.Id)!;
         var before = await InlineConditionTestFixture.Run(document);
@@ -129,13 +120,11 @@ public sealed class InlineConditionSafetyTests
         Assert.Equal(before, await InlineConditionTestFixture.Run(changed));
     }
 
-    [Theory]
-    [InlineData(InlineConditionCodeFixProvider.ExtractKey)]
-    [InlineData(InlineConditionCodeFixProvider.ExpandKey)]
-    public async Task HostCommentIsPreservedExactlyOnce(string key)
+    [Fact]
+    public async Task HostCommentIsPreservedExactlyOnce()
     {
-        var document = InlineConditionTestFixture.Document("class C { void M(bool a, bool b, bool c) {\n// Keep the explanation.\nif(a && b && c) { }\n} }");
-        var changed = await InlineConditionTestFixture.Fix(document, key);
+        var document = InlineConditionTestFixture.Document("class C { void M(bool a, bool b, bool c, bool d) {\n// Keep the explanation.\nif(a && b && c && d) { }\n} }");
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
         var text = (await changed.GetTextAsync()).ToString();
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, "Keep the explanation"));
         await InlineConditionTestFixture.Compiles(changed);

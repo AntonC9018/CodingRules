@@ -10,7 +10,9 @@ public sealed class ReviewedCompoundRuntimeTests
     [Fact]
     public async Task ConfigPatternKeepsProfilesScopeAndBranchOutcomes()
     {
+        // The pinned three-clause guard is accepted; a fourth clause keeps it reportable.
         var source = ReviewedCompoundConditionTests.Config.Replace("class C", "public class C")
+            .Replace("&& data is", "&& verb.Length > 0 && data is")
             .Replace("const int Success = 0;", """
                 const int Success = 0;
                 public static string Run()
@@ -99,7 +101,7 @@ public sealed class ReviewedCompoundRuntimeTests
                         try { throw failure; }
                         finally { trace += "unwind;"; }
                     }
-                    catch (Exception error) when (token.IsCancellationRequested &&
+                    catch (Exception error) when (token.IsCancellationRequested && token.CanBeCanceled && error.Data != null &&
                         error is OperationCanceledException or GooglePreSendTransportException)
                     { trace += "cancelled;"; }
                     catch (Exception) { trace += "other;"; }
@@ -113,7 +115,7 @@ public sealed class ReviewedCompoundRuntimeTests
                 }
             }
             """;
-        var fixedText = await VerifyEveryAction(source, "CR0202", InlineConditionCodeFixProvider.ExtractKey);
+        var fixedText = await VerifyEveryAction(source, "CR0201", InlineConditionCodeFixProvider.ExtractKey);
         Assert.Contains("when (TODO_CONDITION(error))", fixedText);
     }
 
@@ -138,8 +140,8 @@ public sealed class ReviewedCompoundRuntimeTests
                 public static string Trace = "";
                 static void ClassifyGoogle(Exception error)
                 {
-                    if (error is TokenResponseException ||
-                        error is GoogleApiException { HttpStatusCode: System.Net.HttpStatusCode.Unauthorized })
+                    if (Trace.Length < 0 || error is TokenResponseException ||
+                        error is GoogleApiException { HttpStatusCode: System.Net.HttpStatusCode.Unauthorized } || error.Data == null)
                         Trace += "auth;";
                 }
                 public static string Run()
@@ -154,7 +156,7 @@ public sealed class ReviewedCompoundRuntimeTests
                 }
             }
             """;
-        await VerifyEveryAction(source, "CR0202", InlineConditionCodeFixProvider.ExtractKey, InlineConditionCodeFixProvider.ExpandKey);
+        await VerifyEveryAction(source, "CR0201", InlineConditionCodeFixProvider.ExtractKey);
     }
 
     [Theory]

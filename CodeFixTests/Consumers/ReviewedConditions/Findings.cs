@@ -6,6 +6,8 @@ using System.Text.Json.Nodes;
 using System.Threading;
 
 // Pinned ScheduleLib 12e601e: exact A3/A11/A15 conditions; framework-only host doubles.
+// Guards of two or three simple operands, such as the profiles, cancellation and
+// authentication checks, are accepted and carry no finding marker.
 public static class C
 {
     private const int Success = 0;
@@ -13,7 +15,7 @@ public static class C
 
     private static int Finish<T>(int exit, string verb, T data)
     {
-        if (exit == Success && verb == "profiles" && data is IReadOnlyList<string> profiles) { return profiles.Count; } // CR0201: exit == Success
+        if (exit == Success && verb == "profiles" && data is IReadOnlyList<string> profiles) { return profiles.Count; }
         return -1;
     }
 
@@ -29,14 +31,14 @@ public static class C
             try { throw failure; }
             finally { trace += "unwind;"; }
         }
-        catch (Exception error) when (token.IsCancellationRequested && error is OperationCanceledException or GooglePreSendTransportException) { trace += "cancelled;"; } // CR0202: token.IsCancellationRequested
+        catch (Exception error) when (token.IsCancellationRequested && error is OperationCanceledException or GooglePreSendTransportException) { trace += "cancelled;"; }
         catch (Exception) { trace += "other;"; }
     }
 
     private static void ClassifyGoogle(Exception error, CancellationToken cancellation)
     {
-        if (cancellation.IsCancellationRequested && error is OperationCanceledException or GooglePreSendTransportException) { trace += "cancelled;"; return; } // CR0202: cancellation.IsCancellationRequested
-        if (error is TokenResponseException || error is GoogleApiException { HttpStatusCode: System.Net.HttpStatusCode.Unauthorized }) { trace += "auth;"; } // CR0202: error is TokenResponseException
+        if (cancellation.IsCancellationRequested && error is OperationCanceledException or GooglePreSendTransportException) { trace += "cancelled;"; return; }
+        if (error is TokenResponseException || error is GoogleApiException { HttpStatusCode: System.Net.HttpStatusCode.Unauthorized }) { trace += "auth;"; }
     }
 
     private static void Reject(int status)

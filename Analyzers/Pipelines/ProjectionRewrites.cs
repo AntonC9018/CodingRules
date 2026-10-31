@@ -86,7 +86,8 @@ internal static class ProjectionRewrites
 
     private static BlockSyntax LinearBody(ProjectionPlan plan, ExpressionSyntax expression)
     {
-        if (plan.Lowering!.CanExpand) return new OperationEvaluator(plan.Lowering, expression).ReturnBody(expression);
+        if (plan.Lowering!.CanExpand)
+            return new OperationEvaluator(plan.Lowering, expression).ReturnBody(expression, returnType: plan.Model.GetTypeInfo(expression).ConvertedType);
         var evaluator = new OperationEvaluator(plan.Lowering, expression);
         var statements = new System.Collections.Generic.List<StatementSyntax>();
         if (expression is TupleExpressionSyntax tuple)

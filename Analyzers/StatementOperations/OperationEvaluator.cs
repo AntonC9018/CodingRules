@@ -36,44 +36,42 @@ internal sealed class OperationEvaluator
             return parentheses.WithExpression(Lower(parentheses.Expression, statements, save)).WithoutTrivia();
         }
 
+        // A conditional value or decision with work in a lazily reached operand
+        // becomes a local function called in place, so that work stays lazy.
+        // Otherwise only the first operand is staged and the rest stays in place.
         if (expression is ConditionalExpressionSyntax conditional)
         {
-            var condition = Lower(conditional.Condition, statements);
-            var type = model.GetTypeInfo(conditional).Type ?? model.GetTypeInfo(conditional).ConvertedType!;
-            var name = Names.Fresh(Placeholder.Variable);
-            statements.Add(Declare(type, name));
-            savedValues.Add(name, type);
-            var whenTrue = Branch(conditional.WhenTrue, name, type);
-            var whenFalse = Branch(conditional.WhenFalse, name, type);
-            statements.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(whenTrue), SyntaxFactory.ElseClause(SyntaxFactory.Block(whenFalse))));
-            return SyntaxFactory.IdentifierName(name);
+            if (HasWork(conditional.WhenTrue) || HasWork(conditional.WhenFalse)
+                || OperationFacts.HasComposedPipelineBranch(conditional, model))
+            {
+                return Defer(conditional, statements, Placeholder.Calculation);
+            }
+
+            // Branches without work are lowered only to keep their call identities.
+            var value = conditional.WithCondition(Lower(conditional.Condition, statements))
+                .WithWhenTrue(Lower(conditional.WhenTrue, statements))
+                .WithWhenFalse(Lower(conditional.WhenFalse, statements)).WithoutTrivia();
+            // A nested conditional value is named; a root one is already named by its host.
+            return save ? Save(original, value, statements) : value;
         }
 
-        if (expression is BinaryExpressionSyntax lazy && lazy.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression)
+        if (expression is BinaryExpressionSyntax lazy && IsDecision(lazy))
         {
-            var left = Lower(lazy.Left, statements);
-            var name = Names.Fresh(Placeholder.Variable);
-            statements.Add(Declare(model.GetTypeInfo(lazy).Type!, name));
-            savedValues.Add(name, model.GetTypeInfo(lazy).Type!);
-            var rightStatements = new List<StatementSyntax>();
-            var right = Lower(lazy.Right, rightStatements);
-            rightStatements.Add(Assign(name, right));
-            var terminal = SyntaxFactory.Block(Assign(name, SyntaxFactory.LiteralExpression(lazy.IsKind(SyntaxKind.LogicalAndExpression)
-                ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)));
-            var next = SyntaxFactory.Block(rightStatements);
-            statements.Add(SyntaxFactory.IfStatement(left, lazy.IsKind(SyntaxKind.LogicalAndExpression) ? next : terminal,
-                SyntaxFactory.ElseClause(lazy.IsKind(SyntaxKind.LogicalAndExpression) ? terminal : next)));
-            return SyntaxFactory.IdentifierName(name);
+            return HasWork(lazy.Right) ? Defer(lazy, statements, Placeholder.Condition)
+                : lazy.WithLeft(Lower(lazy.Left, statements)).WithRight(Lower(lazy.Right, statements)).WithoutTrivia();
         }
 
         if (expression is InvocationExpressionSyntax invocation && OperationPlan.NeedsArgumentLowering(invocation, model, lowerConditionProducers))
         {
             var target = invocation.Expression;
             var method = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+            var argumentsHaveWork = invocation.ArgumentList.Arguments.Any(argument => HasWork(argument.Expression));
             if (target is MemberAccessExpressionSyntax member && !method.IsStatic)
             {
+                // The receiver is read before the arguments; it needs a name only
+                // when argument work is staged ahead of the call.
                 var receiver = Lower(member.Expression, statements, save: true);
-                receiver = Save(member.Expression, receiver, statements);
+                if (argumentsHaveWork) receiver = Save(member.Expression, receiver, statements);
                 target = member.WithExpression(receiver);
             }
             else if (method.MethodKind == MethodKind.DelegateInvoke)
@@ -125,14 +123,20 @@ internal sealed class OperationEvaluator
         }
         else if (expression is ElementAccessExpressionSyntax element && HasWork(element))
         {
-            var receiver = Save(element.Expression, Lower(element.Expression, statements, save: true), statements);
+            var receiver = Lower(element.Expression, statements, save: true);
+            if (element.ArgumentList.Arguments.Any(argument => HasWork(argument.Expression)))
+            {
+                receiver = Save(element.Expression, receiver, statements);
+            }
+
             expression = element.WithExpression(receiver).WithArgumentList(element.ArgumentList.WithArguments(
                 LowerArguments(element.ArgumentList.Arguments, statements)));
         }
         else if (expression is AssignmentExpressionSyntax assignment)
         {
-            var left = LowerLeft(assignment.Left, statements);
-            expression = assignment.WithLeft(left).WithRight(Lower(assignment.Right, statements, save: true));
+            // The assignment names its value; staged work goes before it, not into a chained copy.
+            var left = LowerLeft(assignment.Left, statements, HasWork(assignment.Right));
+            expression = assignment.WithLeft(left).WithRight(Lower(assignment.Right, statements));
         }
         else if (expression is InterpolatedStringExpressionSyntax interpolation)
         {
@@ -163,42 +167,56 @@ internal sealed class OperationEvaluator
 
     private bool HasWork(ExpressionSyntax expression) => OperationPlan.HasLowering(expression, model, lowerConditionProducers);
 
-    private List<StatementSyntax> Branch(ExpressionSyntax expression, string result, ITypeSymbol type)
+    private static bool IsDecision(BinaryExpressionSyntax binary) =>
+        binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression;
+
+    /// <summary>Defines a placeholder-named local function returning <paramref name="expression"/> and calls it in place.</summary>
+    private ExpressionSyntax Defer(ExpressionSyntax expression, List<StatementSyntax> statements, Placeholder placeholder)
     {
-        var statements = new List<StatementSyntax>();
-        if (expression is ThrowExpressionSyntax throwing)
-        {
-            statements.Add(SyntaxFactory.ThrowStatement(Lower(throwing.Expression, statements, save: true)));
-        }
-        else
-        {
-            var value = Lower(expression, statements, save: true);
-            statements.Add(Assign(result, value.WithAdditionalAnnotations(Conversion(expression, type))));
-        }
-        return statements;
+        var name = Names.Fresh(placeholder);
+        var type = model.GetTypeInfo(expression).Type ?? model.GetTypeInfo(expression).ConvertedType!;
+        statements.Add(SyntaxFactory.LocalFunctionStatement(EvaluationSyntax.Type(type, model, expression.SpanStart), name)
+            .WithBody(ReturnBody(expression)));
+        return SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name));
     }
 
-    private SeparatedSyntaxList<ArgumentSyntax> LowerArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, List<StatementSyntax> statements)
+    // An argument value is named only when a later argument stages work that
+    // would otherwise run before it.
+    private SeparatedSyntaxList<ArgumentSyntax> LowerArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, List<StatementSyntax> statements,
+        bool laterWork = false)
     {
         var result = new List<ArgumentSyntax>();
-        foreach (var argument in arguments)
+        for (var index = 0; index < arguments.Count; index++)
         {
+            var argument = arguments[index];
             var value = Lower(argument.Expression, statements, save: true);
-            var type = model.GetTypeInfo(argument.Expression).ConvertedType ?? model.GetTypeInfo(argument.Expression).Type!;
-            value = Save(argument.Expression, value, statements, type);
+            if (laterWork || arguments.Skip(index + 1).Any(later => HasWork(later.Expression)))
+            {
+                var type = model.GetTypeInfo(argument.Expression).ConvertedType ?? model.GetTypeInfo(argument.Expression).Type!;
+                value = Save(argument.Expression, value, statements, type);
+            }
             result.Add(argument.WithExpression(value.WithTriviaFrom(argument.Expression)));
         }
         return SyntaxFactory.SeparatedList(result, arguments.GetSeparators());
     }
 
-    private ExpressionSyntax LowerLeft(ExpressionSyntax left, List<StatementSyntax> statements) => left switch
+    private ExpressionSyntax LowerLeft(ExpressionSyntax left, List<StatementSyntax> statements, bool valueHasWork)
     {
-        MemberAccessExpressionSyntax member when model.GetSymbolInfo(member).Symbol is not IFieldSymbol { IsStatic: true }
-            and not IPropertySymbol { IsStatic: true } => member.WithExpression(Save(member.Expression, Lower(member.Expression, statements), statements)),
-        ElementAccessExpressionSyntax element => element.WithExpression(Save(element.Expression, Lower(element.Expression, statements), statements))
-            .WithArgumentList(element.ArgumentList.WithArguments(LowerArguments(element.ArgumentList.Arguments, statements))),
-        _ => left,
-    };
+        ExpressionSyntax Receiver(ExpressionSyntax receiver)
+        {
+            var lowered = Lower(receiver, statements);
+            return valueHasWork ? Save(receiver, lowered, statements) : lowered;
+        }
+
+        return left switch
+        {
+            MemberAccessExpressionSyntax member when model.GetSymbolInfo(member).Symbol is not IFieldSymbol { IsStatic: true }
+                and not IPropertySymbol { IsStatic: true } => member.WithExpression(Receiver(member.Expression)),
+            ElementAccessExpressionSyntax element => element.WithExpression(Receiver(element.Expression))
+                .WithArgumentList(element.ArgumentList.WithArguments(LowerArguments(element.ArgumentList.Arguments, statements, valueHasWork))),
+            _ => left,
+        };
+    }
 
     public ExpressionSyntax Save(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements, ITypeSymbol? type = null)
     {
@@ -212,46 +230,37 @@ internal sealed class OperationEvaluator
         // An unchanged local or parameter is read in place; copying it would only add an alias.
         if (original is IdentifierNameSyntax source && value is IdentifierNameSyntax same
             && same.Identifier.ValueText == source.Identifier.ValueText && stable.IsStable(original)) return value;
-        if (value is IdentifierNameSyntax saved && savedValues.TryGetValue(saved.Identifier.ValueText, out var existingType)
-            && SymbolEqualityComparer.IncludeNullability.Equals(existingType, type)) return value;
         // Lower may already have staged a target-typed construction. Its
         // construction conversion was checked there; copying that local would
         // introduce an identity conversion, not repeat the source conversion.
         var conversion = value is IdentifierNameSyntax identifier && savedValues.TryGetValue(identifier.Identifier.ValueText, out var savedType)
-            ? new SyntaxAnnotation(ConversionAnnotation, ConversionFingerprint(((CSharpCompilation)model.Compilation).ClassifyConversion(savedType, type)))
+            ? ((CSharpCompilation)model.Compilation).ClassifyConversion(savedType, type) : (Conversion?)null;
+        // A saved value is read in place when its conversion has no user code to
+        // time; only a user-defined conversion keeps its own named step.
+        if (conversion is { IsImplicit: true, IsUserDefined: false } direct)
+            return value.WithAdditionalAnnotations(new SyntaxAnnotation(ConversionAnnotation, ConversionFingerprint(direct)));
+        var annotation = conversion is { } staged ? new SyntaxAnnotation(ConversionAnnotation, ConversionFingerprint(staged))
             : Conversion(original, type);
         var name = Names.Fresh(Placeholder.Variable);
         var declaration = SyntaxFactory.VariableDeclaration(EvaluationSyntax.Type(type, model, original.SpanStart), SyntaxFactory.SingletonSeparatedList(
             SyntaxFactory.VariableDeclarator(name).WithInitializer(SyntaxFactory.EqualsValueClause(value.WithoutTrivia()
-                .WithAdditionalAnnotations(conversion, new SyntaxAnnotation(LinearizedAnnotation))))));
+                .WithAdditionalAnnotations(annotation, new SyntaxAnnotation(LinearizedAnnotation))))));
         statements.Add(SyntaxFactory.LocalDeclarationStatement(declaration));
         savedValues.Add(name, type);
         return SyntaxFactory.IdentifierName(name);
     }
 
-    public BlockSyntax ReturnBody(ExpressionSyntax expression, bool discard = false)
+    /// <summary>
+    /// Statements that evaluate <paramref name="expression"/> and return it, as the
+    /// <paramref name="returnType"/> of the enclosing function (by default its own type),
+    /// or discard it.
+    /// </summary>
+    public BlockSyntax ReturnBody(ExpressionSyntax expression, bool discard = false, ITypeSymbol? returnType = null)
     {
         var statements = new List<StatementSyntax>();
-        var type = model.GetTypeInfo(expression).Type ?? model.GetTypeInfo(expression).ConvertedType!;
-        if (!discard && expression is ConditionalExpressionSyntax conditional)
-        {
-            var condition = Lower(conditional.Condition, statements);
-            statements.Add(SyntaxFactory.IfStatement(condition, ReturnBranch(conditional.WhenTrue, type)));
-            statements.AddRange(ReturnBranch(conditional.WhenFalse, type).Statements);
-        }
-        else
-        {
-            var value = Lower(expression, statements);
-            if (discard || type.SpecialType == SpecialType.System_Void) statements.Add(SyntaxFactory.ExpressionStatement(value));
-            else if (type.SpecialType == SpecialType.System_Boolean)
-            {
-                value = Save(expression, value, statements, type);
-                statements.Add(SyntaxFactory.IfStatement(value, SyntaxFactory.Block(SyntaxFactory.ReturnStatement(
-                    SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)))));
-                statements.Add(SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
-            }
-            else statements.Add(SyntaxFactory.ReturnStatement(Save(expression, value, statements, type)));
-        }
+        var type = returnType ?? model.GetTypeInfo(expression).Type ?? model.GetTypeInfo(expression).ConvertedType!;
+        if (discard || type.SpecialType == SpecialType.System_Void) statements.Add(SyntaxFactory.ExpressionStatement(Lower(expression, statements)));
+        else AddReturn(expression, type, statements);
         var body = SyntaxFactory.Block(statements);
         var checkedContext = expression.Ancestors().FirstOrDefault(node => node is CheckedExpressionSyntax or CheckedStatementSyntax);
         if (checkedContext is not null)
@@ -263,20 +272,41 @@ internal sealed class OperationEvaluator
         return ConditionSiteRewrites.AddElasticLineBreaks(body);
     }
 
-    private BlockSyntax ReturnBranch(ExpressionSyntax expression, ITypeSymbol type)
+    // Returns the value directly. A conditional value or a decision becomes guard
+    // clauses, so its lazily reached operands keep their own evaluation.
+    private void AddReturn(ExpressionSyntax expression, ITypeSymbol type, List<StatementSyntax> statements)
     {
-        if (expression is ConditionalExpressionSyntax) return ReturnBody(expression);
-        var statements = new List<StatementSyntax>();
-        var value = Lower(expression, statements);
-        statements.Add(SyntaxFactory.ReturnStatement(value.WithAdditionalAnnotations(Conversion(expression, type))));
-        return SyntaxFactory.Block(statements);
+        var value = Parentheses.Unwrap(expression);
+        if (value is ConditionalExpressionSyntax conditional)
+        {
+            var condition = Lower(conditional.Condition, statements);
+            var whenTrue = new List<StatementSyntax>();
+            AddReturn(conditional.WhenTrue, type, whenTrue);
+            statements.Add(SyntaxFactory.IfStatement(condition, SyntaxFactory.Block(whenTrue)));
+            AddReturn(conditional.WhenFalse, type, statements);
+            return;
+        }
+
+        if (value is BinaryExpressionSyntax decision && IsDecision(decision))
+        {
+            var conjunction = decision.IsKind(SyntaxKind.LogicalAndExpression);
+            var left = Lower(decision.Left, statements);
+            statements.Add(SyntaxFactory.IfStatement(conjunction ? ConditionEvaluator.Negate(left) : left,
+                SyntaxFactory.Block(SyntaxFactory.ReturnStatement(SyntaxFactory.LiteralExpression(conjunction
+                    ? SyntaxKind.FalseLiteralExpression : SyntaxKind.TrueLiteralExpression)))));
+            AddReturn(decision.Right, type, statements);
+            return;
+        }
+
+        if (value is ThrowExpressionSyntax throwing)
+        {
+            statements.Add(SyntaxFactory.ThrowStatement(Lower(throwing.Expression, statements)));
+            return;
+        }
+
+        var lowered = Lower(value, statements);
+        statements.Add(SyntaxFactory.ReturnStatement(lowered.WithAdditionalAnnotations(Conversion(value, type))));
     }
-
-    private static LocalDeclarationStatementSyntax Declare(ITypeSymbol type, string name) => SyntaxFactory.LocalDeclarationStatement(
-        SyntaxFactory.VariableDeclaration(EvaluationSyntax.Type(type), SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator(name))));
-
-    private static ExpressionStatementSyntax Assign(string name, ExpressionSyntax value) => SyntaxFactory.ExpressionStatement(
-        SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, SyntaxFactory.IdentifierName(name), value));
 
     internal static string Key(SyntaxNode node) => node.SpanStart.ToString(CultureInfo.InvariantCulture) + ":" + node.Span.Length + ":" + node.RawKind;
 

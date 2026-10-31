@@ -18,14 +18,17 @@ internal static class OperationSiteRewrites
         var root = expression.SyntaxTree.GetRoot();
         if (!extract) return Expand(plan, evaluator, root, expression);
         var name = evaluator.Names.Fresh(Placeholder.Calculation);
+        // A statement's discarded value is not returned, so an assignment is not chained into a copy.
+        var discard = plan.Statement is ExpressionStatementSyntax statementHost && statementHost.Expression == expression;
         var type = plan.Model.GetTypeInfo(expression).Type ?? plan.Model.GetTypeInfo(expression).ConvertedType!;
-        var body = evaluator.ReturnBody(expression);
+        var returnType = discard ? SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)) : EvaluationSyntax.Type(type);
+        var body = evaluator.ReturnBody(expression, discard);
         var parameters = plan.BridgeVariables.Select(symbol => SyntaxFactory.Parameter(SyntaxFactory.Identifier(symbol.Name))
             .WithType(EvaluationSyntax.Type(OperationPlan.SymbolType(symbol)!)));
         var arguments = plan.BridgeVariables.Select(symbol => SyntaxFactory.Argument(SyntaxFactory.IdentifierName(symbol.Name)));
         var call = SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments))).WithTriviaFrom(expression).WithAdditionalAnnotations(Selected);
-        var helper = SyntaxFactory.LocalFunctionStatement(EvaluationSyntax.Type(type), name)
+        var helper = SyntaxFactory.LocalFunctionStatement(returnType, name)
             .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters))).WithBody(body);
         if (plan.MemberInitializer is not null)
         {
@@ -56,11 +59,13 @@ internal static class OperationSiteRewrites
 
     private static SyntaxNode Expand(OperationPlan plan, OperationEvaluator evaluator, SyntaxNode root, ExpressionSyntax expression)
     {
+        // The expanded value is returned where it was, as the function's return type.
+        var returnType = plan.Model.GetTypeInfo(expression).ConvertedType;
         if (plan.ExpressionBody is not null)
             return ConditionSiteRewrites.ReplaceExpressionBody(root, plan.ExpressionBody,
-                evaluator.ReturnBody(expression, DiscardsExpressionBody(plan)).WithAdditionalAnnotations(Generated));
+                evaluator.ReturnBody(expression, DiscardsExpressionBody(plan), returnType).WithAdditionalAnnotations(Generated));
         if (plan.Statement is ReturnStatementSyntax)
-            return ConditionSiteRewrites.ReplaceStatement(root, plan.Statement, evaluator.ReturnBody(expression).Statements.ToList());
+            return ConditionSiteRewrites.ReplaceStatement(root, plan.Statement, evaluator.ReturnBody(expression, returnType: returnType).Statements.ToList());
         var statements = new List<StatementSyntax>();
         var value = evaluator.Lower(expression, statements);
         var changed = plan.Statement!.ReplaceNode(expression, value.WithTriviaFrom(expression).WithAdditionalAnnotations(Selected));

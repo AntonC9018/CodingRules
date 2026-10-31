@@ -165,7 +165,7 @@ internal sealed class OperationFacts
         model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "GetGenericArguments", Parameters.Length: 0 } method
         && FrameworkSymbols.IsPlatformType(method.ContainingType, "System.Type", model.Compilation);
 
-    private static bool HasComposedPipelineBranch(ConditionalExpressionSyntax conditional, SemanticModel model) =>
+    internal static bool HasComposedPipelineBranch(ConditionalExpressionSyntax conditional, SemanticModel model) =>
         HasComposedPipeline(conditional.WhenTrue, model) || HasComposedPipeline(conditional.WhenFalse, model);
 
     private static bool HasComposedPipeline(ExpressionSyntax expression, SemanticModel model) =>

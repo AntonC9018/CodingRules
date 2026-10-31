@@ -50,7 +50,7 @@ public sealed class NestedChainLambdaAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var nested = body.DescendantNodesAndSelf().OfType<LambdaExpressionSyntax>().ToArray();
+        var nested = body.DescendantNodes().OfType<LambdaExpressionSyntax>().ToArray();
         if (nested.Length == 0)
         {
             return false;

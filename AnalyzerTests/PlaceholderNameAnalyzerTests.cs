@@ -12,7 +12,7 @@ public sealed class PlaceholderNameAnalyzerTests
         .Split(Path.PathSeparator).Select(path => MetadataReference.CreateFromFile(path)).ToImmutableArray<MetadataReference>();
 
     [Fact]
-    public async Task EveryDeclaredPlaceholderIsAnErrorNamingItsRole()
+    public async Task EveryDeclaredPlaceholderIsAWarningNamingItsRole()
     {
         const string source = """
             class TODO_Type
@@ -32,7 +32,7 @@ public sealed class PlaceholderNameAnalyzerTests
         Assert.All(diagnostics, diagnostic =>
         {
             Assert.Equal(DiagnosticIds.PlaceholderName, diagnostic.Id);
-            Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+            Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         });
         Assert.Equal(
             new[]

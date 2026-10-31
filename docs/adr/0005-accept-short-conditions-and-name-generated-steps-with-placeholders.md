@@ -29,10 +29,10 @@ Generated names are placeholders from one shared helper: `TODO_CALCULATION`,
 `TODO_VARIABLE` and `TODO_CONDITION`, with numeric suffixes on collision.
 A fix cannot know the domain meaning, so a generic name that looks final is
 worse than one that is obviously unfinished. CR1700 reports each declared
-`TODO_` name as an error, "Rename this extracted {kind} to a domain name".
+`TODO_` name as a warning, "Rename this extracted {kind} to a domain name".
 Agents grep for `TODO_` after applying fixes and rename the results.
 
-Consequences: a fixed file does not build under default severities until the
-placeholders are renamed. Package consumer gates that build fixed output must
-either rename the placeholders or lower CR1700 for that check. Expansion may
-still snapshot an earlier operand to preserve evaluation order.
+CR1700 is a warning, like the other rules; a consumer that treats warnings as
+errors, such as ScheduleLib, cannot build a fixed file until the placeholders
+are renamed. Expansion may still snapshot an earlier operand to preserve
+evaluation order.

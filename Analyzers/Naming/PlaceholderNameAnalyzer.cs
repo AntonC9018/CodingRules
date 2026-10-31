@@ -11,7 +11,7 @@ namespace CodingRules;
 
 /// <summary>
 /// Fixes name the symbols they extract with <c>TODO_</c> placeholders because only
-/// a person or agent knows the domain meaning. The build fails until each is renamed.
+/// a person or agent knows the domain meaning. Each stays reported until it is renamed.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PlaceholderNameAnalyzer : DiagnosticAnalyzer
@@ -20,7 +20,7 @@ public sealed class PlaceholderNameAnalyzer : DiagnosticAnalyzer
         DiagnosticIds.PlaceholderName,
         "Rename extracted placeholders to domain names",
         "Rename this extracted {0} to a domain name",
-        "Naming", DiagnosticSeverity.Error, isEnabledByDefault: true);
+        "Naming", DiagnosticSeverity.Warning, isEnabledByDefault: true);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

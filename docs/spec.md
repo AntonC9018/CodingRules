@@ -100,7 +100,7 @@ through `.editorconfig`.
   simple arguments, and add no blank lines around generated code.
 - Fixes name extracted symbols `TODO_CONDITION`, `TODO_VARIABLE` and
   `TODO_CALCULATION`, adding `_1`, `_2` on collision. CR1700 reports every
-  declared `TODO_` identifier as an error until it receives a domain name.
+  declared `TODO_` identifier as a warning until it receives a domain name.
 
 ### Pipelines and lambdas
 

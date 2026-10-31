@@ -60,7 +60,7 @@ records the finite catalogue and manual ownership, API and lifetime boundaries.
 C# 11 and later.
 
 Generated steps use `TODO_CALCULATION`, `TODO_VARIABLE` and `TODO_CONDITION`
-placeholder names. `CR1700` reports each placeholder as an error until it is
+placeholder names. `CR1700` reports each placeholder as a warning until it is
 renamed to a domain name; see
 [ADR 0005](docs/adr/0005-accept-short-conditions-and-name-generated-steps-with-placeholders.md).
 

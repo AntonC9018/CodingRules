@@ -159,5 +159,5 @@ refines the policy after the ScheduleLib probe:
   arguments; preserving evaluation order may still snapshot an earlier operand.
 - Generated helpers and locals are named `TODO_CALCULATION`, `TODO_VARIABLE` or
   `TODO_CONDITION`, with numeric suffixes on collision. CR1700 reports each such
-  name as an error until it is renamed to a domain name.
+  name as a warning until it is renamed to a domain name.
 - Generated statements keep the source indentation and contain no blank lines.

@@ -171,8 +171,13 @@ do not introduce its annotations, an analyzer or a staged-builder generator.
 ## Keep generated steps readable
 
 - Prefer a local variable for a one-off computed value, and a local function with
-  guard clauses and explicit returns for a branching decision. Name helpers after
-  their domain decision, not generically (`CheckCondition`, `CalculateArgs`).
+  guard clauses and explicit returns for a branching decision.
+- Write an extracted condition as a local function defined before its use, with
+  one guard clause per check and no Boolean result variable:
+  `bool IsReady() { if (!a) { return false; } return b; }`.
+- Code fixes name generated steps `TODO_CALCULATION`, `TODO_VARIABLE` or
+  `TODO_CONDITION`. After applying fixes, run `grep -rn TODO_` and rename each
+  placeholder after its domain meaning; CR1700 fails the build until you do.
 - Do not copy an unchanged local just to pass it on, but keep aliases that clarify
   a role. Single use alone does not make a local useless.
 - Do not move a computation into a narrower scope when that delays, repeats or

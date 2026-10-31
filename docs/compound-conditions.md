@@ -22,12 +22,19 @@ The baseline is recorded in commit `1ce6189`.
 
 | Pinned source | Finding now | Available semantic action |
 | --- | --- | --- |
-| CliConfigExecution.cs:55, success / verb / `IReadOnlyList<string> profiles` | CR0201 | Nested explicit checks retain the pattern variable's scope in the original body. |
+| CliConfigExecution.cs:55, success / verb / `IReadOnlyList<string> profiles` | None | Three simple operands without side effects are accepted (ADR 0005). |
 | CliSettings.Removals.cs:119, JSON value / TryGetValue alternatives | CR0203 | Separate failure guards preserve short-circuiting and the key/operation out variables used afterward. |
-| CalendarSync.cs:322, cancellation exception filter | CR0202 | A named local function is invoked inside `when`, with the catch variable passed as its exact type. |
-| CliRemoteFailure.cs:69, cancellation guard | CR0202 | Local-function extraction or explicit control flow. |
-| CliRemoteFailure.cs:78, token exception / Google status property pattern | CR0202 | Local-function extraction or explicit control flow, retaining the original property pattern and getter gating. |
+| CalendarSync.cs:322, cancellation exception filter | None | Accepted as a short simple condition. A longer filter still calls a local function inside `when`, with the catch variable passed as its exact type. |
+| CliRemoteFailure.cs:69, cancellation guard | None | Accepted as a short simple condition. |
+| CliRemoteFailure.cs:78, token exception / Google status property pattern | None | Accepted as a short simple condition; a longer form keeps the original property pattern and getter gating. |
 | CalendarSync.cs:370, numeric rejected-action filter | CR0203 | Extract `MatchesHttpStatusCode` and replace the cast/numeric alternatives with named enum members. |
+
+Two or three simple operands without side effects are accepted since
+[ADR 0005](adr/0005-accept-short-conditions-and-name-generated-steps-with-placeholders.md),
+so four of the six pinned examples no longer report. A reported condition is
+extracted into a guard-clause local function named `TODO_CONDITION`, defined
+before its use; expansion writes guards without a Boolean result variable, and
+an assignment inside the condition is hoisted into its own statement.
 
 Leading `&&`/`||` layout remains CR0800's separate responsibility. Rewrapping a
 condition does not discharge these semantic findings. The existing condition
@@ -94,8 +101,8 @@ integer from −1 through 600 for several sets, including negation, and a
 conflicting predicate name.
 
 `ReviewedCompoundAnalyzerTests` shares the package consumer's positive and
-accepted source files and asserts all six diagnostic IDs and locations plus
-warning/error/none configuration. The consumer runs the original and fixed
+accepted source files and asserts the two remaining diagnostic IDs and locations
+plus warning/error/none configuration. The consumer runs the original and fixed
 program and compares the complete trace, including all six matched statuses.
 
 ```sh

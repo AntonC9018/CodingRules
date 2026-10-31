@@ -8,8 +8,9 @@ is split into [GitHub issues](https://github.com/AntonC9018/CodingRules/issues).
 `CR0001` checks explicit return decisions after a top-level guard and offers
 code fixes for every form it reports. `CR0003` through `CR0006` check the same
 decision forms in returns nested deeper than the function body's top level.
-`CR0200` through `CR0204` check mixed Boolean operators, more than two checks,
-independent subjects, combined operations, and three or more repeated alternatives.
+`CR0200` through `CR0204` check mixed Boolean operators, more than three checks
+(two or three simple side-effect-free operands are accepted), independent subjects,
+combined operations, and three or more repeated alternatives.
 They offer local-function extraction first and statement expansion when safe.
 Member initializers use a private static helper; filters and switch guards keep
 their helper invocation at the original guard site. The reviewed ScheduleLib
@@ -19,8 +20,10 @@ the exact six-status enum predicate, safe flow rewrites and package gate.
 `CR0300` names nested argument operations, `CR0301` names embedded conditional
 values, and `CR0302` separates arithmetic or other mechanically proven combined
 values. Calls and constructors with no explicitly supplied arguments remain
-allowed: `Use(GetValue())` is compliant; `Save(CreateRequest(id))` needs a named
-step. Direct values and one supported calculation remain inline. Linear LINQ
+allowed. One simple call, interpolation, construction or lambda chain per
+argument list is accepted: `Save(CreateRequest(id))` is compliant;
+`Save(CreateRequest(Get(id)))` needs a named step. Index offsets such as
+`values[j - 1]` and direct values remain inline. Linear LINQ
 pipelines, whole named conditional values and lone conditional returns retain
 their existing policy. Both safe actions preserve evaluation order and branch
 timing; extraction is offered first, then statement expansion.
@@ -31,7 +34,9 @@ independent simple aggregate components and linear pipelines remain allowed.
 `CR0402` names dictionary/lookup selector arguments and makes a key-only
 overload's identity mapping explicit. The [pipeline catalogue](docs/pipelines.md)
 records supported framework signatures, equivalent overload pairs and safety
-boundaries. CR02, CR03 and return diagnostics remain independently enabled.
+boundaries. `CR0404` reports a chain lambda whose expression body nests
+another lambda; it has no automatic fix. CR02, CR03 and return diagnostics remain
+independently enabled.
 
 `CR0500` names every positional argument in a supplied repeated-type parameter
 group. Calls, constructors, base/this/primary base lists and attribute constructors
@@ -51,6 +56,13 @@ for Length or equality with a non-null string constant. Its synchronous scalar
 helper avoids the temporary trimmed string while preserving null exceptions,
 ordinal UTF-16 comparison and receiver evaluation. The [span assessment](docs/spans.md)
 records the finite catalogue and manual ownership, API and lifetime boundaries.
+`CR0701` replaces `Encoding.UTF8.GetBytes("literal")` with a `u8` literal on
+C# 11 and later.
+
+Generated steps use `TODO_CALCULATION`, `TODO_VARIABLE` and `TODO_CONDITION`
+placeholder names. `CR1700` reports each placeholder as an error until it is
+renamed to a domain name; see
+[ADR 0005](docs/adr/0005-accept-short-conditions-and-name-generated-steps-with-placeholders.md).
 
 The same package now supplies Roslynator `RCS0042` for compact auto-accessors,
 `RCS1016` for multiline-expression block bodies, `CR0800` for leading

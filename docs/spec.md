@@ -67,10 +67,16 @@ through `.editorconfig`.
 ### Linear operations and conditions
 
 - Keep each statement focused on one conceptual operation.
-- An inline condition may have at most two simple checks when both concern the
-  same value and express one invariant, such as a range.
-- Split checks about different values into separate guards. Do not combine
-  `&&` and `||` in one inline condition.
+- An inline `&&` or `||` condition may have two or three simple operands with no
+  side effects, such as `!parser.IsEmpty || name is null`. A simple operand
+  reads locals, parameters, members, literals, patterns and comparisons.
+- Extract a condition with more than three operands, or with side effects,
+  into a guard-clause local function defined before its use. Do not stage it
+  into a Boolean result variable.
+- Hoist an assignment inside a condition into its own statement:
+  `c = Compare(a, b); if (c != 0)`. Merge it into a preceding uninitialized
+  declaration; never leave a declaration followed by a separate assignment or
+  write a chained assignment.
 - Do not combine parsing, lookup, conversion, validation, or mutation inside
   one condition. Move repeated alternatives into a helper, loop, or another
   linear form.
@@ -79,6 +85,22 @@ through `.editorconfig`.
   constructor call. Direct values and expressions with at most one simple
   calculation operator may remain inline. Assign conditional expressions to
   named variables first.
+- One argument per call may do simple work inline: a call or method chain on
+  one receiver whose own arguments are literals, locals, parameters, member
+  reads or lambdas; an interpolation of such values; or a construction of them,
+  which may take one such interpolation. `Assert.Empty(Directory.GetFiles(path))`
+  and `notices.Add(new("omitted", $"Student: {name}"))` stay inline.
+- A simple index offset such as `a[j - 1]` is part of the element access, not a
+  calculation.
+- A chain lambda whose expression body contains another lambda hides a second
+  stage; name it (CR0404). Catalogued predicate nesting stays with CR0403.
+- Encode constant UTF-8 text with a `"text"u8` literal rather than
+  `Encoding.UTF8.GetBytes("text")` from C# 11 (CR0701).
+- Fixes never alias unchanged receivers or arguments, never hoist literal or
+  simple arguments, and add no blank lines around generated code.
+- Fixes name extracted symbols `TODO_CONDITION`, `TODO_VARIABLE` and
+  `TODO_CALCULATION`, adding `_1`, `_2` on collision. CR1700 reports every
+  declared `TODO_` identifier as an error until it receives a domain name.
 
 ### Pipelines and lambdas
 
@@ -366,7 +388,8 @@ the decision, ref returns, and non-identity return conversions) still apply.
 ## Inline conditions (ticket 3)
 
 `CR0200` reports mixed built-in Boolean `&&`/`||`; `CR0201` reports more than
-two atomic checks; `CR0202` reports two simple checks with different proven
+three atomic checks, or more than two when one is not a simple side-effect-free
+operand; `CR0202` reports two simple checks with different proven
 subjects; `CR0203` reports recognized producing/transformation/mutation combined
 with validation; `CR0204` reports homogeneous chains of at least three resolved
 framework predicates differing in one constant argument. Two repeated
@@ -445,12 +468,16 @@ catalogue is GetString, GetBoolean, GetInt32, GetInt64, GetDouble, GetDecimal an
 GetArrayLength. A surrounding comparison or calculation still requires named
 steps, and computed keys remain analyzed. This preserves the accepted short
 JSON assertion examples while reporting the compound file-count comparison.
-One simple directly constructed argument may remain inline per containing call,
-including explicit or target-typed `new(...)` alongside other nonconstructed
-arguments. More than one direct construction retains CR0300. The allowance does
-not hide nested constructors, producer calls, conditional values or numeric
-calculations inside the constructor. Existing parameterless and initializer
-boundaries remain unchanged.
+One simple value may remain inline per containing argument list: a direct
+construction, including explicit or target-typed `new(...)`, a call or method
+chain on one receiver, or an interpolation. Its own inputs must be literals,
+locals, parameters, member reads, `this`, type names or lambdas; a construction
+may also take one interpolation of such inputs. Two such composite arguments
+in one list both retain CR0300. The allowance does not hide nested calls,
+constructors, conditional values or numeric calculations inside the value, and
+an `a[j - 1]` index offset of simple inputs is no calculation. Fixes leave an
+accepted argument in place instead of staging it. Existing parameterless and
+initializer boundaries remain unchanged.
 Argument staging can preserve an already temporary struct receiver returned by
 a by-value call, property getter or construction. A variable, field or ref-return
 receiver must retain its original storage; this allowance does not enable copying

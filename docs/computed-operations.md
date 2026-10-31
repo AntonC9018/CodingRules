@@ -114,8 +114,9 @@ warning convergence alone is insufficient evidence of a good downstream change.
 ## Follow-up policy decisions
 
 A simple explicit cast such as `(int) pid` is accepted in an argument. A factory
-such as `TimeSpan.FromSeconds(2)` passed to `WaitForExitBounded` still requires a
-named local or helper. Nested work inside a cast remains independently visible.
+such as `TimeSpan.FromSeconds(2)` with simple arguments is accepted since ADR 0005;
+`TimeSpan.FromSeconds(pid * 2)` still requires a named local or helper. Nested work
+inside a cast remains independently visible.
 Generated names prefer the bound argument parameter, then the operation name,
 then its result type. Names are collision-safe; captured values with the same
 resolved type are reused rather than copied into another generated local.
@@ -143,3 +144,20 @@ in-process and packaged consumer checks cover simple construction acceptance.
 
 [streaming-exception]:
   https://github.com/AntonC9018/ScheduleLib/blob/12e601e/src/MainCli/CalendarSync.cs#L161
+
+## Readable generated steps — 2026-10-31
+
+[ADR 0005](adr/0005-accept-short-conditions-and-name-generated-steps-with-placeholders.md)
+refines the policy after the ScheduleLib probe:
+
+- One simple value per argument list is accepted inline: a call with simple
+  arguments, a simple interpolation, a construction with simple arguments, or a
+  method chain whose lambdas have simple bodies.
+- Index offsets such as `values[j - 1]` are accepted.
+- Identity aliases such as `var copy = name;` are accepted.
+- Fixes no longer copy unchanged values into new locals or hoist simple
+  arguments; preserving evaluation order may still snapshot an earlier operand.
+- Generated helpers and locals are named `TODO_CALCULATION`, `TODO_VARIABLE` or
+  `TODO_CONDITION`, with numeric suffixes on collision. CR1700 reports each such
+  name as an error until it is renamed to a domain name.
+- Generated statements keep the source indentation and contain no blank lines.

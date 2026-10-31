@@ -82,7 +82,7 @@ class Generated {
         assert fixed["Generated.g.cs"] == sources["Generated.g.cs"]
         assert fixed["Findings.cs"] != sources["Findings.cs"]
         text = fixed["Findings.cs"].decode()
-        assert "when (IsRejectedHttpStatusCode(e))" in text
+        assert "when (MatchesHttpStatusCode(e))" in text, text
         for member in ["BadRequest", "Forbidden", "NotFound", "Conflict", "PreconditionFailed", "UnprocessableEntity"]:
             assert "global::System.Net.HttpStatusCode." + member in text
         assert "out var key" in text and "out var operation" in text

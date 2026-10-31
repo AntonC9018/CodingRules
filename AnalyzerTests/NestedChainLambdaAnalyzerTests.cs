@@ -31,6 +31,7 @@ public sealed class NestedChainLambdaAnalyzerTests
     [InlineData("rows.Any(row => row.Any(cell => cell > 0))")]
     [InlineData("Apply(rows, row => row.Select(cell => cell).ToArray())")]
     [InlineData("rows.Select(row => Count(row))")]
+    [InlineData("rows.Select<int[], Func<int, int>>(row => cell => cell + row.Length)")]
     public async Task FlatChainsBlocksPredicateNestingAndPlainCallsAreAccepted(string expression)
     {
         Assert.Empty(await Analyze(Source(expression)));

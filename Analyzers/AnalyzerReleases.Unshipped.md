@@ -39,6 +39,7 @@ CR1100 | Readability | Warning | Prefer interpolation for runtime built-in strin
 CR1200 | Readability | Warning | Make proven unchanged assignment branches explicit conditional updates
 CR1300 | Readability | Warning | Review repeated timestamp formatting for shared meaning (manual duplication candidate)
 CR1400 | Readability | Warning | Review concrete classes for sealing, including inherited test seams (manual architectural finding; adapted MA0053)
+CR1700 | Naming | Error | Rename TODO_ placeholders that fixes give extracted symbols to domain names (manual rename)
 
 ### Removed Rules
 

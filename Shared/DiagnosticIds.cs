@@ -44,4 +44,5 @@ public static class DiagnosticIds
     public const string ExplicitCollectionImplementation = "CR1500";
     public const string ExceptionContext = "CR1600";
     public const string SealConcreteClass = "CR1400";
+    public const string PlaceholderName = "CR1700";
 }

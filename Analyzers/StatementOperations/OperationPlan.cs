@@ -324,7 +324,7 @@ internal sealed class OperationPlan
 
     private static bool SafeSyntax(ExpressionSyntax expression, SemanticModel model, CancellationToken token)
     {
-        if (expression.ContainsDiagnostics || expression.ContainsDirectives || ConditionHosts.IsInsideExpressionTree(expression, model)) return false;
+        if (expression.ContainsDiagnostics || expression.ContainsDirectives || ExpressionTrees.Contains(expression, model)) return false;
         if (expression.Ancestors().Any(node => node is ConstructorInitializerSyntax or AttributeSyntax or UnsafeStatementSyntax or FixedStatementSyntax)) return false;
         var formattable = model.Compilation.GetTypeByMetadataName("System.FormattableString");
         if (expression.AncestorsAndSelf().OfType<CastExpressionSyntax>().Any(cast =>

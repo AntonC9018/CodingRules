@@ -21,7 +21,7 @@ internal sealed class SelectorPlan
     public static SelectorPlan? Create(InvocationExpressionSyntax call, SemanticModel model, PipelineCatalog catalog)
     {
         if (model.GetOperation(call) is not IInvocationOperation operation || !catalog.IsMaterializer(operation.TargetMethod)
-            || ConditionHosts.IsInsideExpressionTree(call, model) || call.ContainsDirectives || call.ContainsDiagnostics
+            || ExpressionTrees.Contains(call, model) || call.ContainsDirectives || call.ContainsDiagnostics
             || CallerInformation.AffectedDefaults(call, call, model)
             || CompilerDiagnostics.HasError(model, call, default)) return null;
         // No KVP/builder insertion: immutable overloads can preserve returned identity

@@ -66,7 +66,7 @@ internal sealed class SpanPlan
         else return null;
         if (access.Expression.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any(node =>
                 model.GetOperation(node, token) is IInvocationOperation nested && catalog.Replacement(nested.TargetMethod) is not null)) return null;
-        if (inspection.ContainsDiagnostics || inspection.ContainsDirectives || ConditionHosts.IsInsideExpressionTree(inspection, model)
+        if (inspection.ContainsDiagnostics || inspection.ContainsDirectives || ExpressionTrees.Contains(inspection, model)
             || inspection.DescendantTrivia().Any(trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia))
             || inspection.Ancestors().Any(node => node is ConstructorInitializerSyntax or AttributeSyntax or UnsafeStatementSyntax or FixedStatementSyntax
                 || node is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } })

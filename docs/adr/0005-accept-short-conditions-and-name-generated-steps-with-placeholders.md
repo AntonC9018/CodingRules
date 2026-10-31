@@ -14,6 +14,8 @@ Findings:
   expression body nests another lambda, except catalogued predicates.
 - Index arithmetic such as `a[j - 1]` and identity aliases are accepted.
 - CR0701 replaces `Encoding.UTF8.GetBytes("literal")` with a `u8` literal.
+- Expression-tree lambdas and query clauses stay inline: CR02, CR03, CR0404 and
+  CR0701 neither report nor rewrite code inside them.
 
 Fixes:
 

@@ -16,7 +16,7 @@ internal static class StringConcatenationRewrite
             || !IsStringAddition(binary, model, token) || model.GetConstantValue(binary, token).HasValue
             || binary.ContainsDiagnostics || binary.ContainsDirectives
             || binary.DescendantTrivia().Any(trivia => !trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            || ConditionHosts.IsInsideExpressionTree(binary, model)
+            || ExpressionTrees.Contains(binary, model)
             || NamedArgumentObservers.Affected(binary, model, token)
             || HasImplicitCallerObserver(binary, model, token)
             // Implicit collection Add calls can observe their element's source text.

@@ -21,7 +21,7 @@ internal sealed class NamedArgumentPlan
         token.ThrowIfCancellationRequested();
         var site = NamedArgumentSite.Create(owner, model, token);
         if (site is null || owner.ContainsDiagnostics || owner.ContainsDirectives
-            || owner is ExpressionSyntax expression && ConditionHosts.IsInsideExpressionTree(expression, model)
+            || owner is ExpressionSyntax expression && ExpressionTrees.Contains(expression, model)
             || NamedArgumentPolicy.For(model.Compilation).Exempt(site.Method, owner.SyntaxTree, options, token)) return null;
         var indices = ImmutableArray.CreateBuilder<int>();
         var groups = site.BoundArguments.Select(argument => argument.Parameter!).GroupBy(parameter => parameter.Type, NamedArgumentTypes.Instance);

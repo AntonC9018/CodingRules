@@ -96,6 +96,8 @@ through `.editorconfig`.
   stage; name it (CR0404). Catalogued predicate nesting stays with CR0403.
 - Encode constant UTF-8 text with a `"text"u8` literal rather than
   `Encoding.UTF8.GetBytes("text")` from C# 11 (CR0701).
+- Code inside an expression-tree lambda or query clause stays inline; these rules
+  neither report nor rewrite it.
 - Fixes never alias unchanged receivers or arguments, never hoist literal or
   simple arguments, and add no blank lines around generated code.
 - Fixes name extracted symbols `TODO_CONDITION`, `TODO_VARIABLE` and

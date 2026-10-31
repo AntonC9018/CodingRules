@@ -21,7 +21,7 @@ internal sealed class CompoundPredicateRewrite
         if (!(CompoundPredicateFacts.IsCompound(lambda, model, catalog)
                 || CompoundPredicateFacts.ExceedsCompactDepth(lambda, model, catalog))
             || lambda.Body is not ExpressionSyntax expression || lambda.AsyncKeyword.RawKind != 0
-            || ConditionHosts.IsInsideExpressionTree(lambda, model)
+            || ExpressionTrees.Contains(lambda, model)
             || lambda.ContainsDirectives
             || lambda.DescendantTrivia().Any(trivia => !trivia.IsKind(SyntaxKind.WhitespaceTrivia)
                 && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))

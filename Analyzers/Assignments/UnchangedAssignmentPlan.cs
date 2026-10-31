@@ -35,7 +35,7 @@ internal sealed class UnchangedAssignmentPlan
             || type.TypeKind is TypeKind.Pointer or TypeKind.FunctionPointer or TypeKind.Dynamic or TypeKind.Error
             || !SymbolEqualityComparer.Default.Equals(type, model.GetTypeInfo(conditional, token).Type)
             || model.GetTypeInfo(conditional.Condition, token).Type?.SpecialType != SpecialType.System_Boolean
-            || ConditionHosts.IsInsideExpressionTree(assignment, model)) return null;
+            || ExpressionTrees.Contains(assignment, model)) return null;
 
         bool trueUnchanged;
         if (SameStorage(conditional.WhenTrue, storage, model, token)) trueUnchanged = true;

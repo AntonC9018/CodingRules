@@ -97,7 +97,7 @@ public sealed class StatementOperationAnalyzer : DiagnosticAnalyzer
     internal static DiagnosticDescriptor? Select(ExpressionSyntax expression, SemanticModel model,
         AnalyzerConfigOptionsProvider options, CancellationToken token)
     {
-        if (IsWithinExceptionMessage(expression, model))
+        if (IsWithinExceptionMessage(expression, model) || ExpressionTrees.Contains(expression, model, token))
         {
             return null;
         }

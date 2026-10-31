@@ -238,7 +238,7 @@ internal sealed class ConditionRewritePlan
 
     private static bool CanMoveSyntax(ExpressionSyntax expression, SemanticModel model, CancellationToken token)
     {
-        if (ConditionHosts.IsInsideExpressionTree(expression, model)) return false;
+        if (ExpressionTrees.Contains(expression, model)) return false;
         if (expression.ContainsDiagnostics) return false;
         if (expression.ContainsDirectives) return false;
         if (expression.DescendantTrivia().Any(IsUnsafeTrivia)) return false;

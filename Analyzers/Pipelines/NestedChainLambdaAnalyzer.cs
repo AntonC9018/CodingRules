@@ -45,7 +45,8 @@ public sealed class NestedChainLambdaAnalyzer : DiagnosticAnalyzer
 
     private static bool IsReported(LambdaExpressionSyntax lambda, SemanticModel model, PredicateCatalog catalog)
     {
-        if (lambda.Body is not ExpressionSyntax body || lambda.ContainsDiagnostics || !IsChainArgument(lambda))
+        if (lambda.Body is not ExpressionSyntax body || lambda.ContainsDiagnostics || !IsChainArgument(lambda)
+            || ExpressionTrees.Contains(lambda, model))
         {
             return false;
         }

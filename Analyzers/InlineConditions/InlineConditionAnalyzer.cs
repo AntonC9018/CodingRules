@@ -38,7 +38,7 @@ public sealed class InlineConditionAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var expression = ConditionHosts.GetExpression(context.Node);
-        if (expression is null)
+        if (expression is null || ExpressionTrees.Contains(expression, context.SemanticModel, context.CancellationToken))
         {
             return;
         }

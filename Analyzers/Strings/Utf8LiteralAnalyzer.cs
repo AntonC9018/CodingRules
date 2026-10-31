@@ -51,7 +51,8 @@ internal static class Utf8LiteralFacts
             || Parentheses.Unwrap(argument.Expression) is not LiteralExpressionSyntax literal
             || !literal.IsKind(SyntaxKind.StringLiteralExpression)
             || literal.Token.Value is not string text
-            || !IsWellFormed(text))
+            || !IsWellFormed(text)
+            || ExpressionTrees.Contains(call, model))
         {
             return null;
         }

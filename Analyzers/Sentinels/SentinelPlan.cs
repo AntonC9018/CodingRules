@@ -19,9 +19,7 @@ internal static class SentinelPlan
             || host.Body.DescendantNodes(node => !SentinelHost.Nested(node)).Any(node => node is GotoStatementSyntax or LabeledStatementSyntax)
             || host.Body.DescendantTrivia().Any(trivia => trivia.IsDirective)
             || CompilerDiagnostics.HasError(model, host.Body, token)) return false;
-        foreach (var anonymous in expression.Ancestors().OfType<AnonymousFunctionExpressionSyntax>())
-            if (model.GetTypeInfo(anonymous, token).ConvertedType is INamedTypeSymbol type
-                && type.OriginalDefinition.ToDisplayString() == "System.Linq.Expressions.Expression<TDelegate>") return false;
+        if (ExpressionTrees.Contains(expression, model, token)) return false;
         var operation = SentinelSearch.Operation(expression, model, token);
         if (operation is not (ILocalReferenceOperation or IInvocationOperation)
             || model.GetTypeInfo(expression, token).ConvertedType?.SpecialType != SpecialType.System_Int32) return false;

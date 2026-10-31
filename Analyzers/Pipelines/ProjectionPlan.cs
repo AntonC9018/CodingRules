@@ -28,7 +28,7 @@ internal sealed class ProjectionPlan
             || model.GetOperation(call) is not IInvocationOperation invocation
             || model.GetOperation(argument) is not IArgumentOperation { Parameter: not null } bound
             || !catalog.IsProjection(invocation.TargetMethod, bound.Parameter)
-            || ConditionHosts.IsInsideExpressionTree(lambda, model) || lambda.AsyncKeyword.RawKind != 0
+            || ExpressionTrees.Contains(lambda, model) || lambda.AsyncKeyword.RawKind != 0
             || model.GetSymbolInfo(lambda).Symbol is not IMethodSymbol { ReturnsVoid: false } callable
             || !Safe(lambda, model, token)) return null;
         OperationPlan? lowering = null;

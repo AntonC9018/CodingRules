@@ -36,6 +36,10 @@ Fixes:
   result variable.
 - An assignment inside a condition is hoisted into its own statement.
 - Unchanged values are not aliased and simple arguments are not hoisted.
+- A local counts as unchanged when neither the rewritten code nor a closure in
+  the same member writes it. A write from a closure declared in an enclosing
+  member can therefore be reordered; code must not depend on another closure
+  changing a captured variable in the middle of one expression.
 - Generated output keeps the source indentation, adds no blank lines and keeps
   a declaration's type and name on one line. Tests compare exact whitespace.
 

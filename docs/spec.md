@@ -529,7 +529,10 @@ The helper contains named linear stages and its zero-argument invocation remains
 at the original evaluation site. There is no hidden helper exemption after
 saving the source. Typed branch-local assignments retain short-circuit and
 ternary laziness. Expansion snapshots the receiver, earlier arguments and their
-conversions, assignment location and later arguments in source order. Helpers
+conversions, assignment location and later arguments in source order. A local
+that neither the site nor a closure in its member writes is read in place;
+writes from closures in enclosing members are not tracked, and code must not
+depend on them. Helpers
 adapt loop headers, foreach collections, filters and switch guards without
 changing reevaluation or continue timing. Stable unavailable filter/pattern/for
 variables can bridge the whole site through exact typed parameters. Field and

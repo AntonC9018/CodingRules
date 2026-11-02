@@ -68,9 +68,9 @@ internal sealed class OperationEvaluator
             var argumentsHaveWork = invocation.ArgumentList.Arguments.Any(argument => HasWork(argument.Expression));
             if (target is MemberAccessExpressionSyntax member && !method.IsStatic)
             {
-                // The receiver is read before the arguments; it needs a name only
+                // The receiver is read before the arguments; it also needs a name
                 // when argument work is staged ahead of the call.
-                var receiver = Lower(member.Expression, statements, save: true);
+                var receiver = LowerReceiver(member.Expression, statements, argumentsHaveWork);
                 if (argumentsHaveWork) receiver = Save(member.Expression, receiver, statements);
                 target = member.WithExpression(receiver);
             }
@@ -119,7 +119,7 @@ internal sealed class OperationEvaluator
         }
         else if (expression is MemberAccessExpressionSyntax member && HasWork(member.Expression))
         {
-            expression = member.WithExpression(Lower(member.Expression, statements, save: true));
+            expression = member.WithExpression(LowerReceiver(member.Expression, statements, laterWork: false));
         }
         else if (expression is ElementAccessExpressionSyntax element && HasWork(element))
         {
@@ -156,13 +156,23 @@ internal sealed class OperationEvaluator
         }
 
         expression = PreserveCalls(original, expression);
-        if (save && (OperationFacts.IsProducer(original, model) || OperationFacts.IsCalculation(original, model)
-            || lowerConditionProducers && ConditionFacts.IsProducer(original, model)))
-        {
-            return Save(original, expression, statements);
-        }
+        return save ? SaveWork(original, expression, statements) : expression.WithoutTrivia();
+    }
 
-        return expression.WithoutTrivia();
+    private ExpressionSyntax SaveWork(ExpressionSyntax original, ExpressionSyntax value, List<StatementSyntax> statements)
+    {
+        var work = OperationFacts.IsProducer(original, model) || OperationFacts.IsCalculation(original, model)
+            || lowerConditionProducers && ConditionFacts.IsProducer(original, model);
+        return work ? Save(original, value, statements) : value.WithoutTrivia();
+    }
+
+    // A chain link whose nested work was staged stays in the chain, as in
+    // `b.Append(TODO_VARIABLE).Append(x)`. A link that is itself the work is named.
+    private ExpressionSyntax LowerReceiver(ExpressionSyntax receiver, List<StatementSyntax> statements, bool laterWork)
+    {
+        var staged = statements.Count;
+        var lowered = Lower(receiver, statements);
+        return laterWork || statements.Count == staged ? SaveWork(receiver, lowered, statements) : lowered;
     }
 
     // A condition the inline-condition rules report still separates its operations.

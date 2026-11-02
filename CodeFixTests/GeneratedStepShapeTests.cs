@@ -107,6 +107,27 @@ public sealed class GeneratedStepShapeTests
         Assert.Equal(prefix + body + suffix, (await changed.GetTextAsync()).ToString());
     }
 
+    [Theory]
+    [InlineData("b.Append(Get(Get(x))).Append(x);", "b.Append(TODO_VARIABLE).Append(x);")]
+    [InlineData("var n = b.Append(Get(Get(x))).Length;", "var n = b.Append(TODO_VARIABLE).Length;")]
+    public async Task ExpansionKeepsTheChainWhenLaterLinksStageNoWork(string statement, string kept)
+    {
+        const string prefix = """
+            using System.Text;
+            public static class C
+            {
+                static int Get(int value) => value;
+                public static void M(StringBuilder b, int x)
+                {
+
+            """;
+        const string suffix = "\n    }\n}";
+        var document = StatementOperationTestFixture.Document(prefix + "        " + statement + suffix);
+        var changed = await StatementOperationTestFixture.Fix(document, StatementOperationCodeFixProvider.ExpandKey);
+        Assert.Equal(prefix + "        int TODO_VARIABLE = Get(Get(x));\n        " + kept + suffix,
+            (await changed.GetTextAsync()).ToString());
+    }
+
     [Fact]
     public async Task AssignmentInAConditionIsHoistedIntoItsDeclaration()
     {

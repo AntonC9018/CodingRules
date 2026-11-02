@@ -81,7 +81,7 @@ static class Generated {
         run(command, consumer, environment)
         assert {path.name: path.read_bytes() for path in consumer.glob("*.cs")} == fixed
         run([*command, "--verify-no-changes"], consumer, environment)
-        print("PASS: six exact findings; accepted/generated cases; severity transport; computed-value "
+        print("PASS: five exact findings; accepted/generated cases; severity transport; computed-value "
               "and service-result fixes; unchanged runtime; saved-source stability; existing candidate package.")
 
 

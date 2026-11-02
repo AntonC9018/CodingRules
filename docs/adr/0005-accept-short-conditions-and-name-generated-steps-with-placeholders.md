@@ -18,8 +18,14 @@ Findings:
   a `byte[]` variable, field, property or element is not reported. A returned
   array is declared as `byte[] ret = "text"u8.ToArray();` before the return; any
   other array use reads a `TODO_VARIABLE` declared before its statement. The copy
-  never appears inline, and the fix is declined when it would change
-  caller-argument text or caller line numbers.
+  never appears inline. The fix is declined when it would change caller-argument
+  text, or when its inserted declaration would shift the line of a call with
+  caller-information defaults.
+- Accepted CR0701 limitations: a `ReadOnlySpan<byte>` replacement joins a
+  multi-line `GetBytes(...)` call onto one line, which can shift the
+  `[CallerLineNumber]` value of a later call. Comments inside the replaced call
+  are dropped. An array assigned to a wider type, such as `object`, is still
+  reported and read through a `TODO_VARIABLE`.
 - Expression-tree lambdas and query clauses stay inline: CR02, CR03, CR0404 and
   CR0701 neither report nor rewrite code inside them.
 

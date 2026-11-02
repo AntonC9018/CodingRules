@@ -108,6 +108,22 @@ public sealed class ReviewedCompoundConditionTests
             }
         }
     }
+    [Fact]
+    public async Task NegatedGuardLeavesAreTestedInPlace()
+    {
+        var document = InlineConditionTestFixture.Document(Json);
+        var diagnostic = Assert.Single(await InlineConditionTestFixture.Diagnostics(document));
+        var action = Assert.Single(await InlineConditionTestFixture.Actions(document, diagnostic));
+        var changed = await InlineConditionTestFixture.Fix(document, action.EquivalenceKey!);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("""
+                    if (!keyValue.TryGetValue<string>(out var key))
+                    {
+            """, text);
+        Assert.Contains("if (!opValue.TryGetValue<string>(out var operation))", text);
+        Assert.DoesNotContain("TODO_VARIABLE", text);
+    }
+
     [Theory]
     [InlineData("error is TokenResponseException || error is GooglePreSendTransportException")]
     [InlineData("code is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden or HttpStatusCode.NotFound or HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed or HttpStatusCode.UnprocessableEntity")]

@@ -162,7 +162,9 @@ internal sealed class ConditionEvaluator
         if (expression is PrefixUnaryExpressionSyntax unary && unary.Kind() is SyntaxKind.LogicalNotExpression
             or SyntaxKind.UnaryMinusExpression or SyntaxKind.UnaryPlusExpression or SyntaxKind.BitwiseNotExpression)
         {
-            expression = unary.WithOperand(LowerOriginal(unary.Operand, statements, saveProducer: true));
+            // The operand is the last work before the operator, so it needs a name
+            // only when the enclosing expression saves this value; a guard tests it in place.
+            expression = unary.WithOperand(LowerOriginal(unary.Operand, statements, saveProducer));
         }
         else if (expression is BinaryExpressionSyntax binary
             && ConditionFacts.EvaluationNodes(binary).Skip(1).Any(node => ConditionFacts.IsProducer(node, model)))

@@ -8,7 +8,6 @@ public static class Consumer
         {
             return -1;
         }
-
         return sentinelResult;
     }
     public static bool Run(string text) => Forward(text) >= 0;

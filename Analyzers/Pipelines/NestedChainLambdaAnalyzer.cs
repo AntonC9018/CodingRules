@@ -51,7 +51,8 @@ public sealed class NestedChainLambdaAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var nested = body.DescendantNodes().OfType<LambdaExpressionSyntax>().ToArray();
+        // A curried body such as `row => cell => ...` is accepted, with or without parentheses.
+        var nested = Parentheses.Unwrap(body).DescendantNodes().OfType<LambdaExpressionSyntax>().ToArray();
         if (nested.Length == 0)
         {
             return false;

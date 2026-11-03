@@ -11,14 +11,12 @@ namespace CodingRules;
 
 public sealed class InlineConditionInteractionTests
 {
-    [Theory]
-    [InlineData(InlineConditionCodeFixProvider.ExtractKey)]
-    [InlineData(InlineConditionCodeFixProvider.ExpandKey)]
-    public async Task ExistingUnrelatedFinalDecisionRemainsVisible(string key)
+    [Fact]
+    public async Task ExistingUnrelatedFinalDecisionRemainsVisible()
     {
-        var document = InlineConditionTestFixture.Document("class C { int M(bool a, bool b, bool flag) { if (a && b) return 0; return flag ? 1 : 2; } }");
-        Assert.Equal(new[] { "CR0202", "CR0001" }, (await InlineConditionTestFixture.Diagnostics(document, true)).Select(diagnostic => diagnostic.Id));
-        var changed = await InlineConditionTestFixture.Fix(document, key);
+        var document = InlineConditionTestFixture.Document("class C { int M(bool a, bool b, bool c, bool d, bool flag) { if (a && b && c && d) return 0; return flag ? 1 : 2; } }");
+        Assert.Equal(new[] { "CR0201", "CR0001" }, (await InlineConditionTestFixture.Diagnostics(document, true)).Select(diagnostic => diagnostic.Id));
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
         Assert.Equal("CR0001", Assert.Single(await InlineConditionTestFixture.Diagnostics(changed, true)).Id);
         await InlineConditionTestFixture.Compiles(changed);
     }
@@ -31,8 +29,8 @@ public sealed class InlineConditionInteractionTests
     public async Task BothOrdersOfOverlappingReturnFixesTerminate(bool nested, string key)
     {
         var source = nested
-            ? "class C { bool M(bool a, bool b, bool c) { lock (new object()) { return a && b && c; } } }"
-            : "class C { bool M(bool a, bool b, bool c) { if (!a) return false; return a && b && c; } }";
+            ? "class C { bool M(bool a, bool b, bool c, bool d) { lock (new object()) { return a && b && c && d; } } }"
+            : "class C { bool M(bool a, bool b, bool c, bool d) { if (!a) return false; return a && b && c && d; } }";
         var document = InlineConditionTestFixture.Document(source);
         var returnId = nested ? "CR0006" : "CR0001";
         var conditionFirst = await InlineConditionTestFixture.Fix(document, key);
@@ -52,7 +50,8 @@ public sealed class InlineConditionInteractionTests
 
         var returnFirst = await FixReturn(document, nested);
         Assert.Equal("CR0201", Assert.Single(await InlineConditionTestFixture.Diagnostics(returnFirst, true)).Id);
-        var changed = await InlineConditionTestFixture.Fix(returnFirst, key);
+        // The return fix leaves an if condition, which only extraction rewrites.
+        var changed = await InlineConditionTestFixture.Fix(returnFirst, InlineConditionCodeFixProvider.ExtractKey);
         Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed, true));
         await InlineConditionTestFixture.Compiles(changed);
     }
@@ -67,33 +66,31 @@ public sealed class InlineConditionInteractionTests
         return operation.ChangedSolution.GetDocument(document.Id)!;
     }
 
-    [Theory]
-    [InlineData(InlineConditionCodeFixProvider.ExtractKey)]
-    [InlineData(InlineConditionCodeFixProvider.ExpandKey)]
-    public async Task FixAllReplansNestedSitesSectionsAndNames(string key)
+    [Fact]
+    public async Task FixAllReplansNestedSitesSectionsAndNames()
     {
         var source = """
             class C
             {
                 static bool Use(bool x) => x;
-                void M(bool a, bool b, bool c, int mode)
+                void M(bool a, bool b, bool c, bool d, int mode)
                 {
-                    bool CheckCondition = false;
-                    var first = a && b && c;
-                    if (Use(a && b && c) && b && c) { }
+                    bool TODO_CONDITION = false;
+                    var first = a && b && c && d;
+                    if (Use(a && b && c && d) && b && c) { }
                     switch (mode)
                     {
-                        case 1: if (a && b && c) { } break;
-                        case 2: if (a && b && c) { } break;
+                        case 1: if (a && b && c && d) { } break;
+                        case 2: if (a && b && c && d) { } break;
                     }
-                    bool conditionResult = CheckCondition;
+                    bool TODO_VARIABLE = TODO_CONDITION;
                 }
             }
             """;
         var document = InlineConditionTestFixture.Document(source);
         Assert.Equal(5, (await InlineConditionTestFixture.Diagnostics(document)).Length);
         var provider = new InlineConditionCodeFixProvider();
-        var context = new FixAllContext(document, provider, FixAllScope.Document, key,
+        var context = new FixAllContext(document, provider, FixAllScope.Document, InlineConditionCodeFixProvider.ExtractKey,
             provider.FixableDiagnosticIds, new DiagnosticProvider(), CancellationToken.None);
         var action = await provider.GetFixAllProvider().GetFixAsync(context);
         var operation = Assert.Single((await action!.GetOperationsAsync(CancellationToken.None)).OfType<ApplyChangesOperation>());
@@ -102,13 +99,52 @@ public sealed class InlineConditionInteractionTests
         Assert.Empty(await InlineConditionTestFixture.Diagnostics(changed, true));
         var fixedText = (await changed.GetTextAsync()).ToString();
         Assert.DoesNotContain("a && b && c", fixedText);
-        Assert.Contains(key == InlineConditionCodeFixProvider.ExtractKey ? "CheckCondition2" : "conditionResult2", fixedText);
+        Assert.Contains("TODO_CONDITION_1", fixedText);
+    }
+
+    [Theory]
+    [InlineData(FixAllScope.Document, InlineConditionCodeFixProvider.ExtractKey)]
+    [InlineData(FixAllScope.Project, InlineConditionCodeFixProvider.ExtractKey)]
+    [InlineData(FixAllScope.Solution, InlineConditionCodeFixProvider.ExtractKey)]
+    public async Task FixAllRespectsScopeAndCrossFileBindings(FixAllScope scope, string key)
+    {
+        var target = InlineConditionTestFixture.Document("class C { static bool M(bool a, bool b, bool c) { if (a && b && Helper.Check(c)) { return true; } return false; } }");
+        const string otherSource = "class D { static bool M(bool a, bool b, bool c) { if (a && b && Helper.Check(c)) { return true; } return false; } }";
+        var other = target.Project.AddDocument("Other.cs", otherSource);
+        var helpers = other.Project.AddDocument("Helper.cs", "static class Helper { public static bool Check(bool value) => value; }");
+        target = helpers.Project.GetDocument(target.Id)!;
+        var provider = new InlineConditionCodeFixProvider();
+        using var timeout = new CancellationTokenSource(System.TimeSpan.FromSeconds(20));
+        var context = new FixAllContext(target, provider, scope, key, provider.FixableDiagnosticIds,
+            new DiagnosticProvider(), timeout.Token);
+        var action = await provider.GetFixAllProvider().GetFixAsync(context);
+        var operation = Assert.Single((await action!.GetOperationsAsync(timeout.Token)).OfType<ApplyChangesOperation>());
+        var changed = await InlineConditionTestFixture.Reparse(operation.ChangedSolution.GetDocument(target.Id)!);
+        await InlineConditionTestFixture.Compiles(changed);
+        Assert.Empty(await DocumentDiagnostics(changed));
+        var changedOther = operation.ChangedSolution.GetDocument(other.Id)!;
+        if (scope == FixAllScope.Document)
+        {
+            Assert.Equal(otherSource, (await changedOther.GetTextAsync()).ToString());
+        }
+        else
+        {
+            Assert.Empty(await DocumentDiagnostics(await InlineConditionTestFixture.Reparse(changedOther)));
+        }
+        Assert.Equal((await helpers.GetTextAsync()).ToString(), (await operation.ChangedSolution.GetDocument(helpers.Id)!.GetTextAsync()).ToString());
+    }
+
+    private static async Task<IEnumerable<Diagnostic>> DocumentDiagnostics(Document document)
+    {
+        var tree = await document.GetSyntaxTreeAsync();
+        return (await InlineConditionTestFixture.Diagnostics(document))
+            .Where(diagnostic => diagnostic.Location.SourceTree == tree);
     }
 
     private sealed class DiagnosticProvider : FixAllContext.DiagnosticProvider
     {
         public override async Task<IEnumerable<Diagnostic>> GetDocumentDiagnosticsAsync(Document document, CancellationToken cancellationToken) =>
-            await InlineConditionTestFixture.Diagnostics(document);
+            await DocumentDiagnostics(document);
 
         public override Task<IEnumerable<Diagnostic>> GetProjectDiagnosticsAsync(Project project, CancellationToken cancellationToken) =>
             Task.FromResult(Enumerable.Empty<Diagnostic>());
@@ -118,7 +154,7 @@ public sealed class InlineConditionInteractionTests
             var diagnostics = new List<Diagnostic>();
             foreach (var document in project.Documents)
             {
-                diagnostics.AddRange(await InlineConditionTestFixture.Diagnostics(document));
+                diagnostics.AddRange(await DocumentDiagnostics(document));
             }
 
             return diagnostics;

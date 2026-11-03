@@ -36,20 +36,6 @@ internal static class ConditionHosts
         return expression;
     }
 
-    public static bool IsInsideExpressionTree(ExpressionSyntax expression, SemanticModel model)
-    {
-        foreach (var lambda in expression.AncestorsAndSelf().OfType<LambdaExpressionSyntax>())
-        {
-            var type = model.GetTypeInfo(lambda).ConvertedType as INamedTypeSymbol;
-            if (type?.OriginalDefinition.ToDisplayString() == "System.Linq.Expressions.Expression<TDelegate>")
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public static StatementSyntax? FindStatement(ExpressionSyntax expression)
     {
         foreach (var ancestor in expression.Ancestors())

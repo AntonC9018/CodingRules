@@ -9,7 +9,6 @@ public static class Consumer
             var trimmedText = global::System.MemoryExtensions.Trim(span: textSpan);
             return trimmedText.Length;
         }
-
         return InspectTextLength(text);
     }
 }

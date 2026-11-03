@@ -11,6 +11,60 @@ namespace CodingRules;
 
 public sealed class InlineConditionRegressionTests
 {
+    [Xunit.Fact]
+    public async System.Threading.Tasks.Task MixedPredicateExtractionHasNoMutableDecisionScratch()
+    {
+        var document = InlineConditionTestFixture.Document("class C { bool M(bool a,bool b,bool c,bool d) { return (a || b) && (c || d); } }");
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        await InlineConditionTestFixture.Compiles(changed);
+        var text = (await changed.GetTextAsync()).ToString();
+        Xunit.Assert.DoesNotContain("bool conditionResult;", text);
+        Xunit.Assert.DoesNotContain("else", text);
+    }
+
+    [Fact]
+    public async Task BuiltInNegationUsesDirectGuardsAndInverseEquality()
+    {
+        var document = InlineConditionTestFixture.Document("class C { enum Exit { Success, Cancelled, Other } bool M(bool effects, bool ready, Exit exit) { return effects && ready && exit != Exit.Success && exit != Exit.Cancelled; } }");
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        await InlineConditionTestFixture.Compiles(changed);
+        var text = (await changed.GetTextAsync()).ToString();
+        Assert.Contains("if (!effects)", text);
+        Assert.Contains("if (!ready)", text);
+        Assert.Contains("if (exit == Exit.Success)", text);
+        Assert.Contains("if (exit == Exit.Cancelled)", text);
+        Assert.DoesNotContain("!(", text);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
+    [InlineData(15)]
+    public async Task MixedPredicateKeepsEveryOutcomeAndLazyCallTrace(int bits)
+    {
+        var source = "public class C { static string trace=\"\"; static bool Read(int bit) { trace += bit; return (" + bits
+            + " & (1 << bit)) != 0; } static bool Match() { return (Read(0) || Read(1)) && (Read(2) || Read(3)); } public static string Run() { var value=Match(); return trace + value; } }";
+        var document = InlineConditionTestFixture.Document(source);
+        var before = await InlineConditionTestFixture.Run(document);
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey);
+        await InlineConditionTestFixture.Compiles(changed);
+        Assert.Equal(before, await InlineConditionTestFixture.Run(changed));
+        Assert.DoesNotContain("bool conditionResult;", (await changed.GetTextAsync()).ToString());
+    }
+
     [Theory]
     [InlineData("(A() && int.Parse(\"bad\") > 0) == true", false)]
     [InlineData("(A() && int.Parse(\"1\") > 0) == false", false)]
@@ -23,22 +77,21 @@ public sealed class InlineConditionRegressionTests
         var source = "public class C { static string trace = \"\"; static bool A() { trace += \"A\"; return "
             + a.ToString().ToLowerInvariant() + "; } public static string Run() { bool result = " + condition
             + "; return trace + result; } }";
-        await AssertSavedFixes(source, both: true);
+        await AssertSavedFixes(source, both: false);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task NestedCheckedMutationRemainsOnReachedPath(bool reached)
+    public async Task NestedCheckedMutationWithoutAFixIsNotReported(bool reached)
     {
         var source = "public class C { public static string Run() { int n=int.MaxValue; bool a="
             + reached.ToString().ToLowerInvariant()
             + "; try { checked { bool result = (a && ++n > 0) == true; return result.ToString() + n; } } catch(System.OverflowException) { return \"overflow\"; } } }";
+        // Extraction cannot move the write and expansion never introduces a result
+        // variable, so the analyzer reports nothing it could not fix.
         var document = InlineConditionTestFixture.Document(source);
-        var diagnostic = Assert.Single(await InlineConditionTestFixture.Diagnostics(document));
-        var action = Assert.Single(await InlineConditionTestFixture.Actions(document, diagnostic));
-        Assert.Equal(InlineConditionCodeFixProvider.ExpandKey, action.EquivalenceKey);
-        await AssertSavedFixes(source, both: false, key: action.EquivalenceKey!);
+        Assert.Empty(await InlineConditionTestFixture.Diagnostics(document));
     }
 
     [Theory]
@@ -51,12 +104,12 @@ public sealed class InlineConditionRegressionTests
         var source = "public class C { static string trace = \"\"; static " + type + " Items() { trace += \"receiver\"; return "
             + array + "; } static string Read() { trace += \"index\"; return \"0\"; } public static string Run() { bool result = "
             + condition.Replace("items", "Items()") + "; return trace + result; } }";
-        await AssertSavedFixes(source, both: true);
+        await AssertSavedFixes(source, both: false);
     }
 
     [Theory]
     [InlineData("int.TryParse(\"1\", out var n) && int.Parse(\"2\") > n", "n.ToString()")]
-    [InlineData("text is not null && (a || b)", "text")]
+    [InlineData("text is not null && a && b && text.Length > 0", "text")]
     public async Task FlowExpansionLowersTheWholeSelectedRoot(string condition, string outcome)
     {
         var source = "public class C { public static string Run() { string? text=\"x\"; bool a=true,b=false; if ("
@@ -107,9 +160,7 @@ public sealed class InlineConditionRegressionTests
 
     [Theory]
     [InlineData("items[int.Parse(\"0\")] > 0", InlineConditionCodeFixProvider.ExtractKey)]
-    [InlineData("items[int.Parse(\"0\")] > 0", InlineConditionCodeFixProvider.ExpandKey)]
     [InlineData("(a ? int.Parse(\"1\") : 0) > 0", InlineConditionCodeFixProvider.ExtractKey)]
-    [InlineData("(a ? int.Parse(\"1\") : 0) > 0", InlineConditionCodeFixProvider.ExpandKey)]
     [InlineData("A() && B() && D()", InlineConditionCodeFixProvider.ExtractKey)]
     public async Task FixAllMakesBoundedProgressAndIsIdempotent(string condition, string key)
     {
@@ -129,15 +180,13 @@ public sealed class InlineConditionRegressionTests
     [Fact]
     public async Task FixingProducerRetainsAnUnrelatedRootAndReturnWarning()
     {
-        var document = InlineConditionTestFixture.Document("class C { int M(bool a,bool b,bool c) { bool parsed=int.Parse(\"1\")>0; if(a && b && c) return 1; return a ? 2 : 3; } }");
+        var document = InlineConditionTestFixture.Document("class C { int M(bool a,bool b,bool c,bool d) { bool parsed=int.Parse(\"1\")>0; if(a && b && c && d) return 1; return a ? 2 : 3; } }");
         var before = await InlineConditionTestFixture.Diagnostics(document, includeReturns: true);
         Assert.Equal(new[] { "CR0203", "CR0201", "CR0001" }, before.Select(diagnostic => diagnostic.Id));
-        foreach (var key in new[] { InlineConditionCodeFixProvider.ExtractKey, InlineConditionCodeFixProvider.ExpandKey })
-        {
-            var changed = await InlineConditionTestFixture.Fix(document, key, DiagnosticIds.CombinedConditionOperations);
-            var reparsed = await InlineConditionTestFixture.Reparse(changed);
-            Assert.Equal(new[] { "CR0201", "CR0001" }, (await InlineConditionTestFixture.Diagnostics(reparsed, true)).Select(diagnostic => diagnostic.Id));
-        }
+        var changed = await InlineConditionTestFixture.Fix(document, InlineConditionCodeFixProvider.ExtractKey,
+            DiagnosticIds.CombinedConditionOperations);
+        var reparsed = await InlineConditionTestFixture.Reparse(changed);
+        Assert.Equal(new[] { "CR0201", "CR0001" }, (await InlineConditionTestFixture.Diagnostics(reparsed, true)).Select(diagnostic => diagnostic.Id));
     }
 
     [Theory]

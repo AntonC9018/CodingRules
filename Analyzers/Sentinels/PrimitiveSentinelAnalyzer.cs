@@ -26,9 +26,9 @@ public sealed class PrimitiveSentinelAnalyzer : DiagnosticAnalyzer
                 if (host is null || host.Imposed(node.SemanticModel, node.CancellationToken)) return;
                 var result = summaries.Get(host, node.SemanticModel, node.CancellationToken);
                 if (host.IsApi && (result.Outcomes & SearchOutcomes.Sentinel) != 0
-                    && PipelineAnalyzer.Enabled(ApiRule.Id, node.Node, node.SemanticModel, node.Options.AnalyzerConfigOptionsProvider, node.CancellationToken))
+                    && RuleSeverity.IsEnabled(ApiRule.Id, node.Node.SyntaxTree, node.SemanticModel.Compilation, node.Options.AnalyzerConfigOptionsProvider, node.CancellationToken))
                 { node.ReportDiagnostic(Diagnostic.Create(ApiRule, host.Type.GetLocation())); return; }
-                if (!PipelineAnalyzer.Enabled(ForwardRule.Id, node.Node, node.SemanticModel, node.Options.AnalyzerConfigOptionsProvider, node.CancellationToken)) return;
+                if (!RuleSeverity.IsEnabled(ForwardRule.Id, node.Node.SyntaxTree, node.SemanticModel.Compilation, node.Options.AnalyzerConfigOptionsProvider, node.CancellationToken)) return;
                 foreach (var site in result.Returns)
                     if (SentinelPlan.Feasible(site, host, node.SemanticModel, node.CancellationToken))
                         node.ReportDiagnostic(Diagnostic.Create(ForwardRule, site.Expression.GetLocation()));

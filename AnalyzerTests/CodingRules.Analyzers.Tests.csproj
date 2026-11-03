@@ -1,1 +1,19 @@
-<Project Sdk="Anton.SourceGeneration.Sdk/1.1.0" />
+<Project Sdk="Anton.SourceGeneration.Sdk/1.1.0">
+  <ItemGroup>
+    <!-- Patch the test-only Roslyn testing/NuGet.Packaging transitive vulnerability;
+         remove once the shared SDK supplies the patched dependency. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.21" />
+    <None Include="../Package/CodingRules.Package.csproj" Link="AgentGuidance/Package/CodingRules.Package.csproj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Package/buildTransitive/*" Link="AgentGuidance/Package/buildTransitive/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../docs/agent-coding-rules.md" Link="AgentGuidance/docs/agent-coding-rules.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../docs/consumer-agent-guidance.md" Link="AgentGuidance/docs/consumer-agent-guidance.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../samples/AgentGuidance/AGENTS.md" Link="AgentGuidance/Sample/AGENTS.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/SealedClasses/*.cs" Link="SealedClasses/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/RepeatedFormatting/*.cs" Link="RepeatedFormatting/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/TupleData/*.cs" Link="TupleData/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/ContractParameters/*.cs" Link="ContractParameters/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/OverloadConfiguration/*.cs" Link="OverloadConfiguration/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/ReviewedConditions/Findings.cs" Link="ReviewedConditions/Findings.cs" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CodeFixTests/Consumers/ReviewedConditions/Accepted.cs" Link="ReviewedConditions/Accepted.cs" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

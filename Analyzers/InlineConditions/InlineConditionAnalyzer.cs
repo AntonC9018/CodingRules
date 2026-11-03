@@ -38,7 +38,7 @@ public sealed class InlineConditionAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var expression = ConditionHosts.GetExpression(context.Node);
-        if (expression is null)
+        if (expression is null || ExpressionTrees.Contains(expression, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -57,15 +57,8 @@ public sealed class InlineConditionAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            var severity = context.Compilation.Options.SyntaxTreeOptionsProvider?.TryGetDiagnosticValue(
-                expression.SyntaxTree, candidate.Id, context.CancellationToken, out var treeSeverity) == true
-                ? treeSeverity
-                : context.Compilation.Options.SpecificDiagnosticOptions.TryGetValue(candidate.Id, out var configured)
-                    ? configured : ReportDiagnostic.Default;
-            var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(expression.SyntaxTree);
-            if (severity == ReportDiagnostic.Suppress
-                || options.TryGetValue("dotnet_diagnostic." + candidate.Id + ".severity", out var value)
-                    && value == "none")
+            if (!RuleSeverity.IsEnabled(candidate.Id, expression.SyntaxTree, context.Compilation,
+                    context.Options.AnalyzerConfigOptionsProvider, context.CancellationToken))
             {
                 continue;
             }

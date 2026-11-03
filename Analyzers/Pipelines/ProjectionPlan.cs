@@ -28,7 +28,7 @@ internal sealed class ProjectionPlan
             || model.GetOperation(call) is not IInvocationOperation invocation
             || model.GetOperation(argument) is not IArgumentOperation { Parameter: not null } bound
             || !catalog.IsProjection(invocation.TargetMethod, bound.Parameter)
-            || ConditionHosts.IsInsideExpressionTree(lambda, model) || lambda.AsyncKeyword.RawKind != 0
+            || ExpressionTrees.Contains(lambda, model) || lambda.AsyncKeyword.RawKind != 0
             || model.GetSymbolInfo(lambda).Symbol is not IMethodSymbol { ReturnsVoid: false } callable
             || !Safe(lambda, model, token)) return null;
         OperationPlan? lowering = null;
@@ -78,7 +78,7 @@ internal sealed class ProjectionPlan
         if (lambda.ContainsDiagnostics || lambda.ContainsDirectives || lambda.DescendantTrivia().Any(trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
             || trivia.IsKind(SyntaxKind.MultiLineCommentTrivia) || trivia.IsKind(SyntaxKind.DisabledTextTrivia))
             || lambda.Ancestors().Any(node => node is UnsafeStatementSyntax or FixedStatementSyntax)
-            || model.GetDiagnostics(lambda.Span, token).Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)) return false;
+            || CompilerDiagnostics.HasError(model, lambda, token)) return false;
         // Moving a whole block also moves its nested callables. Inserting the
         // external helper can move an enclosing call's original source site.
         // Both boundaries must retain caller constants before a plan is offered.

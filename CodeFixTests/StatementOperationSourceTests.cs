@@ -80,7 +80,7 @@ public sealed class StatementOperationSourceTests
                     var current = new List<CsvField>();
                     var currentField = new StringBuilder("field");
                     var quotedFields = new List<int> { 1 };
-                    current.Add(new CsvField(currentField.ToString(), quotedFields.Count > 0));
+                    current.Add(new CsvField(currentField.ToString(0, currentField.Length), quotedFields.Count > 0));
                     currentField.Clear();
                     return current[0].Value;
                 }
@@ -108,7 +108,7 @@ public sealed class StatementOperationSourceTests
                 public static string Run()
                 {
                     events.Clear();
-                    string[] paths = [First(), Second(), Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "wwwroot"))];
+                    string[] paths = [First(), Second(), Path.GetFullPath(Path.Combine(AppContext.BaseDirectory.Trim(), "..", "..", "..", "wwwroot"))];
                     return string.Join(",", events) + ":" + paths.Length;
                 }
             }

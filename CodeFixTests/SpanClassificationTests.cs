@@ -75,9 +75,7 @@ public sealed class SpanClassificationTests
     [InlineData("2.1", 3)]
     public async Task ActualNetstandardSurfaceControlsAvailability(string version, int expected)
     {
-        var packages = NuGetTestPaths.GetPackagesDirectory();
-        var folder = version == "2.0" ? Path.Combine(packages, "netstandard.library/2.0.3/build/netstandard2.0/ref")
-            : Path.Combine(Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "../../..")), "packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1");
+        var folder = NuGetTestPaths.GetNetstandardReferenceDirectory(version);
         var document = SpanTestFixture.Document("class C { int A(string text) => text.Trim().Length; bool B(string text) => text.TrimStart() == \"a\"; int D(string text) => text.TrimEnd().Length; }");
         document = document.Project.WithMetadataReferences(Directory.GetFiles(folder, "*.dll").Select(path => MetadataReference.CreateFromFile(path))).GetDocument(document.Id)!;
         await StatementOperationTestFixture.Compiles(document);
@@ -90,7 +88,7 @@ public sealed class SpanClassificationTests
     public async Task RealSystemMemoryBackedNetstandard20SupportsOnlyAvailableSignatures()
     {
         var packages = NuGetTestPaths.GetPackagesDirectory();
-        var folder = Path.Combine(packages, "netstandard.library/2.0.3/build/netstandard2.0/ref");
+        var folder = NuGetTestPaths.GetNetstandardReferenceDirectory("2.0");
         var memory = Path.Combine(packages, "system.memory/4.5.5/lib/netstandard2.0/System.Memory.dll");
         Assert.True(File.Exists(memory), memory);
         var document = SpanTestFixture.Document("class C { int A(string text) => text.Trim().Length; bool B(string text) => text.Trim() == \"a\"; int D(string text) => text.TrimStart().Length; int E(string text) => text.TrimEnd().Length; }");

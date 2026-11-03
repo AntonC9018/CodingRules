@@ -16,10 +16,7 @@ public sealed class NamedArgumentReferenceTests
     [InlineData("2.1")]
     public async Task RealNetstandardReferenceDefinitions(string version)
     {
-        var packages = NuGetTestPaths.GetPackagesDirectory();
-        var folder = version == "2.0" ? Path.Combine(packages, "netstandard.library/2.0.3/build/netstandard2.0/ref")
-            : Path.Combine(Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "../../..")),
-                "packs/NETStandard.Library.Ref/2.1.0/ref/netstandard2.1");
+        var folder = NuGetTestPaths.GetNetstandardReferenceDirectory(version);
         Assert.True(Directory.Exists(folder), folder);
         var references = Directory.GetFiles(folder, "*.dll").Select(path => MetadataReference.CreateFromFile(path));
         var document = NamedArgumentTestFixture.Document("class C { static string F() { System.Math.Max(1,2); string.Equals(\"a\",\"b\"); \"a\".Replace('a','b'); System.IO.Path.Combine(\"a\",\"b\"); return System.IO.Path.GetRelativePath(\"a\",\"b\"); } }");

@@ -62,7 +62,7 @@ public sealed class PipelineHostSafetyTests
     [Fact]
     public async Task IndexedWholeParameterBridgeIsSimpleAndNestedBridgeKeepsCR0300()
     {
-        const string source="using System.Linq;class C{static int Project(int x,int index)=>x+index;sealed record Row(int Value);static object Simple(int[] xs)=>xs.Select((x,index)=>Project(x,index));static object Nested(int[] xs)=>xs.Select((x,index)=>new Row(Project(x,index)));}";
+        const string source="using System.Linq;class C{static int Project(int x,int index)=>x+index;sealed record Row(int Value);static object Simple(int[] xs)=>xs.Select((x,index)=>Project(x,index));static object Nested(int[] xs)=>xs.Select((x,index)=>new Row(Project(Project(x,index),index)));}";
         var document=PipelineTestFixture.Document(source);
         Assert.Equal(new[]{"CR0400","CR0300"},(await PipelineTestFixture.Diagnostics(document,true)).Select(diagnostic=>diagnostic.Id));
         var changed=await PipelineTestFixture.Fix(document,PipelineCodeFixProvider.ExtractKey);

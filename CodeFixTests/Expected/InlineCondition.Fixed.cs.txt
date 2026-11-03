@@ -1,27 +1,27 @@
 public static class Consumer
 {
-    public static bool Check(bool first, bool second, bool third)
+    public static bool Check(bool first, bool second, bool third, bool fourth)
     {
-        bool CheckCondition()
+        bool TODO_CONDITION()
         {
-            if (!(first))
+            if (!first)
             {
                 return false;
             }
-
-            if (!(second))
+            if (!second)
             {
                 return false;
             }
-
-            if (!(third))
+            if (!third)
             {
                 return false;
             }
-
+            if (!fourth)
+            {
+                return false;
+            }
             return true;
         }
-
-        return CheckCondition();
+        return TODO_CONDITION();
     }
 }

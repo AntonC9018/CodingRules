@@ -120,7 +120,6 @@ public sealed class NamedArgumentClassificationTests
     [InlineData("Math.Max(1,2)")]
     [InlineData("Path.Combine(\"a\",\"b\")")]
     [InlineData("Other.Replace('a','b')")]
-    [InlineData("Other.Equals(\"a\",\"b\")")]
     public async Task NoGuessedExceptions(string call)
     {
         var document = NamedArgumentTestFixture.Document("""

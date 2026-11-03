@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
   <ItemGroup><PackageReference Include="Anton.CodingRules" Version="0.1.0" /></ItemGroup>
 </Project>

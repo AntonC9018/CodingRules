@@ -1,0 +1,8 @@
+// Copied to Unresolved.cs only for the package gate's failing-compilation pass.
+internal class Outer<T> { public class Nested { } }
+internal unsafe interface IUnresolved
+{
+    void Containing(Outer<Missing>.Nested input, int b, int c, int d); // CS0246: Missing
+    void Parameter(delegate*<Missing, void> input, int b, int c, int d); // CS0246: Missing
+    void Result(delegate*<int, Missing> input, int b, int c, int d); // CS0246: Missing
+}

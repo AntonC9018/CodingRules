@@ -174,16 +174,16 @@ public sealed class ExplicitReturnDecisionAnalyzerTests
     }
 
     [Fact]
-    public async Task AllowsLoneTernaryPlainValueAndNestedGuard()
+    public async Task ReportsLoneTernaryButAllowsPlainValueAndNestedGuard()
     {
-        var source = TestCode.Create("""
+        var source = TestCode.Create($$"""
             class C
             {
                 bool Check() => true;
 
                 bool Lone(bool flag)
                 {
-                    return flag ? true : false;
+                    return {{InterpolateDiagnostic("flag ? true : false", ExplicitReturnDecisionAnalyzer.Rule)}};
                 }
 
                 bool Plain(bool flag)

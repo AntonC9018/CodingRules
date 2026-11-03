@@ -1,0 +1,9 @@
+root = true
+
+[*.cs]
+dotnet_analyzer_diagnostic.severity = none
+dotnet_diagnostic.RCS0042.severity = none
+dotnet_diagnostic.RCS1016.severity = none
+dotnet_diagnostic.CR1100.severity = warning
+
+csharp_space_after_cast = true

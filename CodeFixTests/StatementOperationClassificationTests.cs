@@ -13,14 +13,14 @@ namespace CodingRules;
 
 public sealed class StatementOperationClassificationTests
 {
-    private const string Prelude = "using System; using System.Linq; class C { static int Use(int value) => value; static string Use(string value) => value; static int Get(int value = 1) => value; static int Collect(params int[] values) => 1; ";
+    private const string Prelude = "using System; using System.Linq; class C { static int Use(int value) => value; static string Use(string value) => value; static int Get(int value = 1) => value; static int Collect(params int[] values) => 1; static T Identity<T>(T value) => value; ";
 
     [Theory]
     [InlineData("string.Join(\",\", values.Select(x => x))", "Enumerable", "")]
     [InlineData("string.Join(\",\", values.AsQueryable().Select(x => x))", "Queryable", "")]
     [InlineData("string.Join(\",\", System.Linq.Enumerable.Select(values, x => x))", "Enumerable", "")]
-    [InlineData("string.Join(\",\", System.Linq.Enumerable.Select(values, x => x))", "Enumerable", "namespace System.Linq { static class Enumerable { public static System.Collections.Generic.IEnumerable<int> Select(int[] values, System.Func<int, int> selector) => values; } }")]
-    [InlineData("string.Join(\",\", System.Linq.Queryable.Select(values, x => x))", "Queryable", "namespace System.Linq { static class Queryable { public static System.Collections.Generic.IEnumerable<int> Select(int[] values, System.Func<int, int> selector) => values; } }")]
+    [InlineData("string.Join(\",\", System.Linq.Enumerable.Select(System.Array.ConvertAll(values, x => x + 1), x => x))", "Enumerable", "namespace System.Linq { static class Enumerable { public static System.Collections.Generic.IEnumerable<int> Select(int[] values, System.Func<int, int> selector) => values; } }")]
+    [InlineData("string.Join(\",\", System.Linq.Queryable.Select(System.Array.ConvertAll(values, x => x + 1), x => x))", "Queryable", "namespace System.Linq { static class Queryable { public static System.Collections.Generic.IEnumerable<int> Select(int[] values, System.Func<int, int> selector) => values; } }")]
     public async Task NetstandardFrameworkPipelinesAreAllowedButSourceImitationsStillWarn(string expression, string type, string imitation)
     {
         var source = "using System.Linq; class C { static string M(int[] values) => " + expression + "; } " + imitation;
@@ -72,7 +72,7 @@ public sealed class StatementOperationClassificationTests
     public async Task RuntimePatternGuardRemainsFixable()
     {
         var document = StatementOperationTestFixture.Document(Prelude
-            + "static int M(object value) => value switch { int x when Use(Get(x)) > 0 => x, _ => 0 }; }");
+            + "static int M(object value) => value switch { int x when Use(Get(Get(x))) > 0 => x, _ => 0 }; }");
         await StatementOperationTestFixture.Compiles(document);
         var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
         Assert.Equal("CR0300", diagnostic.Id);
@@ -93,6 +93,13 @@ public sealed class StatementOperationClassificationTests
     [InlineData("Use(text.ToString())")]
     [InlineData("Use(text.Length)")]
     [InlineData("Use(values[a + 1])")]
+    [InlineData("Use(values[a - 1] + values[a + 1])")]
+    [InlineData("Use(Collect(a))")]
+    [InlineData("Use(Identity<int>(a))")]
+    [InlineData("Use(int.Parse(text))")]
+    [InlineData("Use($\"value:{a}:{text.Length}\")")]
+    [InlineData("Use(text.Replace(\"a\", \"b\").Trim())")]
+    [InlineData("Use(string.Join(\",\", values.Select(x => x + 1).Where(x => x > a)))")]
     [InlineData("string.Join(\",\", values.Select(x => Get(x)))")]
     public async Task DirectAndSimpleValuesRemainAllowed(string expression)
     {
@@ -102,12 +109,10 @@ public sealed class StatementOperationClassificationTests
     }
 
     [Theory]
-    [InlineData("Use(Get(value: a))", "CR0300")]
-    [InlineData("Use(Collect(a))", "CR0300")]
+    [InlineData("Use(Get(Get(value: a)))", "CR0300")]
     [InlineData("Use(Collect(Array.Empty<int>()))", "CR0300")]
     [InlineData("Use(1 + 2 + 3)", "CR0300")]
-    [InlineData("Use((int)number)", "CR0300")]
-    [InlineData("Use($\"value:{a}\")", "CR0300")]
+    [InlineData("Use($\"value:{a + b}\")", "CR0300")]
     [InlineData("Use(flag ? a : b)", "CR0301")]
     [InlineData("Use(a++)", "CR0300")]
     [InlineData("Use((a = b))", "CR0300")]

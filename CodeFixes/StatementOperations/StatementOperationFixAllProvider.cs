@@ -37,16 +37,18 @@ internal sealed class StatementOperationFixAllProvider : FixAllProvider
             while (true)
             {
                 var document = solution.GetDocument(original.Id)!;
-                var compilation = await document.Project.GetCompilationAsync(context.CancellationToken).ConfigureAwait(false);
-                if (compilation is null)
+                var model = await document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+                if (model is null)
                 {
                     break;
                 }
 
-                var diagnostics = await compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new StatementOperationAnalyzer()),
-                    document.Project.AnalyzerOptions).GetAnalyzerDiagnosticsAsync(context.CancellationToken).ConfigureAwait(false);
+                // Replan against the current document after each edit. Running the
+                // analyzer over its whole project here repeats unrelated work for
+                // every operation extracted from this file.
+                var diagnostics = await model.Compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new StatementOperationAnalyzer()),
+                    document.Project.AnalyzerOptions).GetAnalyzerSemanticDiagnosticsAsync(model, null, context.CancellationToken).ConfigureAwait(false);
                 var root = await document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-                var model = await document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
                 var extract = context.CodeActionEquivalenceKey == StatementOperationCodeFixProvider.ExtractKey;
                 var candidates = diagnostics.Where(diagnostic => diagnostic.Location.SourceTree == model?.SyntaxTree
                         && context.DiagnosticIds.Contains(diagnostic.Id))

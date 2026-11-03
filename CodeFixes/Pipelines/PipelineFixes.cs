@@ -18,90 +18,149 @@ internal static class PipelineFixes
         var projection = owner is LambdaExpressionSyntax lambda ? ProjectionPlan.Create(lambda, model, catalog, token) : null;
         var selector = owner is InvocationExpressionSyntax call ? SelectorPlan.Create(call, model, catalog) : null;
         var extract = key == PipelineCodeFixProvider.ExtractKey;
-        if (key == PipelineCodeFixProvider.SelectorsKey ? selector is null
-            : projection is null || extract && !projection.CanExtract || !extract && projection.Lowering is null) return null;
+        var applies = key == PipelineCodeFixProvider.SelectorsKey
+            ? selector is not null
+            : projection is not null && (extract ? projection.CanExtract : projection.Lowering is not null);
+        if (!applies)
+        {
+            return null;
+        }
+
         var root = selector is not null ? SelectorRewrites.Rewrite(selector) : ProjectionRewrites.Rewrite(projection!, extract);
         root = root.ReplaceNodes(root.GetAnnotatedNodes(ProjectionRewrites.Generated), (_, node) => node.WithAdditionalAnnotations(Formatter.Annotation));
-        var changed = document.WithSyntaxRoot(root);
-        var options = await changed.GetOptionsAsync(token).ConfigureAwait(false);
+        var changed = await GeneratedSyntaxFormatter.FormatAsync(document.WithSyntaxRoot(root), document, token).ConfigureAwait(false);
         var originalText = await document.GetTextAsync(token).ConfigureAwait(false);
-        var original = originalText.ToString();
-        var firstLine = original.IndexOf('\n');
-        var newline = firstLine > 0 && original[firstLine - 1] == '\r' ? "\r\n" : "\n";
-        if (document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(owner.SyntaxTree).TryGetValue("end_of_line", out var configured))
-            newline = configured switch { "crlf" => "\r\n", "cr" => "\r", _ => "\n" };
-        changed = await Formatter.FormatAsync(changed, Formatter.Annotation, options.WithChangedOption(FormattingOptions.NewLine,
-            document.Project.Language, newline), token).ConfigureAwait(false);
         var text = await changed.GetTextAsync(token).ConfigureAwait(false);
-        if (originalText.ContentEquals(text)) return null;
-        var tree = CSharpSyntaxTree.ParseText(text, (CSharpParseOptions)owner.SyntaxTree.Options, owner.SyntaxTree.FilePath, token);
-        var parsed = tree.GetRoot(token);
-        var after = model.Compilation.ReplaceSyntaxTree(owner.SyntaxTree, tree).GetSemanticModel(tree);
-        var beforeMessages = Messages(model, token);
-        if (Messages(after, token).Any(pair => !beforeMessages.TryGetValue(pair.Key, out var count) || pair.Value > count)) return null;
-        var formatted = (await changed.GetSyntaxRootAsync(token).ConfigureAwait(false))!;
-        var originalCalls = owner.DescendantNodesAndSelf().OfType<ExpressionSyntax>().Where(value => value is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)
-            .Where(value => value != owner || selector is null).ToDictionary(OperationEvaluator.Key, value => Binding(value, model));
-        var seen = new HashSet<string>();
-        if (selector is not null)
+        if (originalText.ContentEquals(text))
         {
-            // Naming/insertion leaves every original argument subtree in its
-            // original source order. Map occurrences by relative ordinal, not a set.
-            var selected = parsed.FindNode(formatted.GetAnnotatedNodes(ProjectionRewrites.Selected).Single().Span, getInnermostNodeForTie: true) as InvocationExpressionSyntax;
-            if (selected is null || after.GetOperation(selected) is not IInvocationOperation bound) return null;
-            var expected = selector.IdentityPair ?? selector.Operation.TargetMethod;
-            if (Method(bound.TargetMethod) != Method(expected) || after.GetTypeInfo(selected).Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                != model.GetTypeInfo(owner).Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)) return null;
-            var oldValues = selector.Call.ArgumentList.Arguments.SelectMany(argument => argument.DescendantNodesAndSelf().OfType<ExpressionSyntax>()
-                .Where(value => value is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)).ToArray();
-            var newValues = selected.ArgumentList.Arguments.Take(selector.Call.ArgumentList.Arguments.Count).SelectMany(argument => argument.DescendantNodesAndSelf()
-                .OfType<ExpressionSyntax>().Where(value => value is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)).ToArray();
-            if (oldValues.Length != newValues.Length || oldValues.Where((value, index) => Binding(value, model) != Binding(newValues[index], after)).Any()) return null;
-            for (var index = 0; index < selector.Call.ArgumentList.Arguments.Count; index++)
-            {
-                var oldArgument = selector.Call.ArgumentList.Arguments[index];
-                var newArgument = selected.ArgumentList.Arguments[index];
-                if (model.GetOperation(oldArgument) is not IArgumentOperation oldBound || after.GetOperation(newArgument) is not IArgumentOperation newBound
-                    || oldBound.Parameter?.Name != newBound.Parameter?.Name
-                    || OperationEvaluator.ConversionFingerprint(model.GetConversion(oldArgument.Expression)) != OperationEvaluator.ConversionFingerprint(after.GetConversion(newArgument.Expression))) return null;
-            }
-            if (SelectorPlan.Create(selected, after, PipelineCatalog.For(after.Compilation)) is not null) return null;
+            return null;
         }
-        else
+
+        var after = SavedSource.Compile(model, text, token);
+        if (SavedSource.AddsCompilerMessages(model, after, token))
         {
-            foreach (var node in formatted.GetAnnotatedNodes(OperationEvaluator.BindingAnnotation).Concat(formatted.GetAnnotatedNodes(ProjectionRewrites.OriginalCall)))
-            {
-                var keyData = node.GetAnnotations(OperationEvaluator.BindingAnnotation).Concat(node.GetAnnotations(ProjectionRewrites.OriginalCall)).Single().Data!;
-                if (!originalCalls.TryGetValue(keyData, out var binding) || !seen.Add(keyData)
-                    || Binding(parsed.FindNode(node.Span, getInnermostNodeForTie: true), after) != binding) return null;
-            }
-            if (seen.Count != originalCalls.Count) return null;
-            foreach (var node in formatted.GetAnnotatedNodes(OperationEvaluator.ConversionAnnotation))
-            {
-                if (parsed.FindNode(node.Span, getInnermostNodeForTie: true) is not ExpressionSyntax value
-                    || OperationEvaluator.ConversionFingerprint(after.GetConversion(value)) != node.GetAnnotations(OperationEvaluator.ConversionAnnotation).Single().Data) return null;
-            }
-            foreach (var node in formatted.GetAnnotatedNodes(ProjectionRewrites.Selected))
-            {
-                var selected = parsed.FindNode(node.Span, getInnermostNodeForTie: true);
-                if (selected is LambdaExpressionSyntax remaining && ProjectionPlan.Create(remaining, after, PipelineCatalog.For(after.Compilation), token) is not null) return null;
-                var oldStage = owner.Parent?.Parent?.Parent as InvocationExpressionSyntax;
-                var newStage = selected.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
-                if (oldStage is null || newStage is null || Binding(oldStage, model) != Binding(newStage, after)
-                    || model.GetTypeInfo(owner).ConvertedType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                        != after.GetTypeInfo(selected).ConvertedType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)) return null;
-            }
-            if (projection!.Lowering is not null && formatted.GetAnnotatedNodes(OperationEvaluator.LinearizedAnnotation).Any(node =>
-                    parsed.FindNode(node.Span, getInnermostNodeForTie: true) is ExpressionSyntax value && OperationFacts.Create(value, after).HasReason)) return null;
+            return null;
         }
+
+        var saved = new SavedRewrite(model, after, (await changed.GetSyntaxRootAsync(token).ConfigureAwait(false))!, after.SyntaxTree.GetRoot(token));
+        var preservesBehavior = selector is not null
+            ? SelectorPreservesBehavior(selector, owner, saved)
+            : ProjectionPreservesBehavior(projection!, owner, saved, token);
+
         // Never carry occurrence annotations into the next Fix All iteration.
         // Each plan starts from the same saved-source view as the compiler.
-        return document.WithText(text);
+        return preservesBehavior ? document.WithText(text) : null;
     }
 
-    private static Dictionary<string, int> Messages(SemanticModel model, CancellationToken token) => model.GetDiagnostics(cancellationToken: token)
-        .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
-        .GroupBy(diagnostic => diagnostic.Id + ":" + diagnostic.GetMessage()).ToDictionary(group => group.Key, group => group.Count());
+    /// <summary>The original model, the saved model, the annotated formatted root and the reparsed saved root.</summary>
+    private sealed record SavedRewrite(SemanticModel Model, SemanticModel After, SyntaxNode Formatted, SyntaxNode Parsed)
+    {
+        public SyntaxNode Find(SyntaxNode formattedNode) => Parsed.FindNode(formattedNode.Span, getInnermostNodeForTie: true);
+    }
+
+    private static bool SelectorPreservesBehavior(SelectorPlan selector, SyntaxNode owner, SavedRewrite saved)
+    {
+        var (model, after) = (saved.Model, saved.After);
+        if (saved.Find(saved.Formatted.GetAnnotatedNodes(ProjectionRewrites.Selected).Single()) is not InvocationExpressionSyntax selected
+            || after.GetOperation(selected) is not IInvocationOperation bound)
+        {
+            return false;
+        }
+
+        var expected = selector.IdentityPair ?? selector.Operation.TargetMethod;
+        if (Method(bound.TargetMethod) != Method(expected) || TypeName(after.GetTypeInfo(selected).Type) != TypeName(model.GetTypeInfo(owner).Type))
+        {
+            return false;
+        }
+
+        // Naming/insertion leaves every original argument subtree in its
+        // original source order. Map occurrences by relative ordinal, not a set.
+        var oldArguments = selector.Call.ArgumentList.Arguments;
+        var newArguments = selected.ArgumentList.Arguments.Take(oldArguments.Count).ToArray();
+        var oldCalls = oldArguments.SelectMany(Calls).ToArray();
+        var newCalls = newArguments.SelectMany(Calls).ToArray();
+        if (oldCalls.Length != newCalls.Length
+            || oldCalls.Where((value, index) => Binding(value, model) != Binding(newCalls[index], after)).Any())
+        {
+            return false;
+        }
+
+        for (var index = 0; index < oldArguments.Count; index++)
+        {
+            if (!ArgumentKeepsBinding(oldArguments[index], model, newArguments[index], after))
+            {
+                return false;
+            }
+        }
+
+        return SelectorPlan.Create(selected, after, PipelineCatalog.For(after.Compilation)) is null;
+    }
+
+    private static bool ArgumentKeepsBinding(ArgumentSyntax oldArgument, SemanticModel model, ArgumentSyntax newArgument, SemanticModel after) =>
+        model.GetOperation(oldArgument) is IArgumentOperation oldBound
+        && after.GetOperation(newArgument) is IArgumentOperation newBound
+        && oldBound.Parameter?.Name == newBound.Parameter?.Name
+        && OperationEvaluator.ConversionFingerprint(model.GetConversion(oldArgument.Expression))
+            == OperationEvaluator.ConversionFingerprint(after.GetConversion(newArgument.Expression));
+
+    private static bool ProjectionPreservesBehavior(ProjectionPlan projection, SyntaxNode owner, SavedRewrite saved, CancellationToken token)
+    {
+        var (model, after, formatted) = (saved.Model, saved.After, saved.Formatted);
+        var originalCalls = Calls(owner).ToDictionary(OperationEvaluator.Key, value => Binding(value, model));
+        var seen = new HashSet<string>();
+        foreach (var node in formatted.GetAnnotatedNodes(OperationEvaluator.BindingAnnotation).Concat(formatted.GetAnnotatedNodes(ProjectionRewrites.OriginalCall)))
+        {
+            var key = node.GetAnnotations(OperationEvaluator.BindingAnnotation).Concat(node.GetAnnotations(ProjectionRewrites.OriginalCall)).Single().Data!;
+            if (!originalCalls.TryGetValue(key, out var binding) || !seen.Add(key) || Binding(saved.Find(node), after) != binding)
+            {
+                return false;
+            }
+        }
+
+        if (seen.Count != originalCalls.Count)
+        {
+            return false;
+        }
+
+        foreach (var node in formatted.GetAnnotatedNodes(OperationEvaluator.ConversionAnnotation))
+        {
+            if (saved.Find(node) is not ExpressionSyntax value
+                || OperationEvaluator.ConversionFingerprint(after.GetConversion(value)) != node.GetAnnotations(OperationEvaluator.ConversionAnnotation).Single().Data)
+            {
+                return false;
+            }
+        }
+
+        foreach (var node in formatted.GetAnnotatedNodes(ProjectionRewrites.Selected))
+        {
+            var selected = saved.Find(node);
+            if (selected is LambdaExpressionSyntax remaining && ProjectionPlan.Create(remaining, after, PipelineCatalog.For(after.Compilation), token) is not null)
+            {
+                return false;
+            }
+
+            var oldStage = owner.Parent?.Parent?.Parent as InvocationExpressionSyntax;
+            var newStage = selected.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            if (oldStage is null
+                || newStage is null
+                || Binding(oldStage, model) != Binding(newStage, after)
+                || TypeName(model.GetTypeInfo(owner).ConvertedType) != TypeName(after.GetTypeInfo(selected).ConvertedType))
+            {
+                return false;
+            }
+        }
+
+        // A lowered projection must not leave an operation that still needs naming.
+        return projection.Lowering is null || !formatted.GetAnnotatedNodes(OperationEvaluator.LinearizedAnnotation)
+            .Any(node => saved.Find(node) is ExpressionSyntax value && OperationFacts.Create(value, after).HasReason);
+    }
+
+    private static IEnumerable<ExpressionSyntax> Calls(SyntaxNode node) => node.DescendantNodesAndSelf()
+        .OfType<ExpressionSyntax>()
+        .Where(value => value is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax);
+
+    private static string? TypeName(ITypeSymbol? type) => type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
     private static string Method(IMethodSymbol method) => (method.ReducedFrom ?? method).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     private static string Binding(SyntaxNode node, SemanticModel model)
     {

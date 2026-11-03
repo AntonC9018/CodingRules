@@ -7,6 +7,29 @@ namespace CodingRules;
 public sealed class PackageConsumptionTests
 {
     [Fact]
+    public async Task AppliesPackagedUnchangedAssignmentFix()
+    {
+        var tester = await LocalNuGetPackageTester.CreateAsync();
+        var test = new PackageConsumptionTestBuilder(nameof(AppliesPackagedUnchangedAssignmentFix))
+            .AddPackage("Package/CodingRules.Package.csproj")
+            .AddProjectConsumer("CodeFixTests/Consumers/UnchangedAssignment", consumer => consumer.ExpectCodeFix(
+                DiagnosticIds.UnchangedAssignment, "Consumer.cs", "CodeFixTests/Expected/UnchangedAssignment.Fixed.cs.txt"))
+            .Build();
+        await tester.AssertAsync(test);
+    }
+
+    [Fact]
+    public async Task AppliesPackagedStringConcatenationFix()
+    {
+        var tester = await LocalNuGetPackageTester.CreateAsync();
+        var test = new PackageConsumptionTestBuilder(nameof(AppliesPackagedStringConcatenationFix))
+            .AddPackage("Package/CodingRules.Package.csproj")
+            .AddProjectConsumer("CodeFixTests/Consumers/StringConcatenation", consumer => consumer.ExpectCodeFix(
+                DiagnosticIds.StringConcatenation, "Consumer.cs", "CodeFixTests/Expected/StringConcatenation.Fixed.cs.txt"))
+            .Build();
+        await tester.AssertAsync(test);
+    }
+    [Fact]
     public async Task AppliesPackagedSpanInspectionFix()
     {
         var tester = await LocalNuGetPackageTester.CreateAsync();

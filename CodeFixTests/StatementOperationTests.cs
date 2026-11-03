@@ -7,7 +7,7 @@ namespace CodingRules;
 public sealed class StatementOperationTests
 {
     [Theory]
-    [InlineData("Use(int.Parse(text))", "CR0300")]
+    [InlineData("Use(int.Parse(text.Trim()))", "CR0300")]
     [InlineData("Use(flag ? 1 : 2)", "CR0301")]
     [InlineData("Use((a + b) * c)", "CR0300")]
     [InlineData("Use(System.Math.Max(a, b) * c)", "CR0300")]

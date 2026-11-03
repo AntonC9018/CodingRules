@@ -2,13 +2,7 @@ public static class Consumer
 {
     public static int Compute(int first, int second, int third)
     {
-        int CalculateValue()
-        {
-            int operationValue = first + second;
-            int operationValue2 = operationValue + third;
-            return operationValue2;
-        }
-
-        return CalculateValue();
+        int TODO_VARIABLE = first + second;
+        return TODO_VARIABLE + third;
     }
 }

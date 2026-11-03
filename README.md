@@ -28,9 +28,9 @@ pipelines, whole named conditional values and lone conditional returns retain
 their existing policy. Both safe actions preserve evaluation order and branch
 timing; extraction is offered first, then statement expansion.
 
-`CR0400` names composed delegate projections; `CR0401` extracts whole stages
-with several result-feeding temporaries or nested decisions. Simple lambdas,
-independent simple aggregate components and linear pipelines remain allowed.
+`CR0400` names composed delegate projections. Block lambdas may retain multiple
+computed locals and nested decisions; automatic stage extraction (CR0401) is removed.
+Simple lambdas, independent simple aggregate components and linear pipelines remain allowed.
 `CR0402` names dictionary/lookup selector arguments and makes a key-only
 overload's identity mapping explicit. The [pipeline catalogue](docs/pipelines.md)
 records supported framework signatures, equivalent overload pairs and safety

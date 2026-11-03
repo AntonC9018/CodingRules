@@ -29,10 +29,7 @@ public sealed class PipelineInteractionTests
             {
                 var remaining = await PipelineTestFixture.Diagnostics(operationFirst);
                 if (remaining.IsEmpty) break;
-                // Computation expansion already supplies the block body. Its
-                // remaining stage-implementation finding requires extraction.
-                var nextKey = remaining[0].Id == DiagnosticIds.StageImplementation ? PipelineCodeFixProvider.ExtractKey : key;
-                operationFirst = await PipelineTestFixture.Fix(operationFirst, nextKey);
+                operationFirst = await PipelineTestFixture.Fix(operationFirst, key);
             }
             Assert.Equal("CR0001",Assert.Single(await PipelineTestFixture.Diagnostics(operationFirst,true)).Id);
         }

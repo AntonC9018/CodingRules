@@ -122,9 +122,9 @@ through `.editorconfig`.
   lambdas for their stages.
 - A projection requiring several operations should use a block lambda with
   named intermediate values.
-- Move logic with nested conditionals or several temporary values unused by
-  the containing method to a local function. One intermediate value may stay
-  in the containing method. Move reusable logic to a private method.
+- Block lambdas may contain multiple computed locals and nested decisions.
+  Extract a local function only when its name or reuse improves readability;
+  do not require extraction based on temporary counts or decision nesting.
 - Shape final collections explicitly, including named key and value
   selectors when relevant.
 
@@ -578,17 +578,14 @@ Each aggregate component is classified separately. Ordinary constructor
 arguments, tuple components and supported settable object initializer values
 can be linearized; unsupported individual transformations are omitted.
 
-`CR0401` covers whole delegate stage blocks containing at least two ordinary
-non-alias value declarations feeding their returns directly or transitively,
-or a decision inside another decision's branch. One temporary, a lone guard,
-an else-if sequence and nested callable implementation details do not qualify.
-The fixer extracts a typed local function and prefers a method group when
-scope and binding permit. Otherwise an invocation-local helper retains the
-original lambda parameters and capture timing. A block projection action
-keeps the named implementation in an invocation-local helper when placing
-several temporaries directly in the lambda would introduce CR0401. Safe member
-initializers use a private static helper. Neither action performs selector work
-while constructing a lazy pipeline or changes materialization.
+CR0401 is removed. Block lambda implementations are accepted regardless of their
+computed-local count or decision nesting. Naming a stage remains a manual choice.
+CR0400 still offers extraction or a block with named intermediate values for
+composed expression projections. Ordinary block fixes keep those values directly
+in the lambda, rather than adding a helper to avoid a retired rule. A typed helper
+is retained for tuple projections when needed to preserve inferred element names.
+Neither action evaluates selector work while constructing a lazy pipeline or
+changes materialization. Safe member initializers may still use a private helper.
 
 `CR0402` uses actual bound keySelector/elementSelector parameter names. Key-only
 overloads receive an explicit identity element selector only through the paired

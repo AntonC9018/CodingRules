@@ -60,7 +60,7 @@ public sealed class PipelineRuntimeTests
         Assert.DoesNotContain("throw", before);
     }
     [Fact]
-    public async Task BlockExtractionRetainsCheckedAndMutableCaptures()
+    public async Task BlockLambdasWithCheckedAndMutableCapturesAreAccepted()
     {
         const string source = """
             using System; using System.Linq;
@@ -71,7 +71,10 @@ public sealed class PipelineRuntimeTests
               }}
             }
             """;
-        await Same(source, PipelineCodeFixProvider.ExtractKey, "CR0401");
+        var document = PipelineTestFixture.Document(source);
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await PipelineTestFixture.Diagnostics(document));
+        Assert.Equal("overflow", await StatementOperationTestFixture.Run(document));
     }
     [Theory]
     [InlineData("ToDictionary")]

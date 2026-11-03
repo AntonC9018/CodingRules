@@ -43,7 +43,7 @@ internal sealed class ProjectionPlan
                 if (lowering is null) return null;
             }
         }
-        else if (lambda.Body is not BlockSyntax block || !PipelineFacts.NeedsHelper(block, model) || !Renderable(callable.ReturnType)) return null;
+        else return null;
         return new ProjectionPlan(lambda, model, callable, lowering);
     }
 

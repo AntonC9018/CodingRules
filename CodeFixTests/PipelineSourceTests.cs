@@ -7,7 +7,7 @@ namespace CodingRules;
 public sealed class PipelineSourceTests
 {
     [Fact]
-    public async Task PinnedWeightedTagProjectionTransitiveLocalsAndOneLocalNegative()
+    public async Task PinnedWeightedTagBlocksAreAccepted()
     {
         const string source="""
             using System.Linq; using System.Collections.Generic; using System.Collections.Immutable;
@@ -29,13 +29,10 @@ public sealed class PipelineSourceTests
             """;
         var document=PipelineTestFixture.Document(source);
         await StatementOperationTestFixture.Compiles(document);
-        var diagnostic=Assert.Single(await PipelineTestFixture.Diagnostics(document));
-        Assert.Equal("CR0401",diagnostic.Id);Assert.Equal(1278,diagnostic.Location.GetMappedLineSpan().StartLinePosition.Line);
-        var changed=await PipelineTestFixture.Fix(document,PipelineCodeFixProvider.ExtractKey);
-        Assert.Empty(await PipelineTestFixture.Diagnostics(changed));
+        Assert.Empty(await PipelineTestFixture.Diagnostics(document));
     }
     [Fact]
-    public async Task PinnedFormattableRendererWholeStageTypingIsPreserved()
+    public async Task PinnedFormattableRendererBlockIsAccepted()
     {
         const string source="""
             using System;using System.Linq;using System.Collections.Generic;using System.Collections.Immutable;
@@ -48,11 +45,8 @@ public sealed class PipelineSourceTests
             return rows;}}
             """;
         var document=PipelineTestFixture.Document(source);
-        var diagnostic=Assert.Single(await PipelineTestFixture.Diagnostics(document));
-        Assert.Equal("CR0401",diagnostic.Id);
-        var changed=await PipelineTestFixture.Fix(document,PipelineCodeFixProvider.ExtractKey);
-        Assert.Empty(await PipelineTestFixture.Diagnostics(changed));
-        Assert.Equal((await StatementOperationTestFixture.Diagnostics(document)).Select(item=>item.Id),(await StatementOperationTestFixture.Diagnostics(changed)).Select(item=>item.Id));
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await PipelineTestFixture.Diagnostics(document));
     }
     [Fact]
     public async Task PinnedRowInitializerAndSimpleTagConstructionRemainAllowed()

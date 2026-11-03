@@ -61,10 +61,14 @@ public sealed class PipelineReviewRegressionTests
     [InlineData("var p=new[]{1}.Select(@event=>{var a=F(@event);var b=F(a);return b;});return p.Single().ToString();", "")]
     [InlineData("Action outer=()=>new[]{1}.Select(x=>{var a=F(x);var b=F(a);return b;});outer();return \"ok\";", "")]
     [InlineData("new C();return \"ok\";", "C()=>new[]{1}.Select(x=>{var a=F(x);var b=F(a);return b;});")]
-    public async Task EscapedParametersAndVoidEnclosingCompletionRemainBound(string body, string members)
+    public async Task BlockLambdasInEscapedAndVoidContextsAreAccepted(string body, string members)
     {
         var document = PipelineTestFixture.Document(Prelude + members + "public static string Run(){" + body + "}}");
-        await SavedSame(document, PipelineCodeFixProvider.ExtractKey, "CR0401");
+        await StatementOperationTestFixture.Compiles(document);
+        Assert.Empty(await PipelineTestFixture.Diagnostics(document));
+        var before = await StatementOperationTestFixture.Run(document);
+        var reparsed = await StatementOperationTestFixture.Reparse(document);
+        Assert.Equal(before, await StatementOperationTestFixture.Run(reparsed));
     }
 
     [Theory]

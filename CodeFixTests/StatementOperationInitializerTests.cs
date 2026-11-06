@@ -23,6 +23,10 @@ public sealed class StatementOperationInitializerTests
     [Theory]
     [InlineData("new C { WeeklyLessons = [], Groups = [] }")]
     [InlineData("new C { Value = 42 }")]
+    [InlineData("new C { Value = Get(1) + 2 }")]
+    [InlineData("new C { Value = 1 + 2 + 3 }")]
+    [InlineData("new C { Child = new C { Value = Get(1) + 2 } }")]
+    [InlineData("new C { Child = { Value = Get(1) + 2 } }")]
     [InlineData("new C { TimeSlotStarts = CreateDefaultTimeSlots() }")]
     [InlineData("new C { LessonDuration = TimeSpan.FromMinutes(90), TimeSlotStarts = CreateDefaultTimeSlots() }")]
     [InlineData("new C { Child = new C { Value = 42, Groups = [] } }")]
@@ -49,11 +53,7 @@ public sealed class StatementOperationInitializerTests
     }
 
     [Theory]
-    [InlineData("new C { Value = Get(1) + 2 }", "CR0302")]
-    [InlineData("new C { Value = 1 + 2 + 3 }", "CR0302")]
     [InlineData("new C { Value = Use(Get(Get(1))) }", "CR0300")]
-    [InlineData("new C { Child = new C { Value = Get(1) + 2 } }", "CR0302")]
-    [InlineData("new C { Child = { Value = Get(1) + 2 } }", "CR0302")]
     public async Task CombinedInitializerRightHandSidesStillReport(string expression, string expectedId)
     {
         var document = StatementOperationTestFixture.Document(Prelude

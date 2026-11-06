@@ -43,8 +43,9 @@ public sealed class PolicyRefinementTests
     [Theory]
     [InlineData("(int)pid", 0)]
     [InlineData("System.TimeSpan.FromSeconds(2)", 0)]
-    [InlineData("System.TimeSpan.FromSeconds(pid * 2)", 1)]
-    public async Task CastsAndSimpleFactoryCallsAreAcceptedButComputedArgumentsNeedNaming(string value, int count)
+    [InlineData("System.TimeSpan.FromSeconds(pid * 2)", 0)]
+    [InlineData("System.TimeSpan.FromSeconds(System.Math.Abs(pid))", 1)]
+    public async Task CastsAndArithmeticInputsAreAcceptedButNestedCallsNeedNaming(string value, int count)
     {
         var document = StatementOperationTestFixture.Document("class C { static void Use(object value) {} static void M(long pid) { Use("+value+"); } }");
         Assert.Equal(count, (await StatementOperationTestFixture.Diagnostics(document)).Length);

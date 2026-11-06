@@ -38,12 +38,12 @@ public sealed class StatementOperationSafetyTests
     }
 
     [Theory]
-    [InlineData("Use(Get(1 + 1, line: 7))", "using System.Runtime.CompilerServices;", "static int Get(int x, [CallerLineNumber] int line = 0) => x;")]
-    [InlineData("Use(callback(1 + 1))", "using System;", "static Func<int,int> callback = x => x;")]
+    [InlineData("Use(Get(Get(1 + 1, line: 7), line: 7))", "using System.Runtime.CompilerServices;", "static int Get(int x, [CallerLineNumber] int line = 0) => x;")]
+    [InlineData("Use(callback(callback(1 + 1)))", "using System;", "static Func<int,int> callback = x => x;")]
     [InlineData("Use(new Item(Get(1)))", "", "record Item(int Value); static int Get(int value) => value; static int Use(Item x) => x.Value;")]
     [InlineData("UseItem(new(Get(1)))", "", "record Item(int Value); static int Get(int value) => value; static int UseItem(Item x) => x.Value;")]
     [InlineData("Use(System.Convert.ToInt32(\"1\".Trim()))", "", "")]
-    [InlineData("Use(Extensions.Get(1 + 1))", "", "")]
+    [InlineData("Use(Extensions.Get(Extensions.Get(1 + 1)))", "", "")]
     public async Task ResolvedBindingsAndExplicitCallerConstantsHaveSavedFixes(string expression, string imports, string declarations)
     {
         var source = imports + "static class Extensions { public static int Get(this int x, int optional=0) => x; } class C { static int Use(int x)=>x; "
@@ -100,7 +100,7 @@ public sealed class StatementOperationSafetyTests
     [Fact]
     public async Task MutableStructReceiverStaysAtTheOriginalCallLocation()
     {
-        const string source = "struct S { public void Use(int x) { } } class C { static int Get(int x)=>x; static void M(ref S value) { value.Use(Get(1 + 1)); } }";
+        const string source = "struct S { public void Use(int x) { } } class C { static int Get(int x)=>x; static void M(ref S value) { value.Use(Get(Get(1 + 1))); } }";
         var document = StatementOperationTestFixture.Document(source);
         var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
         var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
@@ -122,7 +122,7 @@ public sealed class StatementOperationSafetyTests
     [InlineData(StatementOperationCodeFixProvider.ExpandKey)]
     public async Task FormattingHonorsEditorconfigAndSavedNewlines(string key)
     {
-        const string source = "class C\r\n{\r\n    static int Use(int x) => x;\r\n    static int M(int a,int b,int c)\r\n    {\r\n        return Use((a+b)*c);\r\n    }\r\n}\r\n";
+        const string source = "class C\r\n{\r\n    static int Use(int x) => x;\r\n    static int Get(int x) => x;\r\n    static int M(int a,int b,int c)\r\n    {\r\n        return Use(Get(Get((a+b)*c)));\r\n    }\r\n}\r\n";
         var document = StatementOperationTestFixture.Document(source, "root = true\n[*.cs]\nindent_style = tab\nindent_size = 4\nend_of_line = lf\ncsharp_new_line_before_open_brace = all\n");
         var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document, key));
         var text = (await changed.GetTextAsync()).ToString();
@@ -134,7 +134,7 @@ public sealed class StatementOperationSafetyTests
     [Fact]
     public async Task UnrecognisedEndOfLineKeepsTheSavedNewlines()
     {
-        const string source = "class C\r\n{\r\n    static int Use(int x) => x;\r\n    static int M(int a,int b,int c)\r\n    {\r\n        return Use((a+b)*c);\r\n    }\r\n}\r\n";
+        const string source = "class C\r\n{\r\n    static int Use(int x) => x;\r\n    static int Get(int x) => x;\r\n    static int M(int a,int b,int c)\r\n    {\r\n        return Use(Get(Get((a+b)*c)));\r\n    }\r\n}\r\n";
         var document = StatementOperationTestFixture.Document(source, "root = true\n[*.cs]\nend_of_line = unset\n");
         var changed = await StatementOperationTestFixture.Reparse(
             await StatementOperationTestFixture.Fix(document, StatementOperationCodeFixProvider.ExtractKey));

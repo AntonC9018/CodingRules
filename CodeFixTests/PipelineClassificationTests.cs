@@ -17,6 +17,7 @@ public sealed class PipelineClassificationTests
     [InlineData("xs.Select(x=>x)")]
     [InlineData("xs.Select(x=>x+1)")]
     [InlineData("xs.Select(x=>F(x))")]
+    [InlineData("xs.Select(x=>F(x)+1)")]
     [InlineData("xs.Select(x=>new Item(x,x))")]
     [InlineData("xs.Select(x=>(x,x))")]
     [InlineData("xs.Select(x=>(x+1,x+2))")]
@@ -44,7 +45,6 @@ public sealed class PipelineClassificationTests
     [InlineData("xs.Select((x,i)=>new Item(F(F(x)),i))", "CR0400")]
     [InlineData("Enumerable.Select(xs,static x=>new Item(F(F(x)),x))", "CR0400")]
     [InlineData("xs.ToImmutableArray().Select(x=>new Item(F(F(x)),x))", "CR0400")]
-    [InlineData("xs.Select(x=>F(x)+1)", "CR0400")]
     [InlineData("xs.Select(x=>(F(F(F(x))),x))", "CR0400")]
     [InlineData("xs.Select(x=>new Box { A=F(F(F(x))), B=x })", "CR0400")]
     public async Task ComposedExpressionsHaveSavedSourceFixes(string expression, string id)
@@ -73,7 +73,7 @@ public sealed class PipelineClassificationTests
     [Fact]
     public async Task BlockFixKeepsComputedStagesInTheLambda()
     {
-        var document = PipelineTestFixture.Document(Prelude + "static object M(int[] xs)=>xs.Select(x=>F(F(x))+1); }");
+        var document = PipelineTestFixture.Document(Prelude + "static object M(int[] xs)=>xs.Select(x=>F(F(F(x)))+1); }");
         var changed = await PipelineTestFixture.Fix(document, PipelineCodeFixProvider.BlockKey);
         var root = await changed.GetSyntaxRootAsync();
 
@@ -136,7 +136,7 @@ public sealed class PipelineClassificationTests
     [InlineData(true,"netstandard2.1.dll")]
     public async Task RealNetstandardDefinitionsAndSourceLookalikes(bool shadow,string reference)
     {
-        var source = "using System.Linq; class C { static int F(int x)=>x; static object M(int[] xs)=>xs.Select(x=>F(x)+1); }"
+        var source = "using System.Linq; class C { static int F(int x)=>x; static object M(int[] xs)=>xs.Select(x=>F(F(F(x)))+1); }"
             + (shadow ? "namespace System.Linq {static class Enumerable{public static System.Collections.Generic.IEnumerable<int> Select(this int[] xs,System.Func<int,int> selector)=>xs;}}" : "");
         var tree = CSharpSyntaxTree.ParseText(source);
         var compilation = CSharpCompilation.Create("Test", new[] { tree }, new[] { MetadataReference.CreateFromFile(Path.Combine(AppContext.BaseDirectory, "References",reference)) }, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));

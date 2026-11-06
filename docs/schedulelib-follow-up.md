@@ -804,3 +804,23 @@ the new predicate gate. The constant-copy regression fails before the correction
 all 316 focused operation, pipeline, capture and JSON regressions pass afterward.
 This candidate remains unpublished. These results supersede the earlier deferred
 candidate-validation records for the completed slices.
+
+## Calculation policy refinement — 2026-11-06
+
+Arithmetic and bitwise operator composition is a semantic review concern, not an
+operator-count diagnostic. CR0302 keeps consumed mutations and computed string
+interpolation. CR0300 no longer counts arithmetic operators, but retains its
+independent nested-producer policy. CR0301 conditional values and CR02 logical
+conditions remain enabled. No consumer suppression or severity change implements
+this decision.
+
+The shipped agent guidance requires meaningful calculation abstractions and
+useful intermediate concepts. Midpoint and squared-length helpers can keep their
+formulas intact. Inclusive interval length may already be represented by a
+property; date and Excel column counts need appropriate range operations where
+possible. A named recurrence gap count and edit-distance alternatives explain
+separate concepts. Similar formulas do not establish shared domain semantics.
+
+Previously approved index-write mutation checks remain in force. Automatic fixes
+must preserve the increment before a failed store; the manually reviewed
+store-then-increment consumer edits rely on unobserved failure-path counters.

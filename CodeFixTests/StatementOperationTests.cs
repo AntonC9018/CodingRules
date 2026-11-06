@@ -9,7 +9,6 @@ public sealed class StatementOperationTests
     [Theory]
     [InlineData("Use(int.Parse(text.Trim()))", "CR0300")]
     [InlineData("Use(flag ? 1 : 2)", "CR0301")]
-    [InlineData("Use((a + b) * c)", "CR0300")]
     [InlineData("Use(System.Math.Max(a, b) * c)", "CR0300")]
     public async Task BothActionsLinearizeSavedSource(string expression, string id)
     {
@@ -26,18 +25,16 @@ public sealed class StatementOperationTests
     }
 
     [Theory]
-    [InlineData("a + b + c")]
-    [InlineData("System.Math.Max(a, b) * c")]
-    public async Task StandaloneArithmeticHasBothActions(string expression)
+    [InlineData("a + b + c", "6")]
+    [InlineData("System.Math.Max(a, b) * c", "6")]
+    [InlineData("Use((a + b) * c)", "9")]
+    public async Task ArithmeticRemainsIntactAndRunsWithoutAStagingDiagnostic(string expression, string expected)
     {
-        var source = "class C { static int M(int a, int b, int c) => " + expression + "; }";
-        foreach (var key in new[] { StatementOperationCodeFixProvider.ExtractKey, StatementOperationCodeFixProvider.ExpandKey })
-        {
-            var document = StatementOperationTestFixture.Document(source);
-            Assert.Equal("CR0302", Assert.Single(await StatementOperationTestFixture.Diagnostics(document)).Id);
-            var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document, key));
-            await StatementOperationTestFixture.Compiles(changed);
-            Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
-        }
+        var source = "public class C { static int Use(int value) => value; public static string Run() { int a=1,b=2,c=3; return ("
+            + expression + ").ToString(); } }";
+        var document = StatementOperationTestFixture.Document(source);
+        Assert.Empty(await StatementOperationTestFixture.Diagnostics(document));
+        Assert.Equal(expected, await StatementOperationTestFixture.Run(document));
+        Assert.Equal(source, (await document.GetTextAsync()).ToString());
     }
 }

@@ -2,7 +2,8 @@ public static class Consumer
 {
     public static int Compute(int first, int second, int third)
     {
-        int TODO_VARIABLE = first + second;
-        return TODO_VARIABLE + third;
+        int TODO_VARIABLE = first++;
+        int TODO_VARIABLE_1 = TODO_VARIABLE + second;
+        return TODO_VARIABLE_1 + third;
     }
 }

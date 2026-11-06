@@ -9,12 +9,12 @@ public sealed class PipelineReviewRegressionTests
     private const string Prelude = "using System;using System.Linq;using System.Runtime.CompilerServices;class C{static int F(int x)=>x;";
 
     [Theory]
-    [InlineData("new Box(new[]{1}.Select(x=>F(x)+1)).Text")]
+    [InlineData("new Box(new[]{1}.Select(x=>F(F(F(x)))+1)).Text")]
     [InlineData("new Box(new[]{1}.Select(x=>{var a=F(x);var b=F(a);return b;})).Text")]
     [InlineData("new Box(new[]{1}.ToDictionary(x=>x)).Text")]
     [InlineData("Inspect(new[]{1}.ToDictionary(x=>x,x=>x))")]
     [InlineData("Inspect(new[]{1}.ToDictionary(x=>x))")]
-    [InlineData("Inspect(new[]{1}.Select(x=>F(x)+1))")]
+    [InlineData("Inspect(new[]{1}.Select(x=>F(F(F(x)))+1))")]
     public async Task EnclosingConstructorAndMethodCallerTextSitesAreOmitted(string expression)
     {
         var source = Prelude + "sealed class Box{public string Text;public Box(object value,[CallerArgumentExpression(\"value\")]string text=\"\"){Text=text;}}"
@@ -31,7 +31,7 @@ public sealed class PipelineReviewRegressionTests
     public async Task LaterCallerLinesBeyondTheSelectedRootAreOmitted(string completion)
     {
         var source = Prelude + "static int Line([CallerLineNumber]int line=0)=>line;sealed class Box{public int Line;public Box([CallerLineNumber]int line=0){Line=line;}}"
-            + "public static string Run(){\nvar p=new[]{1}.Select(x=>F(x)+1);\n" + completion + "\n}}";
+            + "public static string Run(){\nvar p=new[]{1}.Select(x=>F(F(F(x)))+1);\n" + completion + "\n}}";
         var document = PipelineTestFixture.Document(source);
         Assert.Equal("3", await StatementOperationTestFixture.Run(document));
         Assert.Empty(await PipelineTestFixture.Diagnostics(document));
@@ -76,7 +76,7 @@ public sealed class PipelineReviewRegressionTests
     [InlineData(PipelineCodeFixProvider.BlockKey)]
     public async Task InitializerFixDoesNotFormatUnrelatedCallerText(string key)
     {
-        var document = PipelineTestFixture.Document(Prelude + "static object p=new[]{1}.Select(x=>F(x)+1);static string Inspect(int value,[CallerArgumentExpression(\"value\")]string text=\"\")=>text;public static string Run()=>Inspect(1+2);}");
+        var document = PipelineTestFixture.Document(Prelude + "static object p=new[]{1}.Select(x=>F(F(F(x)))+1);static string Inspect(int value,[CallerArgumentExpression(\"value\")]string text=\"\")=>text;public static string Run()=>Inspect(1+2);}");
         Assert.Equal("1+2", await StatementOperationTestFixture.Run(document));
         var changed = await SavedSame(document, key, "CR0400");
         Assert.Contains("Run()=>Inspect(1+2)", (await changed.GetTextAsync()).ToString());
@@ -87,14 +87,14 @@ public sealed class PipelineReviewRegressionTests
     [InlineData(PipelineCodeFixProvider.BlockKey)]
     public async Task ExplicitOriginalCallerDefaultsPermitStageActions(string key)
     {
-        var document = PipelineTestFixture.Document(Prelude + "sealed class Box{public string Text;public Box(object value,[CallerArgumentExpression(\"value\")]string text=\"\"){Text=text;}}static int Line([CallerLineNumber]int line=0)=>line;public static string Run(){\nvar box=new Box(new[]{1}.Select(x=>F(x)+1),text:\"original\");\nreturn box.Text+Line(line:3);\n}}");
+        var document = PipelineTestFixture.Document(Prelude + "sealed class Box{public string Text;public Box(object value,[CallerArgumentExpression(\"value\")]string text=\"\"){Text=text;}}static int Line([CallerLineNumber]int line=0)=>line;public static string Run(){\nvar box=new Box(new[]{1}.Select(x=>F(F(F(x)))+1),text:\"original\");\nreturn box.Text+Line(line:3);\n}}");
         await SavedSame(document, key, "CR0400");
     }
 
     [Fact]
     public async Task EarlierCallerLineDoesNotExcludeAnUnaffectedStage()
     {
-        var document = PipelineTestFixture.Document(Prelude + "static int Line([CallerLineNumber]int line=0)=>line;public static string Run(){\nvar line=Line();\nvar p=new[]{1}.Select(x=>F(x)+1);\nreturn line.ToString();\n}}");
+        var document = PipelineTestFixture.Document(Prelude + "static int Line([CallerLineNumber]int line=0)=>line;public static string Run(){\nvar line=Line();\nvar p=new[]{1}.Select(x=>F(F(F(x)))+1);\nreturn line.ToString();\n}}");
         await SavedSame(document, PipelineCodeFixProvider.ExtractKey, "CR0400");
     }
 

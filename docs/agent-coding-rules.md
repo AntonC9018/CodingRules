@@ -168,6 +168,38 @@ settled independently. Static parameter-count exemptions do not exempt overload
 configuration or repeated plumbing. RequiredStep analysis remains deferred:
 do not introduce its annotations, an analyzer or a staged-builder generator.
 
+## Review calculation abstractions by meaning
+
+Put a cohesive calculation behind a meaningful function, property or domain
+abstraction. Keep its formula intact inside that abstraction. Introduce named
+intermediate values when their names explain separate concepts, rather than
+merely restating operators. Arithmetic and bitwise operator counts do not prove
+that a calculation needs splitting; CR03 no longer enforces that policy.
+
+- Extract midpoint and squared-vector-length operations from positioning code.
+  Keep their formulas together in the helpers; do not introduce coordinate-sum
+  or squared-component locals solely to reduce an operator count.
+- An interval's inclusive Length property is already the abstraction for
+  `end - start + 1`. For date counts and merged Excel column widths, prefer an
+  appropriate range operation, reusing an existing abstraction when its types,
+  endpoint conventions and failure behavior match. Similar arithmetic alone
+  does not establish shared domain policy.
+- In recurrence calculations, `gapCount = count - 1` explains why one is
+  subtracted. In edit distance, insertion, deletion and replacement costs name
+  the algorithm's alternatives. Those are useful intermediate concepts.
+- Review existing expanded formulas under the same policy. Generated sums,
+  numbered temporaries and wrapper functions are not evidence of a meaningful
+  abstraction. Preserve numeric types, grouping, rounding, overflow, evaluation
+  order and exceptions when revising them.
+- Keep consumed mutations such as `array[index++] = item` separate. Automatic
+  rewrites must preserve when the counter changes relative to a failed store;
+  manually choosing store-then-increment requires checking the failure path.
+
+Logical conditions retain their analyzer rules. Nested calls, conditional
+values and computations inside formatting retain their independent checks;
+accepting arithmetic formulas is not a blanket exemption for their inputs.
+Analyzer silence does not replace this semantic review.
+
 ## Keep generated steps readable
 
 - Prefer a local variable for a one-off computed value, and a local function with

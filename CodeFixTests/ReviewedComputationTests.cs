@@ -32,7 +32,6 @@ public sealed class ReviewedComputationTests
         { "static Exception M(string[] outcomes, Exception inner) => new CalendarStreamingException(new Result(outcomes.Any(x => x == \"completed\") ? 6 : 1, [\"Output streaming failed.\"], false), inner);", "CR0301" },
         { "static object M<T>(Node node, JsonObject action) => node.GetOrAdd(new NodeDataKey<T>(new(action[\"key\"]!.GetValue<string>().Split('.')[0])));", "CR0300" },
         { "static string[] M(string? profile, string[] parts) { var path = profile is null ? new[] { \"defaults\" }.Concat(parts).ToArray() : new[] { \"profiles\", profile }.Concat(parts).ToArray(); return path; }", "CR0301" },
-        { "static int M(Type value) => value.GetGenericArguments().Length + 1;", "CR0302" },
         { "static bool M(IServiceProvider provider, Type value, int length) { if (length != 0 && provider.GetService(typeof(IKeyEqualityComparer<>).MakeGenericType(value.GetGenericArguments()[0])) is null) { return false; } return true; }", "CR0300" },
     };
 
@@ -63,6 +62,7 @@ public sealed class ReviewedComputationTests
     [InlineData("static int M(string[] values) => values.Any(x => x.Length > 0) ? 6 : 1;")]
     [InlineData("static TimeSpan M() => TimeSpan.FromMinutes(90);")]
     [InlineData("static string M(string? selected) { var path = selected is { } cache ? ResolvePath(cache) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), \"ScheduleLib\", \"cache\"); return path; }")]
+    [InlineData("static int M(Type value) => value.GetGenericArguments().Length + 1;")]
     [InlineData("static Type[] M(Type value) { var arguments = value.GetGenericArguments(); return arguments; }")]
     public async Task SimpleNamedValuesAndLinearPipelinesRemainAccepted(string member)
     {

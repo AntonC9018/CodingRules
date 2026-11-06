@@ -23,7 +23,7 @@ public sealed class SentinelInteractionTests
                 static int Get(int a) => a;
                 static void Use(int a) {}
                 static void Operations() => Use(Get(Get(1)));
-                static object Pipeline(int[] values) => values.Select(x => (x + 1) * 2).ToArray();
+                static object Pipeline(int[] values) => values.Select(x => Get(Get(Get(x)))).ToArray();
                 static void SameType(int first, int second) {}
                 static void Names() => SameType(1, 2);
             }

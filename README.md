@@ -18,9 +18,11 @@ config, JSON, cancellation/authentication and numeric status examples reuse thes
 families; the [compound-condition boundary](docs/compound-conditions.md) records
 the exact six-status enum predicate, safe flow rewrites and package gate.
 `CR0300` names nested argument operations, `CR0301` names embedded conditional
-values, and `CR0302` separates arithmetic or other mechanically proven combined
-values. Calls and constructors with no explicitly supplied arguments remain
-allowed. One simple call, interpolation, construction or lambda chain per
+values, and `CR0302` separates consumed mutations and computations inside
+formatting. Arithmetic and bitwise formula decomposition is a semantic review
+recorded in the shipped agent guidance. Calls and constructors with no explicitly
+supplied arguments remain allowed. One simple call, interpolation, construction
+or lambda chain per
 argument list is accepted: `Save(CreateRequest(id))` is compliant;
 `Save(CreateRequest(Get(id)))` needs a named step. Index offsets such as
 `values[j - 1]` and direct values remain inline. Linear LINQ
@@ -122,20 +124,12 @@ and accessible exception context. [Export and import it explicitly](docs/consume
 through your repository's existing agent instructions; referencing NuGet alone
 does not make agents read it. See `samples/AgentGuidance` for a consuming example.
 
-For a mathematical formula whose shape is useful to retain, use normal scoped
-suppression with a justification. This leaves neighboring methods enabled:
+Cohesive formulas belong in meaningful calculation abstractions. Keep the formula
+intact inside its abstraction; name intermediate steps when they explain separate
+concepts. Arithmetic and bitwise composition do not require a suppression.
+Consumed mutations retain CR0302 and logical conditions retain CR02. See
+[calculation guidance](docs/agent-coding-rules.md#review-calculation-abstractions-by-meaning).
 
-```csharp
-[System.Diagnostics.CodeAnalysis.SuppressMessage(
-    "Readability", "CR0302", Justification = "Keep the formula intact for comparison with its derivation.")]
-static double Formula(double a, double b, double c) => a + b + c;
-
-static double Neighbor(double a, double b, double c) => a + b + c; // CR0302
-```
-
-Alternatively, place `#pragma warning disable CR0302` immediately before the
-intended function and `#pragma warning restore CR0302` immediately after it.
-Use the exact rule ID to keep return and condition rules enabled.
 Diagnostics are warnings by default. A consumer can change severity through
 `.editorconfig`:
 

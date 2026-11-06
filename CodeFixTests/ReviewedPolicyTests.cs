@@ -10,9 +10,9 @@ public sealed class ReviewedPolicyTests
 {
     [Theory]
     [InlineData("record C(int State) { C M(C frame) => frame with { State = 1 }; }", 0)]
-    [InlineData("record C(int State) { C M(C frame) => frame with { State = 1 + 2 + 3 }; }", 1)]
+    [InlineData("record C(int State) { C M(C frame) => frame with { State = 1 + 2 + 3 }; }", 0)]
     [InlineData("class C { object Get(int x) => x; string M() { var value = (string)Get(1); return value; } }", 0)]
-    [InlineData("class C { object Get(int x) => x; string M() { var value = (string)Get(1+2+3); return value; } }", 1)]
+    [InlineData("class C { object Get(int x) => x; string M() { var value = (string)Get(1+2+3); return value; } }", 0)]
     public async Task RecordUpdatesAndLookupCastsRetainInnerOperationChecks(string source, int count)
     {
         var document = StatementOperationTestFixture.Document(source);

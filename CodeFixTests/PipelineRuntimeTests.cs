@@ -99,7 +99,7 @@ public sealed class PipelineRuntimeTests
     [InlineData(PipelineCodeFixProvider.BlockKey)]
     public async Task ImmutableArrayProjectionTiming(string key)
     {
-        const string source = "using System;using System.Linq;using System.Collections.Generic;using System.Collections.Immutable;class C{static List<string> log=new();static int F(int x){log.Add(\"f\"+x);return x;}public static string Run(){log.Clear();var p=ImmutableArray.Create(1,2).Select(x=>F(x)+1);log.Add(\"constructed\");foreach(var x in p)log.Add(x.ToString());return string.Join(\"|\",log);}}";
+        const string source = "using System;using System.Linq;using System.Collections.Generic;using System.Collections.Immutable;class C{static List<string> log=new();static int F(int x){log.Add(\"f\"+x);return x;}public static string Run(){log.Clear();var p=ImmutableArray.Create(1,2).Select(x=>F(F(F(x)))+1);log.Add(\"constructed\");foreach(var x in p)log.Add(x.ToString());return string.Join(\"|\",log);}}";
         await Same(source,key,"CR0400");
     }
     private static async Task Same(string source,string key,string id)

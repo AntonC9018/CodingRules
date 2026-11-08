@@ -57,4 +57,11 @@ public static class Accepted
         UseArgument(value: new(2, ["label"]), extra: 3);
     }
 
+    private static double Midpoint(double start, double end) => (start + end) / 2;
+    private static double SquaredLength(double dx, double dy) => dx * dx + dy * dy;
+    private static int InclusiveLength(int start, int end) => end - start + 1;
+    private static int RecurrenceSpan(int interval, int count) => interval * (count - 1);
+    private static uint RemainingBits(uint bits, uint ignored) => bits & ~ignored;
+    private static int Width(int start, int end) => (int) ((long) end - start + 1);
+
 }

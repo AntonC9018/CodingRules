@@ -20,9 +20,12 @@ public sealed class PipelineHostSafetyTests
     [InlineData("static object M(int[] xs){for(int i=0;xs.Select(x=>F(x)+i).Any();i++){break;}return xs;}")]
     [InlineData("static object M(int[] xs){try{}catch(Exception ex) when(xs.Select(x=>F(x)+ex.HResult).Any()){}return xs;}")]
     [InlineData("static object M(object value)=>value switch{int[] xs when xs.Select(x=>F(x)+1).Any()=>xs,_=>value};")]
-    public async Task AllHostsRetainTheOriginalStageInvocation(string member)
+    public async Task AllHostsAcceptFormulasAndRetainNestedCallStageInvocation(string member)
     {
-        var document=PipelineTestFixture.Document(Prelude+member+"}");
+        var formula=PipelineTestFixture.Document(Prelude+member+"}");
+        await StatementOperationTestFixture.Compiles(formula);
+        Assert.Empty(await PipelineTestFixture.Diagnostics(formula));
+        var document=PipelineTestFixture.Document(Prelude+member.Replace("F(x)", "F(F(F(x)))")+"}");
         await StatementOperationTestFixture.Compiles(document);
         var diagnostic=Assert.Single(await PipelineTestFixture.Diagnostics(document));
         var actions=await PipelineTestFixture.Actions(document,diagnostic);
@@ -30,9 +33,9 @@ public sealed class PipelineHostSafetyTests
         foreach(var action in actions){var changed=await PipelineTestFixture.Fix(document,action.EquivalenceKey!);Assert.Empty(await PipelineTestFixture.Diagnostics(changed));}
     }
     [Theory]
-    [InlineData("using System.Linq.Expressions;", "Expression<Func<int[],object>> tree=xs=>xs.Select(x=>F(x)+1);", "")]
-    [InlineData("", "var p=new[]{1}.AsQueryable().Select(x=>F(x)+1);", "")]
-    [InlineData("", "var p=new[]{1}.Select(x=>F(x)+ /*internal*/ 1);", "")]
+    [InlineData("using System.Linq.Expressions;", "Expression<Func<int[],object>> tree=xs=>xs.Select(x=>F(F(F(x)))+1);", "")]
+    [InlineData("", "var p=new[]{1}.AsQueryable().Select(x=>F(F(F(x)))+1);", "")]
+    [InlineData("", "var p=new[]{1}.Select(x=>F(F(F(x)))+ /*internal*/ 1);", "")]
     [InlineData("", "var p=new[]{1}.Select(x=>F(Line(x))+1);", "static int Line(int x,[System.Runtime.CompilerServices.CallerLineNumber]int line=0)=>x+line;")]
     [InlineData("", "var p=new[]{1}.Select(async x=>{var a=F(x);var b=F(a);await System.Threading.Tasks.Task.Yield();return b;});", "")]
     [InlineData("", "var p=new[]{1}.Select(x=>new Box{A=F(F(x))});", "class Box{public int A{get;init;}}")]
@@ -71,7 +74,7 @@ public sealed class PipelineHostSafetyTests
     [Fact]
     public async Task NarrowedNullableCapturePreservesItsFlowForBothActions()
     {
-        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs,string? text){if(text is null)return xs;return xs.Select(x=>F(text.Length)+1);}}";
+        const string source="using System.Linq;class C{static int F(int x)=>x;static object M(int[] xs,string? text){if(text is null)return xs;return xs.Select(x=>F(F(F(text.Length)))+1);}}";
         var document=PipelineTestFixture.Document(source);await StatementOperationTestFixture.Compiles(document);
         var diagnostic=Assert.Single(await PipelineTestFixture.Diagnostics(document));
         var actions=await PipelineTestFixture.Actions(document,diagnostic);

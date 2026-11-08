@@ -47,19 +47,19 @@ public sealed class StatementOperationClassificationTests
     [InlineData("", "return value is (1 + 2 + 3) ? 1 : 0;")]
     [InlineData("", "return value is not (1 + 2 + 3) ? 1 : 0;")]
     [InlineData("", "return value is >= (1 + 2 + 3) and < (4 + 5 + 6) ? 1 : 0;")]
-    public async Task ConstantRequiredOperandsAreSilentAndRuntimeNeighborsStillFix(string member, string body)
+    public async Task ConstantAndRuntimeArithmeticAreAcceptedWithMutationNeighborsStillFixable(string member, string body)
     {
         var source = "class C { " + member + " static int Constant(int value) { " + body
-            + " } static int Runtime() { var value = 1 + 2 + 3; return value; } }";
+            + " } static int Runtime() { var value = 1 + 2 + 3; return value; } static int Mutation(int x) { return x++ + 1; } }";
         var document = StatementOperationTestFixture.Document(source);
         await StatementOperationTestFixture.Compiles(document);
         var diagnostic = Assert.Single(await StatementOperationTestFixture.Diagnostics(document));
         Assert.Equal("CR0302", diagnostic.Id);
         var root = await document.GetSyntaxRootAsync();
-        Assert.Equal("Runtime", root!.FindNode(diagnostic.Location.SourceSpan).Ancestors()
+        Assert.Equal("Mutation", root!.FindNode(diagnostic.Location.SourceSpan).Ancestors()
             .OfType<MethodDeclarationSyntax>().First().Identifier.Text);
         var actions = await StatementOperationTestFixture.Actions(document, diagnostic);
-        Assert.Equal(2, actions.Count);
+        Assert.NotEmpty(actions);
         foreach (var action in actions)
         {
             var changed = await StatementOperationTestFixture.Reparse(await StatementOperationTestFixture.Fix(document, action.EquivalenceKey!));
@@ -87,6 +87,8 @@ public sealed class StatementOperationClassificationTests
     [InlineData("Use(Get() + 1)")]
     [InlineData("Use(Collect())")]
     [InlineData("Use(1 + 2)")]
+    [InlineData("Use(1 + 2 + 3)")]
+    [InlineData("Use($\"value:{a + 1}\")")]
     [InlineData("Use(-1)")]
     [InlineData("Use(nameof(Get))")]
     [InlineData("Use(text.Trim())")]
@@ -111,8 +113,6 @@ public sealed class StatementOperationClassificationTests
     [Theory]
     [InlineData("Use(Get(Get(value: a)))", "CR0300")]
     [InlineData("Use(Collect(Array.Empty<int>()))", "CR0300")]
-    [InlineData("Use(1 + 2 + 3)", "CR0300")]
-    [InlineData("Use($\"value:{a + b}\")", "CR0300")]
     [InlineData("Use(flag ? a : b)", "CR0301")]
     [InlineData("Use(a++)", "CR0300")]
     [InlineData("Use((a = b))", "CR0300")]
@@ -155,10 +155,10 @@ public sealed class StatementOperationClassificationTests
     [Theory]
     [InlineData("#pragma warning disable CR0302\n", "#pragma warning restore CR0302\n")]
     [InlineData("[System.Diagnostics.CodeAnalysis.SuppressMessage(\"Readability\", \"CR0302\", Justification = \"Formula\")]\n", "")]
-    public async Task StandardDriverSuppressionIsScopedToTheFormula(string before, string after)
+    public async Task StandardDriverSuppressionIsScopedToConsumedMutation(string before, string after)
     {
-        var methods = "static int Formula(int a, int b, int c) => a + b + c;\n";
-        var neighbor = "static int Neighbor(int a, int b, int c) => a + b + c;\n";
+        var methods = "static int Formula(int a, int b, int c) => a++ + b + c;\n";
+        var neighbor = "static int Neighbor(int a, int b, int c) => a++ + b + c;\n";
         var baseline = StatementOperationTestFixture.Document("class C {\n" + methods + neighbor + "}");
         Assert.Equal(2, (await StatementOperationTestFixture.Diagnostics(baseline)).Length);
         var document = StatementOperationTestFixture.Document("class C {\n" + before + methods + after + neighbor + "}");

@@ -82,12 +82,12 @@ through `.editorconfig`.
   linear form.
 - Do not nest one conceptual operation inside the arguments of another.
   Calculate, convert, look up, validate, format, and join before a method or
-  constructor call. Direct values and expressions with at most one simple
-  calculation operator may remain inline. Assign conditional expressions to
-  named variables first.
+  constructor call. Review arithmetic and bitwise formulas by meaning: keep a
+  cohesive formula intact inside its calculation abstraction, and name useful
+  intermediate concepts. Assign conditional expressions to named variables first.
 - One argument per call may do simple work inline: a call or method chain on
   one receiver whose own arguments are literals, locals, parameters, member
-  reads or lambdas; an interpolation of such values; or a construction of them,
+  reads, arithmetic formulas or lambdas; an interpolation of such values; or a construction of them,
   which may take one such interpolation. `Assert.Empty(Directory.GetFiles(path))`
   and `notices.Add(new("omitted", $"Student: {name}"))` stay inline.
 - A simple index offset such as `a[j - 1]` is part of the element access, not a
@@ -224,7 +224,7 @@ producer, including its null constant pattern. It names the nullable service
 result before testing it, preserving the original short-circuited branch.
 Parameterless System.Type.GetGenericArguments is the reviewed metadata exception
 to CR0300's ordinary parameterless exemption. CR0301 also names ternaries whose
-branches compose catalogued pipeline calls. CR0302 retains its composition
+branches compose catalogued pipeline calls. CR0302 retains its mutation/formatting
 policy and also uses the shared metadata-producer fact. No diagnostic ID is
 added; the original CR0001 contract stays unchanged. The
 [computed-operation boundary](computed-operations.md) records provenance,
@@ -488,8 +488,8 @@ chain on one receiver, or an interpolation. Its own inputs must be literals,
 locals, parameters, member reads, `this`, type names or lambdas; a construction
 may also take one interpolation of such inputs. Two such composite arguments
 in one list both retain CR0300. The allowance does not hide nested calls,
-constructors, conditional values or numeric calculations inside the value, and
-an `a[j - 1]` index offset of simple inputs is no calculation. Fixes leave an
+constructors or conditional values inside the value. Arithmetic and bitwise
+formulas alone do not require staging, including inside arguments. Fixes leave an
 accepted argument in place instead of staging it. Existing parameterless and
 initializer boundaries remain unchanged.
 Argument staging can preserve an already temporary struct receiver returned by
@@ -497,13 +497,14 @@ a by-value call, property getter or construction. A variable, field or ref-retur
 receiver must retain its original storage; this allowance does not enable copying
 such receivers before evaluating arguments that might change them.
 Simple constant inputs stay inline when their conversion is identity. Keep
-actual calculations separated, and preserve the original evaluation position
-of boxing and user-defined conversions; a constant operand alone does not make
+semantically distinct calculations named, and preserve the original evaluation
+position of boxing and user-defined conversions; a constant operand alone does not make
 those conversions unobservable.
 Direct fields, property/index selections and built-in tests remain inline,
-without a purity assumption. At most one supported built-in numeric calculation
-is allowed, including original constant-folded syntax. Supported nonidentity
-casts, ordinary string interpolation and consumed embedded mutation also qualify.
+without a purity assumption. Arithmetic and bitwise composition are reviewed by
+meaning in the shipped agent guidance, rather than diagnosed by operator count.
+Nested calls, ordinary string interpolation and consumed embedded mutation retain
+their independent checks.
 
 `CR0301` reports an embedded ternary argument or larger consumed value. Entire
 named initializers and assignment right sides are compliant except when a
@@ -511,8 +512,10 @@ branch composes more than one catalogued pipeline call (for example
 Concat/ToArray). Those branch computations receive CR0301 and become explicit
 lazy branches; ordinary linear pipelines remain allowed. Simple direct
 returns/arrows and switch expressions retain the frozen return policy.
-`CR0302` reports more than one supported calculation in a standalone named value,
-or a producer consumed by another calculation/conversion/formatting stage.
+`CR0302` reports consumed embedded mutations and producers consumed by ordinary
+string interpolation. Numeric/bitwise operator composition and a producer used
+by arithmetic do not trigger CR0302. CR0300 also no longer counts numeric
+operators; it still checks nested producers in arguments independently.
 Delivery through an assignment, declaration or return is not a second operation.
 An increment consumed as an array-write index is reported: both
 `values[index++] = item` and `buffer.Values[index++] = item` receive CR0302.
@@ -554,8 +557,8 @@ Fix All replans current roots and fresh names sequentially and is idempotent.
 Analyzer feasibility never replaces a compilation per root.
 
 Constant-required expressions (const declarations, case labels and constant or
-relational pattern operands) cannot be staged and are excluded. Ordinary runtime
-arithmetic still counts its original operators even when constant-folded.
+relational pattern operands) cannot be staged and are excluded. Runtime arithmetic
+formulas likewise remain intact without requiring staging or a suppression.
 Expression trees, attributes/base/this constructor initializers, invalid/dynamic
 binding, ref-like/pointer/unsafe values, internal comments/directives and labels
 or gotos are conservative boundaries. Individual actions are omitted for
@@ -578,8 +581,9 @@ are not diagnosed by line length, call counts or guessed method names.
 `CR0400` reports a structurally composed expression projection in a catalogued
 delegate selector. Composition uses the existing operation facts: a producer
 with explicitly supplied arguments inside another ordinary call, or a producer
-consumed by a supported calculation/conversion/formatting stage. Direct shaping,
+consumed by ordinary string interpolation, or a consumed mutation. Direct shaping,
 one simple stage and independent simple aggregate components stay allowed.
+Arithmetic/bitwise composition alone does not make a projection composed.
 Each aggregate component is classified separately. Ordinary constructor
 arguments, tuple components and supported settable object initializer values
 can be linearized; unsupported individual transformations are omitted.
@@ -616,13 +620,11 @@ exemption. General method-region extraction, identifying semantic reuse and
 selecting a private-method abstraction remain manual judgment. The bounded
 automatic stage rule does not replace those parts of the coding standard.
 
-For a genuine mathematical formula, use standard method/member
-`System.Diagnostics.CodeAnalysis.SuppressMessage("Readability", "CR0302",
-Justification = "Keep the formula intact for comparison with its derivation.")`
-or a scoped `#pragma warning disable CR0302` / `#pragma warning restore CR0302`
-around the intended function. Neighboring functions and other rule IDs remain
-enabled. Real analyzer-driver tests verify both suppressions and restored scope;
-there is no custom opt-out attribute or handwritten suppression matcher.
+Arithmetic and bitwise calculation decomposition is a semantic policy in
+[agent guidance](agent-coding-rules.md#review-calculation-abstractions-by-meaning).
+An existing meaningful helper or property can already be the right abstraction;
+operator count is not a reason to expand its formula. Consumed mutations retain
+their independent diagnostics, and CR02 logical-condition policy is unchanged.
 
 ## Compound and deeply nested predicates (CR0403)
 

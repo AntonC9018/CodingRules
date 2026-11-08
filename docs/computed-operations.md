@@ -1,8 +1,10 @@
 # Reviewed computed arguments and lookups
 
 ScheduleLib slice 07 implements the non-message A6/A7/A8 cases with existing
-Readability warnings CR0300, CR0301 and CR0203. CR0302 retains its composition
-policy and also recognizes the new metadata producer when consumed by a calculation. No public diagnostic ID or package
+Readability warnings CR0300, CR0301 and CR0203. CR0302 retains its checks
+for mutations and formatting. Arithmetic/bitwise composition is now reviewed
+semantically through shipped agent guidance; consuming metadata with arithmetic
+alone no longer triggers CR0302. No public diagnostic ID or package
 configuration default changes. Generated code, ordinary Roslyn severity options,
 EditorConfig, pragma and SuppressMessage conventions remain in force. CR0302's
 initializer correction at `7b9a4b2` and CR0001's safe-fix contract remain intact.

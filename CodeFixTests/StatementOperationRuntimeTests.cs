@@ -126,7 +126,7 @@ public sealed class StatementOperationRuntimeTests
     }
 
     [Fact]
-    public async Task SourceGroupingSurvivesSavingTheArithmeticFix()
+    public async Task ArithmeticGroupingRemainsIntactWithoutAFix()
     {
         const string source = """
             public class C
@@ -140,7 +140,10 @@ public sealed class StatementOperationRuntimeTests
                 }
             }
             """;
-        await AssertRuntime(source, "9");
+        var document = StatementOperationTestFixture.Document(source);
+        Assert.Empty(await StatementOperationTestFixture.Diagnostics(document));
+        Assert.Equal("9", await StatementOperationTestFixture.Run(document));
+        Assert.Equal(source, (await document.GetTextAsync()).ToString());
     }
 
     private static async Task AssertRuntime(string source, string expected)

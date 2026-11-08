@@ -26,16 +26,15 @@ internal sealed class OperationFacts
             return facts;
         }
         var nodes = EvaluationNodes(expression).OfType<ExpressionSyntax>().ToArray();
-        var calculations = nodes.Count(node => IsCalculation(node, model));
         facts.Conditional = nodes.OfType<ConditionalExpressionSyntax>()
             .FirstOrDefault(conditional => !IsNamedOrDirectReturn(conditional)
                 || HasComposedPipelineBranch(conditional, model));
-        facts.Combined = calculations > 1 || nodes.Any(node => IsCombination(node, model))
+        facts.Combined = nodes.Any(node => IsComputedInterpolation(node, model))
             || nodes.Any(node => IsMutation(node) && IsConsumedMutation(node));
         if (expression.Parent is ArgumentSyntax argument && IsOrdinaryArgument(argument, model))
         {
             var allowed = SingleSimpleValue(argument, nodes, model);
-            facts.Nested = calculations > 1 || nodes.Any(node => !allowed.Contains(node)
+            facts.Nested = nodes.Any(node => !allowed.Contains(node)
                 && (IsProducer(node, model) || node is ConditionalExpressionSyntax));
         }
 
@@ -61,13 +60,13 @@ internal sealed class OperationFacts
         {
             // The direct construction and one simple interpolation among its own
             // arguments are allowed. Other input computations retain their existing
-            // diagnostics, including nested construction and arithmetic.
+            // diagnostics, including nested construction and conditional values.
             var message = creation.ArgumentList?.Arguments.Select(item => Parentheses.Unwrap(item.Expression))
                 .OfType<InterpolatedStringExpressionSyntax>().Where(item => IsSimpleInterpolation(item, model)).Take(2).ToArray();
             var allowed = message is { Length: 1 } ? new SyntaxNode[] { creation, message[0] } : new SyntaxNode[] { creation };
             return evaluated.Any(node => !allowed.Contains(node)
                 && (node is BaseObjectCreationExpressionSyntax or ConditionalExpressionSyntax
-                    || IsProducer(node, model) || IsCalculation(node, model))) ? none : allowed;
+                    || IsProducer(node, model))) ? none : allowed;
         }
 
         if (value is InterpolatedStringExpressionSyntax interpolation)
@@ -106,7 +105,7 @@ internal sealed class OperationFacts
         };
     }
 
-    /// <summary>A literal, variable, member read, type name or lambda: an input that does no work of its own.</summary>
+    /// <summary>An input with no nested producer, conditional value or consumed mutation.</summary>
     internal static bool IsSimpleInput(ExpressionSyntax expression, SemanticModel model) => Parentheses.Unwrap(expression) switch
     {
         LiteralExpressionSyntax or IdentifierNameSyntax or ThisExpressionSyntax or PredefinedTypeSyntax
@@ -114,6 +113,10 @@ internal sealed class OperationFacts
         PrefixUnaryExpressionSyntax { Operand: LiteralExpressionSyntax } negative => negative.IsKind(SyntaxKind.UnaryMinusExpression),
         MemberAccessExpressionSyntax member => model.GetSymbolInfo(member).Symbol is not IMethodSymbol
             && IsSimpleInput(member.Expression, model),
+        BinaryExpressionSyntax binary when IsCalculation(binary, model) =>
+            IsSimpleInput(binary.Left, model) && IsSimpleInput(binary.Right, model),
+        PrefixUnaryExpressionSyntax unary when IsCalculation(unary, model) => IsSimpleInput(unary.Operand, model),
+        CastExpressionSyntax cast when IsSupportedCast(cast, model) => IsSimpleInput(cast.Expression, model),
         InvocationExpressionSyntax invocation => IsNameof(invocation),
         _ => false,
     };
@@ -283,17 +286,12 @@ internal sealed class OperationFacts
             && model.GetTypeInfo(cast.Expression).Type?.TypeKind != TypeKind.Dynamic;
     }
 
-    private static bool IsCombination(ExpressionSyntax expression, SemanticModel model)
-    {
-        // A lookup followed by a cast still expresses one lookup. Work inside
-        // its arguments is classified independently rather than charging for
-        // the cast as another producer/consumer pair.
-        if (expression is CastExpressionSyntax) return false;
-        if (!IsCalculation(expression, model) && expression is not InterpolatedStringExpressionSyntax) return false;
-        if (expression is InterpolatedStringExpressionSyntax interpolation
-            && model.GetTypeInfo(interpolation).ConvertedType?.SpecialType != SpecialType.System_String) return false;
-        return EvaluationNodes(expression).Skip(1).OfType<ExpressionSyntax>().Any(node => IsProducer(node, model));
-    }
+    // Arithmetic and bitwise composition require semantic review, not an operator count.
+    // Keep producer/formatting composition and consumed mutations independently visible.
+    private static bool IsComputedInterpolation(ExpressionSyntax expression, SemanticModel model) =>
+        expression is InterpolatedStringExpressionSyntax interpolation
+        && model.GetTypeInfo(interpolation).ConvertedType?.SpecialType == SpecialType.System_String
+        && EvaluationNodes(expression).Skip(1).OfType<ExpressionSyntax>().Any(node => IsProducer(node, model));
 
     public static bool IsMutation(ExpressionSyntax expression) => expression is AssignmentExpressionSyntax
         || expression.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression

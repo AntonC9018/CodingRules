@@ -517,6 +517,12 @@ string interpolation. Numeric/bitwise operator composition and a producer used
 by arithmetic do not trigger CR0302. CR0300 also no longer counts numeric
 operators; it still checks nested producers in arguments independently.
 Delivery through an assignment, declaration or return is not a second operation.
+An increment consumed as an array-write index is reported: both
+`values[index++] = item` and `buffer.Values[index++] = item` receive CR0302.
+Write to `values[index]`, then increment `index` in a separate statement when the
+failure path does not observe the counter. This manual change delays the increment
+until a successful write; an automatic fix must preserve the original mutation and
+exception timing instead. Separate writes and standalone increments are accepted.
 Object-initializer member assignments likewise do not consume their assignment
 results. Direct values, empty collections, parameterless factories and calls
 such as `TimeSpan.FromMinutes(90)` remain allowed, including nested initializers.

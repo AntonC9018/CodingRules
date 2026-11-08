@@ -514,6 +514,12 @@ returns/arrows and switch expressions retain the frozen return policy.
 `CR0302` reports more than one supported calculation in a standalone named value,
 or a producer consumed by another calculation/conversion/formatting stage.
 Delivery through an assignment, declaration or return is not a second operation.
+An increment consumed as an array-write index is reported: both
+`values[index++] = item` and `buffer.Values[index++] = item` receive CR0302.
+Write to `values[index]`, then increment `index` in a separate statement when the
+failure path does not observe the counter. This manual change delays the increment
+until a successful write; an automatic fix must preserve the original mutation and
+exception timing instead. Separate writes and standalone increments are accepted.
 Object-initializer member assignments likewise do not consume their assignment
 results. Direct values, empty collections, parameterless factories and calls
 such as `TimeSpan.FromMinutes(90)` remain allowed, including nested initializers.

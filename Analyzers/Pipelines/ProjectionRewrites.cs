@@ -13,17 +13,12 @@ internal static class ProjectionRewrites
     public static SyntaxNode Rewrite(ProjectionPlan plan, bool extract)
     {
         var lambda = plan.Lambda;
-        var body = lambda.Body is ExpressionSyntax expression ? LinearBody(plan, expression)
-            : Annotate((BlockSyntax)lambda.Body);
+        var body = LinearBody(plan, (ExpressionSyntax)lambda.Body);
         if (extract)
         {
             var names = new EvaluationNames(lambda.Ancestors().FirstOrDefault(node => node is BaseMethodDeclarationSyntax
                 or LocalFunctionStatementSyntax or TypeDeclarationSyntax) ?? lambda, plan.Model);
             var name = names.Fresh("ProjectValue");
-            var checkedContext = lambda.Ancestors().FirstOrDefault(node => node is CheckedStatementSyntax or CheckedExpressionSyntax);
-            if (lambda.Body is BlockSyntax && checkedContext is not null)
-                body = SyntaxFactory.Block(SyntaxFactory.CheckedStatement(checkedContext.Kind() is SyntaxKind.CheckedExpression or SyntaxKind.CheckedStatement
-                    ? SyntaxKind.CheckedStatement : SyntaxKind.UncheckedStatement, body));
             var helper = SyntaxFactory.LocalFunctionStatement(EvaluationSyntax.Type(plan.Callable.ReturnType), name).WithBody(body)
                 .WithParameterList(SyntaxFactory.ParameterList());
             var parameters = plan.Callable.Parameters.Select(parameter => SyntaxFactory.Parameter(SyntaxFactory.Identifier(
@@ -66,11 +61,10 @@ internal static class ProjectionRewrites
             // preserves delegate construction and reads all captures on each invocation.
             body = SyntaxFactory.Block(helper, SyntaxFactory.ReturnStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name))));
         }
-        else if (plan.CanExtract)
+        else if (plan.CanExtract && lambda.Body is TupleExpressionSyntax)
         {
-            // Named intermediates may themselves require helper placement. Keep
-            // that implementation invocation-local rather than creating a new
-            // CR0401 stage and repeated extraction after saving.
+            // The typed return preserves the original inferred tuple element names
+            // when linearization replaces tuple arguments with named locals.
             var name = new EvaluationNames(lambda, plan.Model).Fresh("ProjectValue");
             var helper = SyntaxFactory.LocalFunctionStatement(EvaluationSyntax.Type(plan.Callable.ReturnType), name)
                 .WithParameterList(SyntaxFactory.ParameterList()).WithBody(body);
@@ -79,10 +73,6 @@ internal static class ProjectionRewrites
         var replacement = lambda.WithBody(body).WithAdditionalAnnotations(Selected, Generated);
         return lambda.SyntaxTree.GetRoot().ReplaceNode(lambda, replacement);
     }
-
-    internal static BlockSyntax Annotate(BlockSyntax body) => body.ReplaceNodes(body.DescendantNodes().OfType<ExpressionSyntax>()
-        .Where(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax),
-        (node, rewritten) => rewritten.WithAdditionalAnnotations(new SyntaxAnnotation(OriginalCall, OperationEvaluator.Key(node))));
 
     private static BlockSyntax LinearBody(ProjectionPlan plan, ExpressionSyntax expression)
     {

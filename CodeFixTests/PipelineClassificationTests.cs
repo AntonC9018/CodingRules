@@ -31,6 +31,8 @@ public sealed class PipelineClassificationTests
     [InlineData("xs.Select(x=>{if(x<0)throw new Exception();return x;})")]
     [InlineData("xs.Select(x=>{if(x<0)return 1;else if(x>0)return 2;return x;})")]
     [InlineData("xs.Select(x=>{Func<int,int> nested=y=>{var a=F(y);var b=F(a);return b;};return nested(x);})")]
+    [InlineData("xs.Select(x=>{var a=F(x);var b=F(a);return new Item(b,x);})")]
+    [InlineData("xs.Select(x=>{if(x>0){if(x<10)return 1;}return 0;})")]
     public async Task SimpleLinearAndIndependentStagesAreAllowed(string expression)
     {
         var document = PipelineTestFixture.Document(Prelude + "static int Get()=>1; static object M(int[] xs)=>" + expression + "; }");
@@ -45,16 +47,14 @@ public sealed class PipelineClassificationTests
     [InlineData("xs.Select(x=>F(x)+1)", "CR0400")]
     [InlineData("xs.Select(x=>(F(F(F(x))),x))", "CR0400")]
     [InlineData("xs.Select(x=>new Box { A=F(F(F(x))), B=x })", "CR0400")]
-    [InlineData("xs.Select(x=>{var a=F(x);var b=F(a);return new Item(b,x);})", "CR0401")]
-    [InlineData("xs.Select(x=>{if(x>0){if(x<10)return 1;}return 0;})", "CR0401")]
-    public async Task CompositionsAndClosedStageImplementationsHaveSavedSourceFixes(string expression, string id)
+    public async Task ComposedExpressionsHaveSavedSourceFixes(string expression, string id)
     {
         var document = PipelineTestFixture.Document(Prelude + "sealed class Box { public int A { get; set; } public int B { get; set; } } static object M(int[] xs)=>" + expression + "; }");
         await StatementOperationTestFixture.Compiles(document);
         var diagnostic = Assert.Single(await PipelineTestFixture.Diagnostics(document));
         Assert.Equal(id, diagnostic.Id);
         var actions = await PipelineTestFixture.Actions(document, diagnostic);
-        Assert.Equal(id == "CR0400" ? 2 : 1, actions.Count);
+        Assert.Equal(2, actions.Count);
         foreach (var action in actions)
         {
             var changed = await PipelineTestFixture.Fix(document, action.EquivalenceKey!);
@@ -62,6 +62,26 @@ public sealed class PipelineClassificationTests
             if (id == "CR0400") Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
         }
     }
+    [Fact]
+    public void StageExtractionRuleIsNotRegistered()
+    {
+        Assert.DoesNotContain(new PipelineAnalyzer().SupportedDiagnostics,
+            descriptor => descriptor.Id == "CR0401");
+        Assert.DoesNotContain("CR0401", new PipelineCodeFixProvider().FixableDiagnosticIds);
+    }
+
+    [Fact]
+    public async Task BlockFixKeepsComputedStagesInTheLambda()
+    {
+        var document = PipelineTestFixture.Document(Prelude + "static object M(int[] xs)=>xs.Select(x=>F(F(x))+1); }");
+        var changed = await PipelineTestFixture.Fix(document, PipelineCodeFixProvider.BlockKey);
+        var root = await changed.GetSyntaxRootAsync();
+
+        Assert.Empty(root!.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.LocalFunctionStatementSyntax>());
+        Assert.Empty(await PipelineTestFixture.Diagnostics(changed));
+        Assert.Empty(await StatementOperationTestFixture.Diagnostics(changed));
+    }
+
     [Theory]
     [InlineData("xs.ToDictionary(x=>x)")]
     [InlineData("xs.ToDictionary(x=>x, EqualityComparer<int>.Default)")]

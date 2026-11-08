@@ -18,7 +18,6 @@ CR0301 | Readability | Warning | Assign conditional values to named variables, i
 CR0302 | Readability | Warning | Separate combined statement operations, including calculations consuming resolved Type.GetGenericArguments metadata
 CR0303 | Readability | Warning | Name Boolean values assigned by exhaustive adjacent branches with a validated local-function extraction
 CR0400 | Readability | Warning | Name structurally composed delegate projection stages
-CR0401 | Readability | Warning | Extract whole delegate stages with several result-feeding temporaries or nested decisions
 CR0402 | Readability | Warning | Make materializer key and element selectors explicit
 CR0403 | Readability | Warning | Expand compound predicates and compact nesting beyond two levels
 CR0404 | Readability | Warning | Name the inner stage of a chain lambda whose expression body contains another lambda (manual finding)
